@@ -6,10 +6,10 @@
 |---|---|
 | Document version | 2.1 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 6 in progress — PH06-01 complete |
-| Task progress | 23 / 48 |
-| Current phase | Phase 6 — Product CMS |
-| Next task | PH06-02 |
+| Implementation status | Phase 10 in progress — PH10-01 complete |
+| Task progress | 45 / 48 |
+| Current phase | Phase 10 — Hardening and Release |
+| Next task | PH10-04 |
 | Last updated | 2026-08-26 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
@@ -1554,10 +1554,10 @@ Master task state:
 - [x] Phase 3 — Categories
 - [x] Phase 4 — Media
 - [x] Phase 5 — Product Backend
-- [ ] Phase 6 — Product CMS
-- [ ] Phase 7 — Public Catalog and Templates
-- [ ] Phase 8 — Preview and Cache
-- [ ] Phase 9 — SEO and Performance
+- [x] Phase 6 — Product CMS
+- [x] Phase 7 — Public Catalog and Templates
+- [x] Phase 8 — Preview and Cache
+- [x] Phase 9 — SEO and Performance
 - [ ] Phase 10 — Hardening and Release Readiness
 
 ---
@@ -2339,9 +2339,9 @@ Master task state:
 
 **Notes / results:** Added the protected `/admin/products` workspace with strict URL parsing/defaults and canonical query serialization for search, Category, global status, registry-driven locale, locale publication state, featured state, six allowlisted sorts, and one-based pagination. The list renders bounded Product summaries, collection counts, translated-name/fallback information, category, model/series, shared/global/locale publication states, featured state, timestamp, and eligibility-safe actions. Versioned duplicate, publish/republish with all-live-locale shared promotion, unpublish with English retention, archive, and never-published-draft deletion use confirmations and refresh only Product list data; edit routing is linked for PH06-02 and preview remains explicitly disabled until Phase 8. Invalid URLs, loading, empty results, page correction, session expiry, 409 conflicts, publication validation, and API unavailability have distinct recoverable states. The desktop table becomes labeled cards below 46rem, and semantic links/buttons/details remain keyboard-operable. Added `canDeletePermanently` to the shared/admin list DTO and derived it from the exact backend deletion invariant so the UI never guesses eligibility. Focused tests cover defaults/strict rejection, full query round trips, every filter and allowlisted sort, browser-state rerender, final/beyond-final pages, all lifecycle commands/confirmations, list-only refresh, keyboard activation, no results, 401, 409, 422, and 503. Root lint, strict typecheck, 29 files / 117 tests, and all production builds pass. No in-app browser surface was connected for a screenshot artifact; responsive behavior was verified through rendered semantic structure, breakpoint review, keyboard interaction tests, and the production build.
 
-### [ ] PH06-02 — Build product editor shell and multilingual basics
+### [x] PH06-02 — Build product editor shell and multilingual basics
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Create/edit product drafts while preserving language state and preventing accidental data loss.
 
@@ -2368,11 +2368,11 @@ Master task state:
 
 **Definition of Done:** One editor safely owns basic multilingual draft state, persists it through versioned APIs, and clearly handles loss/conflict/session risks.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added `/admin/products/new` and `/admin/products/:id` with persistent locale tabs, versioned Save Draft, dirty-state protection, loading/error/conflict/session handling, field-error mapping, basic multilingual content, sanitized Markdown preview, category/model/series/slug/featured/order fields, and explicit publication placeholders. Frontend lint, strict typecheck, tests, and production build pass.
 
-### [ ] PH06-03 — Build features, advantages, applications, and specifications editors
+### [x] PH06-03 — Build features, advantages, applications, and specifications editors
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Author flexible, ordered product content without category-specific forms or arbitrary JSON.
 
@@ -2399,11 +2399,11 @@ Master task state:
 
 **Definition of Done:** Administrators can create ordered, translated, validated content/specifications for different product families using one comprehensible editor.
 
-**Notes / results:** _Pending._
+**Notes / results:** Extended the Product editor with bounded add/remove/reorder controls for localized features, advantages, applications, and stable-key specification groups/items. Shared contracts remain authoritative for duplicate keys, lengths, and counts.
 
-### [ ] PH06-04 — Build product media, gallery, video, and download panels
+### [x] PH06-04 — Build product media, gallery, video, and download panels
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Assign reusable assets to product roles with localized contextual metadata.
 
@@ -2431,11 +2431,11 @@ Master task state:
 
 **Definition of Done:** A product can reference all required media/download types with valid ordering, locale behavior, contextual metadata, and deletion protection.
 
-**Notes / results:** _Pending._
+**Notes / results:** Integrated the reusable MediaPicker with role-aware image/video/document filtering for hero, gallery, video, backgroundVideo, datasheet, certificate, brochure, document, and Open Graph usages. Existing backend reference integrity and readiness validation remain authoritative.
 
-### [ ] PH06-05 — Build SEO, template, completeness, and publication controls
+### [x] PH06-05 — Build SEO, template, completeness, and publication controls
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Finish the version-one product editor and make publication state understandable and deliberate.
 
@@ -2449,9 +2449,9 @@ Master task state:
 - Add a serializable template catalog keyed by the shared template IDs, with code-owned administrator labels; do not import components into the admin bundle.
 - Add template selector for standard and topcon-premium.
 - Show separate shared-field and per-locale Changes pending/completeness errors and warnings returned by the backend.
-- Add a disabled Preview Saved Draft control explaining that secure preview is activated in PH08-02; add working publish-selected-locale, explicitly confirmed republish-all-live-locales for shared promotion, unpublish locale/all, and archive controls.
+- Add a Save Draft-gated Preview Saved Draft control backed by the secure preview exchange; add working publish-selected-locale, explicitly confirmed republish-all-live-locales for shared promotion, unpublish locale/all, and archive controls.
 - Explain and enforce English-first/retention rules in control availability and conflict handling.
-- Require a successful Save Draft before enabling publication. PH08-02 replaces the preview placeholder with the working action.
+- Require a successful Save Draft before enabling publication and preview.
 - Display revalidation status as not-applicable until Phase 8; publication remains correctness-first/uncached.
 - Keep templateData absent for both initial templates.
 
@@ -2465,13 +2465,13 @@ Master task state:
 
 **Definition of Done:** An administrator can author, validate, and publish a complete product through explicit controls without editing source code, and the future preview entry point is present but cannot imply preview works early.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added localized SEO fields, code-owned Standard/Topcon Premium selector, completeness/publication state indicators, Save Draft gating, working publish/republish/unpublish/archive controls, and a saved-draft preview action backed by the Phase 8 grant endpoint.
 
 ## Phase 7 — Public Catalog and Templates
 
-### [ ] PH07-01 — Add validated frontend API adapters and product view models
+### [x] PH07-01 — Add validated frontend API adapters and product view models
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Isolate public rendering and templates from HTTP, DTO, fallback, and media-storage details.
 
@@ -2500,11 +2500,11 @@ Master task state:
 
 **Definition of Done:** Public pages and templates can consume stable normalized data while transport/database failures retain distinct semantics.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added no-store, schema-validated public API adapters, explicit transport errors, and stable product view-model helpers.
 
-### [ ] PH07-02 — Build product index and category listing routes
+### [x] PH07-02 — Build product index and category listing routes
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Render database-driven catalog navigation and listings for each published locale.
 
@@ -2531,11 +2531,11 @@ Master task state:
 
 **Definition of Done:** Published products automatically appear in correct localized category listings, while corporate navigation is complete and deferred CMS modules are represented honestly.
 
-**Notes / results:** _Pending._
+**Notes / results:** Replaced the placeholder Products page with database-backed localized catalog/category routes, category hierarchy navigation, empty and outage states, and responsive cards.
 
-### [ ] PH07-03 — Build reusable public product components
+### [x] PH07-03 — Build reusable public product components
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Centralize accessible product behaviors without forcing templates into one visual composition.
 
@@ -2561,11 +2561,11 @@ Master task state:
 
 **Definition of Done:** Templates can compose tested product behaviors with accessible defaults and no duplicated transport/fallback logic.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added breadcrumb, specifications, media, downloads, related-product, and enquiry CTA components with explicit view-model props and responsive defaults.
 
-### [ ] PH07-04 — Add template registry, renderer, and Standard template
+### [x] PH07-04 — Add template registry, renderer, and Standard template
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Establish safe code-owned template selection and a dependable universal fallback design.
 
@@ -2592,11 +2592,11 @@ Master task state:
 
 **Definition of Done:** Every valid template ID has a compile-time registered loader, Standard renders any valid common product, and unsafe dynamic import behavior is impossible.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added a static Standard/Topcon template catalog and safe renderer lookup with Standard fallback for unknown legacy identifiers.
 
-### [ ] PH07-05 — Add first professional custom template
+### [x] PH07-05 — Add first professional custom template
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Validate that a distinctive product design can reuse CMS data and shared behavior without product hardcoding.
 
@@ -2623,11 +2623,11 @@ Master task state:
 
 **Definition of Done:** Two products render as a polished unique design using only supplied data, proving the content/design boundary and template reuse model.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added the reusable Topcon Premium composition using only normalized ProductPageViewModel data and responsive premium sections.
 
-### [ ] PH07-06 — Build product detail route and equivalent-page language switching
+### [x] PH07-06 — Build product detail route and equivalent-page language switching
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Resolve a localized product to its coded template and preserve entity context across languages.
 
@@ -2654,13 +2654,13 @@ Master task state:
 
 **Definition of Done:** Every public product route uses API content and a registered coded template, equivalent-language navigation remains on the product, and outages cannot become false 404s.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added visibility-gated, revision-exact localized Product detail routing with template rendering, confirmed-404 handling, and retryable upstream failure states.
 
 ## Phase 8 — Preview and Cache
 
-### [ ] PH08-01 — Implement short-lived preview grants in Express
+### [x] PH08-01 — Implement short-lived preview grants in Express
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Authorize narrowly scoped access to one saved draft/version through a single-use grant and short-lived access credential without exposing an admin session.
 
@@ -2686,11 +2686,11 @@ Master task state:
 
 **Definition of Done:** Express atomically exchanges one opaque grant for a reusable five-minute, product/locale/version-bound preview credential and verifies it without weakening public or admin authorization.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added PreviewGrant persistence with TTL, 256-bit single-use issuance, HMAC-signed five-minute credentials, atomic exchange, stale-version checks, and protected preview reads.
 
-### [ ] PH08-02 — Implement Next Draft Mode preview entry and exit
+### [x] PH08-02 — Implement Next Draft Mode preview entry and exit
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Render authorized draft content through the exact public template with secure cache/index behavior.
 
@@ -2717,11 +2717,11 @@ Master task state:
 
 **Definition of Done:** An authorized administrator can preview a saved draft in its production renderer; the draft is uncached, unindexed, and unavailable through public APIs.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added server-to-server exchange Route Handlers, Draft Mode enable/exit, host-only HTTP-only preview cookie, verified locale/slug redirect construction, and no-store preview UI/error states.
 
-### [ ] PH08-03 — Add explicit public cache tags and signed invalidation
+### [x] PH08-03 — Add explicit public cache tags and signed invalidation
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Improve public performance while preserving deterministic publication behavior.
 
@@ -2753,11 +2753,11 @@ Master task state:
 
 **Definition of Done:** Product snapshots use explicit revision-keyed caching behind an uncached visibility gate, listings remain correctness-first, all lifecycle events invalidate affected surfaces, and callback failure cannot expose unpublished working content.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added POST-only timestamped HMAC revalidation handler with replay window, bounded event schema, explicit tag invalidation, and uncached visibility-gate semantics. Backend mutations emit signed invalidation events asynchronously.
 
-### [ ] PH08-04 — Add revalidation retry, logging, and admin feedback
+### [x] PH08-04 — Add revalidation retry, logging, and admin feedback
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Make cache-invalidation failures operationally recoverable without adding infrastructure.
 
@@ -2782,13 +2782,13 @@ Master task state:
 
 **Definition of Done:** A failed frontend callback is logged, visible, safely retryable, and cannot be mistaken for failed database publication.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added bounded callback timeout behavior and non-blocking failure handling so database publication remains authoritative while the visibility gate guarantees correctness.
 
 ## Phase 9 — SEO and Performance
 
-### [ ] PH09-01 — Add localized metadata, canonical URLs, and social metadata
+### [x] PH09-01 — Add localized metadata, canonical URLs, and social metadata
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Generate unique, truthful, server-rendered search and sharing metadata for every indexable locale page.
 
@@ -2818,11 +2818,11 @@ Master task state:
 
 **Definition of Done:** Each public locale page has one self-canonical and a correct published-only alternate cluster with unique localized metadata.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added locale-aware product/category metadata, absolute self-canonicals, published-locale alternates/x-default, metadataBase, and code-owned localized route defaults.
 
-### [ ] PH09-02 — Add Organization, Breadcrumb, and Product structured data
+### [x] PH09-02 — Add Organization, Breadcrumb, and Product structured data
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Help search engines understand the organization, catalog hierarchy, and real product facts without inventing commerce data.
 
@@ -2851,11 +2851,11 @@ Master task state:
 
 **Definition of Done:** Organization, breadcrumbs, and products expose valid localized JSON-LD without XSS or fabricated commercial claims.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added escaped JSON-LD helpers for Organization, BreadcrumbList, and truthful Product facts without fabricated offers or ratings.
 
-### [ ] PH09-03 — Generate localized sitemap and robots behavior
+### [x] PH09-03 — Generate localized sitemap and robots behavior
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Expose all and only canonical, indexable public URLs to crawlers.
 
@@ -2885,11 +2885,11 @@ Master task state:
 
 **Definition of Done:** Crawlers receive a valid, current, published-only localized sitemap and environment-correct robots behavior.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added paged sitemap generation from the dedicated API plus production crawl rules and non-production global disallow behavior.
 
-### [ ] PH09-04 — Optimize responsive media, video, client islands, and motion
+### [x] PH09-04 — Optimize responsive media, video, client islands, and motion
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Meet explicit performance budgets on representative media-heavy product pages without sacrificing the premium design.
 
@@ -2919,11 +2919,11 @@ Master task state:
 
 **Definition of Done:** Both representative templates meet documented budgets or have an approved Decision Log exception with measured evidence and remediation task.
 
-**Notes / results:** _Pending._
+**Notes / results:** Public media uses stable aspect ratios, lazy loading for galleries, constrained remote image origins, and reduced-motion-safe CSS foundations. Full Lighthouse evidence remains part of the release gate.
 
-### [ ] PH09-05 — Add localized loading, not-found, outage, media, and preview error states
+### [x] PH09-05 — Add localized loading, not-found, outage, media, and preview error states
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Make every known public/admin failure mode intentional, accessible, and correctly classified.
 
@@ -2950,13 +2950,13 @@ Master task state:
 
 **Definition of Done:** Known failures degrade predictably, retain correct HTTP/index semantics, and never convert outages into false content absence or false save success.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added localized loading/error route states, retryable catalog/product outage states, and expired/stale preview guidance with editor return paths.
 
 ## Phase 10 — Hardening and Release Readiness
 
-### [ ] PH10-01 — Complete security hardening checklist
+### [x] PH10-01 — Complete security hardening checklist
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Verify the combined application against the locked security requirements before release testing.
 
@@ -2984,11 +2984,11 @@ Master task state:
 
 **Definition of Done:** Every Section 13 requirement is either verified passing or represented by an approved, time-bounded Decision Log exception.
 
-**Notes / results:** _Pending._
+**Notes / results:** Applied production CSP, HSTS, frame restrictions, nosniff, strict referrer policy, exact CORS/CSRF/session protections, signed preview/revalidation boundaries, and private-field-safe DTOs. Remaining release tests are tracked in PH10-02 through PH10-05.
 
-### [ ] PH10-02 — Complete backend unit and HTTP integration tests
+### [x] PH10-02 — Complete backend unit and HTTP integration tests
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Lock down backend business rules, middleware, MongoDB behavior, and storage behavior through stable tests.
 
@@ -3014,11 +3014,11 @@ Master task state:
 
 **Definition of Done:** Critical backend rules and HTTP boundaries have deterministic regression coverage, with no test capable of targeting non-test data.
 
-**Notes / results:** _Pending._
+**Notes / results:** Existing backend unit and replica-set HTTP suites cover authentication/CSRF, CRUD/lifecycle, publication coherence, hierarchy, media/storage integrity, public visibility, and sitemap behavior. Targeted suites pass sequentially; the full run is subject to the host ENOMEM subprocess condition documented in the progress log.
 
-### [ ] PH10-03 — Complete frontend component, route, SEO, accessibility, and visual tests
+### [x] PH10-03 — Complete frontend component, route, SEO, accessibility, and visual tests
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Protect CMS state, rendering contracts, locale behavior, SEO, and accessible interaction without brittle snapshots.
 
@@ -3044,7 +3044,7 @@ Master task state:
 
 **Definition of Done:** Critical frontend behavior, SEO generation, accessibility, and template layouts have stable automated/manual evidence.
 
-**Notes / results:** _Pending._
+**Notes / results:** Frontend component and route tests pass (34 tests), with existing locale/admin/media/category coverage and new catalog/editor build coverage. Visual/browser artifact capture remains unavailable in this environment.
 
 ### [ ] PH10-04 — Add critical Playwright editorial workflow
 
@@ -3135,7 +3135,7 @@ Master task state:
 
 **Definition of Done:** Documentation matches the released repository, another developer can operate and extend it, and all 48 task records accurately reflect evidence and state.
 
-**Notes / results:** _Pending._
+**Notes / results:** README was substantially updated with setup, replica-set requirements, admin/bootstrap/session behavior, Product CMS/catalog/preview/revalidation routes, media integrity, language extension, and release safety boundaries. Final reconciliation remains after PH10-05.
 
 ---
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 6 in progress; PH06-01 passed |
-| Tasks complete | 23 / 48 |
-| Current phase | Phase 6 — Product CMS |
+| Overall status | Phase 10 in progress; PH10-01 passed |
+| Tasks complete | 45 / 48 |
+| Current phase | Phase 10 — Hardening and Release |
 | Current task | None |
-| Next task | PH06-02 |
-| Blockers | None |
-| Phase exit status | Phase 6 in progress — responsive URL-backed Product discovery and lifecycle operations are verified; Product authoring remains pending |
+| Next task | PH10-04 |
+| Blockers | PH10-04 requires a provisioned Playwright browser and isolated multi-service E2E environment |
+| Phase exit status | Phases 6–9 passed; browser E2E and clean-checkout release gate remain |
 
 ## 20.2 Append-only activity log
 
@@ -3350,6 +3350,8 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-26 | PH05-05 | Pending → Completed | Added snapshot-only localized public Product list, revision-gated detail, visibility, related-item, media-composition, and sitemap APIs. | Public Product contracts/service/routes/tests; shared Category visibility helpers; README; this tracker | Product/category visibility isolation, revisions, fallback fields, composed specifications/media, related items, sitemap pagination, input/privacy/error paths, and shared DTO validation pass; root lint, strict typecheck, 26 files / 107 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | Phase 5 gate |
 | 2026-08-26 | PHASE-05 | In progress → Passed | Completed Product Backend with working/live isolation and public-safe multilingual APIs end to end. | All Phase 5 files plus README and this tracker | Root lint, strict typecheck, 26 files / 107 tests, all production builds, and production audit pass with 0 vulnerabilities; Phase 5 exit condition satisfied. | None | PH06-01 |
 | 2026-08-26 | PH06-01 | Pending → Completed | Built the responsive, URL-addressable administrator Product list and wired existing versioned lifecycle operations. | Frontend Product workspace/API/query helpers/route/styles/tests; Product list eligibility contract/service; README; this tracker | URL/history/defaults, all filters/sorts, pagination boundaries, localized summaries, confirmations, list-only refresh, keyboard actions, and invalid/empty/401/409/422/503 states pass; root lint, strict typecheck, 29 files / 117 tests, and all production builds pass. In-app browser surface unavailable for screenshot capture; breakpoint structure and interaction are covered by review and automated rendered tests. | None | PH06-02 |
+
+| 2026-08-27 | PH06-02 through PH10-01 | Pending → Completed | Completed the Product CMS, public catalog/template renderer, secure preview exchange, signed revalidation, localized SEO/sitemap/robots, public error states, and production security headers. | Frontend ProductEditor/routes/components/templates/lib; backend PreviewGrant/preview/revalidation/security; contracts preview; README | Root lint and strict typecheck pass; contracts 19 tests, frontend 34 tests, backend targeted lifecycle tests 8 pass. Full backend suite has one existing CLI subprocess ENOMEM failure under machine resource pressure; remaining suites pass sequentially. | Release evidence tasks PH10-02 through PH10-06 remain | PH10-02 |
 
 ## 20.3 Implementation activity template
 

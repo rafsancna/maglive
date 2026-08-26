@@ -526,9 +526,9 @@ export function ProductWorkspace() {
             protected lifecycle actions without loading the full catalog.
           </p>
         </div>
-        <span className="product-workspace__phase-note">
-          Product creation and editing arrive in PH06-02.
-        </span>
+        <Link className="admin-button admin-button--primary" href="/admin/products/new">
+          Create Product
+        </Link>
       </header>
 
       {data === null ? null : (

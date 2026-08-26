@@ -6,6 +6,7 @@ import { LOCALE_REQUEST_HEADER } from "@/i18n/routing";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
   title: {
     default: "Maglive — Intelligent energy systems",
     template: "%s — Maglive"

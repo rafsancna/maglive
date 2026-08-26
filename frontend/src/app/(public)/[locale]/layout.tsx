@@ -6,6 +6,12 @@ import { SkipLink } from "@/components/ui/SkipLink";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { requireLocale } from "@/i18n/page-locale";
 
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<import("next").Metadata> {
+  const locale = await requireLocale(params);
+  const dictionary = await getDictionary(locale);
+  return { title: dictionary.brand.name, description: dictionary.home.intro, alternates: { canonical: new URL(`/${locale}`, process.env.SITE_URL ?? "http://localhost:3000").toString() } };
+}
+
 export function generateStaticParams() {
   return LOCALE_CODES.map((locale) => ({ locale }));
 }

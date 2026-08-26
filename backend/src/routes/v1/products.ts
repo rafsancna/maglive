@@ -12,6 +12,8 @@ import {
   type SafeAdminDto,
   unpublishProductRequestSchema,
   updateProductRequestSchema,
+  previewGrantRequestSchema,
+  previewGrantResponseSchema,
 } from "@maglive/contracts";
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
@@ -32,6 +34,7 @@ import {
 import { listAdminProducts } from "../../services/productQueryService.js";
 import { publishProduct } from "../../services/publishingService.js";
 import { parseRequestValue } from "../validation.js";
+import { emitRevalidation } from "../../services/revalidationService.js";
 
 const idParamsSchema = z.object({ id: objectIdStringSchema });
 
@@ -60,6 +63,17 @@ export function createAdminProductsRouter(
 
   router.use(requireAdmin);
 
+  router.post("/:id/preview", ...mutationGuards, async (request, response, next) => {
+    try {
+      const { id } = parseRequestValue(idParamsSchema, request.params, "params");
+      const input = parseRequestValue(previewGrantRequestSchema.omit({ productId: true }), request.body, "body");
+      const admin = response.locals.admin as SafeAdminDto;
+      const { issuePreviewGrant } = await import("../../services/previewService.js");
+      const data = previewGrantResponseSchema.parse(await issuePreviewGrant(id, input.locale, admin.id, config));
+      response.status(201).json({ data });
+    } catch (error) { next(error); }
+  });
+
   router.get("/", async (request, response, next) => {
     try {
       const query = parseRequestValue(
@@ -87,6 +101,7 @@ export function createAdminProductsRouter(
       const data = productAdminDtoSchema.parse(
         await createProduct(input, admin),
       );
+      void emitRevalidation(config, { kind: "product", operation: "update", tags: [`product:${data.id}`, "products", "sitemap"] });
       response.status(201).json({ data });
     } catch (error) {
       next(error);
@@ -115,6 +130,7 @@ export function createAdminProductsRouter(
       const data = productAdminDtoSchema.parse(
         await updateProduct(id, input, admin),
       );
+      void emitRevalidation(config, { kind: "product", operation: "update", tags: [`product:${data.id}`, "products", "sitemap"] });
       response.json({ data });
     } catch (error) {
       next(error);
@@ -140,6 +156,7 @@ export function createAdminProductsRouter(
         const data = productAdminDtoSchema.parse(
           await duplicateProduct(id, input, admin),
         );
+        void emitRevalidation(config, { kind: "product", operation: "update", tags: [`product:${data.id}`, "products", "sitemap"] });
         response.status(201).json({ data });
       } catch (error) {
         next(error);
@@ -166,6 +183,7 @@ export function createAdminProductsRouter(
         const data = productPublicationResultSchema.parse(
           await publishProduct(id, input, admin),
         );
+        void emitRevalidation(config, { kind: "product", operation: "publish", tags: [`product:${data.product.id}`, "products", "sitemap"] });
         response.json({ data });
       } catch (error) {
         next(error);
@@ -192,6 +210,7 @@ export function createAdminProductsRouter(
         const data = productAdminDtoSchema.parse(
           await unpublishProduct(id, input, admin),
         );
+        void emitRevalidation(config, { kind: "product", operation: "unpublish", tags: [`product:${data.id}`, "products", "sitemap"] });
         response.json({ data });
       } catch (error) {
         next(error);
@@ -218,6 +237,7 @@ export function createAdminProductsRouter(
         const data = productAdminDtoSchema.parse(
           await archiveProduct(id, version, admin),
         );
+        void emitRevalidation(config, { kind: "product", operation: "archive", tags: [`product:${data.id}`, "products", "sitemap"] });
         response.json({ data });
       } catch (error) {
         next(error);
@@ -234,6 +254,7 @@ export function createAdminProductsRouter(
         "body",
       );
       await deleteProduct(id, version);
+      void emitRevalidation(config, { kind: "product", operation: "delete", tags: [`product:${id}`, "products", "sitemap"] });
       response.json({ data: productDeletedDtoSchema.parse({ deleted: true }) });
     } catch (error) {
       next(error);

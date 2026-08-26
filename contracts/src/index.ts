@@ -5,3 +5,4 @@ export * from "./locale.js";
 export * from "./media.js";
 export * from "./product.js";
 export * from "./product-template.js";
+export * from "./preview.js";

@@ -6,9 +6,12 @@ import {
   type AdminProductListDto,
   type AdminProductListQuery,
   type ProductAdminDto,
+  type CreateProductRequest,
+  type UpdateProductRequest,
   type ProductPublicationValidationResult,
   type PublishProductRequest,
   type UnpublishProductRequest,
+  previewGrantResponseSchema,
 } from "@maglive/contracts";
 import { requestAdminData, requestAdminMutation } from "../auth/api";
 
@@ -37,6 +40,37 @@ export function listProducts(
   query: AdminProductListQuery,
 ): Promise<AdminProductListDto> {
   return requestAdminData(productListPath(query), adminProductListDtoSchema);
+}
+
+export function getProduct(id: string): Promise<ProductAdminDto> {
+  return requestAdminData(`/admin/products/${id}`, productAdminDtoSchema);
+}
+
+export function createProduct(
+  input: CreateProductRequest,
+): Promise<ProductAdminDto> {
+  return requestAdminMutation(
+    "/admin/products",
+    productAdminDtoSchema,
+    "POST",
+    input,
+  );
+}
+
+export function updateProduct(
+  id: string,
+  input: UpdateProductRequest,
+): Promise<ProductAdminDto> {
+  return requestAdminMutation(
+    `/admin/products/${id}`,
+    productAdminDtoSchema,
+    "PATCH",
+    input,
+  );
+}
+
+export function createPreviewGrant(id: string, locale: import("@maglive/contracts").LocaleCode): Promise<import("@maglive/contracts").PreviewGrantResponse> {
+  return requestAdminMutation(`/admin/products/${id}/preview`, previewGrantResponseSchema, "POST", { locale });
 }
 
 export function duplicateProduct(

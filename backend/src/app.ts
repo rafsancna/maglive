@@ -48,7 +48,33 @@ export function createApp({
       })
     })
   );
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy:
+        config.nodeEnv === "production"
+          ? {
+              directives: {
+                defaultSrc: ["'self'"],
+                baseUri: ["'self'"],
+                frameAncestors: ["'none'"],
+                objectSrc: ["'none'"],
+                scriptSrc: ["'self'"],
+                imgSrc: ["'self'", config.publicMediaBaseUrl],
+                mediaSrc: ["'self'", config.publicMediaBaseUrl],
+                connectSrc: ["'self'"],
+              },
+            }
+          : false,
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      crossOriginOpenerPolicy: { policy: "same-origin" },
+      frameguard: { action: "deny" },
+      noSniff: true,
+      hsts:
+        config.nodeEnv === "production"
+          ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+          : false,
+    }),
+  );
   app.use(
     cors({
       credentials: true,

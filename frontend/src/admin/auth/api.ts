@@ -4,6 +4,7 @@ import {
   csrfDtoSchema,
   logoutDtoSchema,
   safeAdminDtoSchema,
+  type FieldError,
   type AuthenticatedSessionDto,
   type SafeAdminDto
 } from "@maglive/contracts";
@@ -19,7 +20,8 @@ export class AdminApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
-    message: string
+    message: string,
+    public readonly details: readonly FieldError[] = []
   ) {
     super(message);
     this.name = "AdminApiError";
@@ -82,7 +84,12 @@ async function requestData<TSchema extends z.ZodType>(
       clearCurrentCsrfToken();
       notifySessionExpired();
     }
-    throw new AdminApiError(response.status, code, message);
+    throw new AdminApiError(
+      response.status,
+      code,
+      message,
+      parsedError.success ? parsedError.data.error.details ?? [] : [],
+    );
   }
 
   const rawData =

@@ -106,7 +106,7 @@ Public reads are localized and draft-safe:
 - `GET /api/v1/public/categories?locale=en` returns the visible category tree.
 - `GET /api/v1/public/categories/:slug?locale=en` returns one visible category.
 
-Public category DTOs are composed only from coherent publication snapshots and validate the complete active ancestor chain. Working edits never appear publicly. English must be published first and remain published while another locale is live. Public reads remain `no-store` until the signed invalidation work in Phase 8.
+Public category DTOs are composed only from coherent publication snapshots and validate the complete active ancestor chain. Working edits never appear publicly. English must be published first and remain published while another locale is live. Category/list reads remain `no-store`; signed invalidation infrastructure is available for future immutable snapshot caching.
 
 Category image fields are contextual usages. The editor uses the shared media picker and stores locale-specific alt/title text with the Category usage rather than treating reusable Media defaults as final page copy. Category child creation, reparenting, locale unpublication, and permanent deletion use transaction-backed Product reference checks so they cannot invalidate working or published products.
 
@@ -128,11 +128,15 @@ Every update and lifecycle command uses optimistic versions. Published slugs are
 
 The administrator list is one-based and bounded to 100 rows. It supports strict category, global-status, locale-publication-state, featured, and allowlisted sort filters. Search input is capped and escaped before matching slug, model, series, and names for every locale in the shared registry; regex operators and unknown query keys are rejected. Results contain list summaries rather than editing documents, use an ObjectId tie-breaker, and include collection counts plus per-locale completeness.
 
-The protected workspace at `/admin/products` keeps validated search, filter, sort, locale, and pagination state in the URL so views survive refresh and browser navigation. Its responsive table becomes labeled Product cards on narrow screens. Each row exposes versioned duplicate, publication, unpublication, archive, and eligible never-published-draft deletion commands behind explicit confirmation, refreshes only Product list data after success, and distinguishes invalid URLs, conflicts, expired sessions, and API outages. Product editing is intentionally linked to the PH06-02 route, while draft preview remains visibly unavailable until Phase 8 establishes its authorization flow.
+The protected workspace at `/admin/products` keeps validated search, filter, sort, locale, and pagination state in the URL so views survive refresh and browser navigation. Its responsive table becomes labeled Product cards on narrow screens. Each row exposes versioned duplicate, publication, unpublication, archive, and eligible never-published-draft deletion commands behind explicit confirmation, refreshes only Product list data after success, and distinguishes invalid URLs, conflicts, expired sessions, and API outages. `/admin/products/new` and `/admin/products/:id` provide a persistent multilingual editor with dirty-state protection, structured content/specification/media panels, versioned Save Draft, and explicit publication controls.
+
+The public catalog is available at `/:locale/products`, `/:locale/products/category/:categorySlug`, and `/:locale/products/:productSlug`. It reads snapshot-only APIs, resolves products through the static Standard or Topcon Premium template registry, and returns intentional 404/503 states. Product detail pages emit localized metadata and JSON-LD; `sitemap.xml` and `robots.txt` are generated from published-only records.
+
+Preview uses `POST /api/v1/admin/products/:id/preview` to issue a five-minute, single-use grant. Next exchanges it server-to-server at `/api/internal/preview`, stores a host-only HTTP-only credential, and renders the saved working copy with noindex/no-store semantics. `POST /api/internal/revalidate` accepts timestamped HMAC-signed invalidation events; cache correctness still relies on the uncached visibility gate.
 
 The initial MongoDB query plans for status/category/order and status/featured/order are covered by integration tests. Substring name search, locale-aware name sorting, and derived locale-state filtering are correctness-first paths for the initial modest catalog. Adding a locale automatically adds its name path, but each locale expansion requires a query-plan/data-volume review; adopt a dedicated indexed search strategy such as Atlas Search before those paths are used at large catalog scale. Fuzzy search remains intentionally deferred.
 
-Public Product reads are snapshot-only and remain `no-store` until Phase 8 enables tested invalidation:
+Public Product reads are snapshot-only and currently use `no-store` semantics behind the visibility gate:
 
 - `GET /api/v1/public/products` returns bounded localized summaries using `locale`, optional `category`/`featured`, and allowlisted pagination/sorting.
 - `GET /api/v1/public/products/:slug/visibility` verifies the requested locale and complete Category ancestor chain, then returns the current `publicationRevision`.
