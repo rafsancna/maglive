@@ -1,0 +1,117 @@
+{
+  "brand": {
+    "name": "MAGLIVE",
+    "descriptor": "Intelligent energy systems"
+  },
+  "accessibility": {
+    "skipToContent": "Skip to main content",
+    "primaryNavigation": "Primary navigation",
+    "languageSwitcher": "Choose language"
+  },
+  "navigation": {
+    "home": "Home",
+    "about": "About",
+    "products": "Products",
+    "projects": "Projects",
+    "news": "News",
+    "downloads": "Downloads",
+    "contact": "Contact"
+  },
+  "states": {
+    "loading": "Loading",
+    "notFoundTitle": "Page not found",
+    "notFoundText": "The requested localized page is not available.",
+    "errorTitle": "Something went wrong",
+    "errorText": "The page could not be loaded. Please try again.",
+    "retry": "Try again"
+  },
+  "home": {
+    "eyebrow": "Engineered for the energy transition",
+    "title": "Power infrastructure, presented with clarity.",
+    "intro": "A multilingual digital platform for technical energy products—designed to make complex systems easier to understand, specify, and trust.",
+    "primaryAction": "Explore products",
+    "secondaryAction": "Talk to our team",
+    "principlesTitle": "A foundation built around real product decisions",
+    "principles": [
+      {
+        "number": "01",
+        "title": "Technical clarity",
+        "text": "Structured specifications and disciplined product narratives keep engineering detail readable."
+      },
+      {
+        "number": "02",
+        "title": "Global by design",
+        "text": "Every enabled language shares one coherent information architecture from day one."
+      },
+      {
+        "number": "03",
+        "title": "Built to evolve",
+        "text": "A coded template system gives every product a strong visual identity without sacrificing governance."
+      }
+    ],
+    "closingEyebrow": "Version-one foundation",
+    "closingTitle": "A precise starting point for a serious catalog.",
+    "closingText": "The public shell, locale system, API boundary, and quality gates are being established before product content enters the platform.",
+    "closingAction": "See how we work"
+  },
+  "pages": {
+    "about": {
+      "eyebrow": "About Maglive",
+      "title": "Engineering confidence into every energy decision.",
+      "intro": "Maglive brings product detail, technical communication, and international presentation into one disciplined digital experience.",
+      "paragraphs": [
+        "This first release establishes the permanent structure for a multilingual corporate catalog.",
+        "Company history, certifications, and operating details will be added only from verified source material."
+      ]
+    },
+    "products": {
+      "eyebrow": "Product catalog",
+      "title": "A structured home for every product family.",
+      "intro": "Products will be organized by a concise two-level taxonomy and rendered through professionally coded templates.",
+      "paragraphs": [
+        "Catalog data is introduced in later phases after administration, media, and publication safeguards are complete."
+      ],
+      "note": "No placeholder products or fabricated specifications are displayed."
+    },
+    "projects": {
+      "eyebrow": "Projects",
+      "title": "Project storytelling will follow verified delivery data.",
+      "intro": "This route is ready for future project content without pretending that a project CMS already exists.",
+      "paragraphs": [
+        "A dedicated Project model, editorial workflow, and evidence requirements are intentionally outside version one."
+      ],
+      "note": "Project CMS is planned as a future module."
+    },
+    "news": {
+      "eyebrow": "Newsroom",
+      "title": "A clear channel for future company updates.",
+      "intro": "The newsroom shell is code-owned today and will remain free of fabricated articles.",
+      "paragraphs": [
+        "News publishing, authoring, and article metadata will be designed as a dedicated module when approved."
+      ],
+      "note": "News CMS is planned as a future module."
+    },
+    "downloads": {
+      "eyebrow": "Downloads",
+      "title": "Technical documents, organized around real products.",
+      "intro": "Datasheets, certificates, and brochures will appear here when the secured media and product workflows are active.",
+      "paragraphs": [
+        "Files will be reusable, reference-protected, localized where appropriate, and served from a replaceable storage provider."
+      ]
+    },
+    "contact": {
+      "eyebrow": "Contact",
+      "title": "Start with the right technical conversation.",
+      "intro": "The version-one platform directs enquiries to approved contact channels without collecting submissions in an unapproved backend.",
+      "paragraphs": [
+        "Verified regional contacts and privacy-reviewed enquiry handling will be configured before public launch."
+      ],
+      "note": "No contact form or personal data collection is active in this foundation phase."
+    }
+  },
+  "footer": {
+    "statement": "Technical energy products, communicated with precision.",
+    "phaseStatus": "Foundation release",
+    "rights": "All rights reserved."
+  }
+}
