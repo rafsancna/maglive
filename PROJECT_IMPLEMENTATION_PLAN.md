@@ -4,12 +4,12 @@
 
 | Document field | Value |
 |---|---|
-| Document version | 2.0 |
+| Document version | 2.1 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 5 complete — Phase 6 ready |
-| Task progress | 22 / 48 |
+| Implementation status | Phase 6 in progress — PH06-01 complete |
+| Task progress | 23 / 48 |
 | Current phase | Phase 6 — Product CMS |
-| Next task | PH06-01 |
+| Next task | PH06-02 |
 | Last updated | 2026-08-26 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
@@ -2308,9 +2308,9 @@ Master task state:
 
 ## Phase 6 — Product CMS
 
-### [ ] PH06-01 — Build administrator product list
+### [x] PH06-01 — Build administrator product list
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Give administrators a responsive, URL-addressable workspace for finding and managing products.
 
@@ -2337,7 +2337,7 @@ Master task state:
 
 **Definition of Done:** Administrators can reliably locate and perform existing lifecycle actions on products without loading the entire collection or losing query state.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added the protected `/admin/products` workspace with strict URL parsing/defaults and canonical query serialization for search, Category, global status, registry-driven locale, locale publication state, featured state, six allowlisted sorts, and one-based pagination. The list renders bounded Product summaries, collection counts, translated-name/fallback information, category, model/series, shared/global/locale publication states, featured state, timestamp, and eligibility-safe actions. Versioned duplicate, publish/republish with all-live-locale shared promotion, unpublish with English retention, archive, and never-published-draft deletion use confirmations and refresh only Product list data; edit routing is linked for PH06-02 and preview remains explicitly disabled until Phase 8. Invalid URLs, loading, empty results, page correction, session expiry, 409 conflicts, publication validation, and API unavailability have distinct recoverable states. The desktop table becomes labeled cards below 46rem, and semantic links/buttons/details remain keyboard-operable. Added `canDeletePermanently` to the shared/admin list DTO and derived it from the exact backend deletion invariant so the UI never guesses eligibility. Focused tests cover defaults/strict rejection, full query round trips, every filter and allowlisted sort, browser-state rerender, final/beyond-final pages, all lifecycle commands/confirmations, list-only refresh, keyboard activation, no results, 401, 409, 422, and 503. Root lint, strict typecheck, 29 files / 117 tests, and all production builds pass. No in-app browser surface was connected for a screenshot artifact; responsive behavior was verified through rendered semantic structure, breakpoint review, keyboard interaction tests, and the production build.
 
 ### [ ] PH06-02 — Build product editor shell and multilingual basics
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 5 passed; Phase 6 ready |
-| Tasks complete | 22 / 48 |
+| Overall status | Phase 6 in progress; PH06-01 passed |
+| Tasks complete | 23 / 48 |
 | Current phase | Phase 6 — Product CMS |
 | Current task | None |
-| Next task | PH06-01 |
+| Next task | PH06-02 |
 | Blockers | None |
-| Phase exit status | Phase 5 passed — multilingual draft/admin/public Product APIs, snapshot publication, reference integrity, bounded querying, revision-gated public reads, and sitemap data are verified |
+| Phase exit status | Phase 6 in progress — responsive URL-backed Product discovery and lifecycle operations are verified; Product authoring remains pending |
 
 ## 20.2 Append-only activity log
 
@@ -3349,6 +3349,7 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-26 | PH05-04 | Pending → Completed | Added bounded, deterministic administrator Product search, filtering, sorting, pagination, counts, and completeness summaries. | Product list contracts/query service/admin route/tests; README; this tracker | English/Chinese/escaped search, all filters/sorts/states, combinations, pagination boundaries, tie breaks, privacy, auth/input rejection, and representative compound-index plans pass; root lint, strict typecheck, 24 files / 97 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-05 |
 | 2026-08-26 | PH05-05 | Pending → Completed | Added snapshot-only localized public Product list, revision-gated detail, visibility, related-item, media-composition, and sitemap APIs. | Public Product contracts/service/routes/tests; shared Category visibility helpers; README; this tracker | Product/category visibility isolation, revisions, fallback fields, composed specifications/media, related items, sitemap pagination, input/privacy/error paths, and shared DTO validation pass; root lint, strict typecheck, 26 files / 107 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | Phase 5 gate |
 | 2026-08-26 | PHASE-05 | In progress → Passed | Completed Product Backend with working/live isolation and public-safe multilingual APIs end to end. | All Phase 5 files plus README and this tracker | Root lint, strict typecheck, 26 files / 107 tests, all production builds, and production audit pass with 0 vulnerabilities; Phase 5 exit condition satisfied. | None | PH06-01 |
+| 2026-08-26 | PH06-01 | Pending → Completed | Built the responsive, URL-addressable administrator Product list and wired existing versioned lifecycle operations. | Frontend Product workspace/API/query helpers/route/styles/tests; Product list eligibility contract/service; README; this tracker | URL/history/defaults, all filters/sorts, pagination boundaries, localized summaries, confirmations, list-only refresh, keyboard actions, and invalid/empty/401/409/422/503 states pass; root lint, strict typecheck, 29 files / 117 tests, and all production builds pass. In-app browser surface unavailable for screenshot capture; breakpoint structure and interaction are covered by review and automated rendered tests. | None | PH06-02 |
 
 ## 20.3 Implementation activity template
 

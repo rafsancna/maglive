@@ -124,9 +124,11 @@ Protected Product endpoints:
 - `POST /api/v1/admin/products/:id/unpublish`
 - `POST /api/v1/admin/products/:id/archive`
 
-Every update and lifecycle command uses optimistic versions. Published slugs are immutable; duplicates reuse media references without copying stored objects; only never-published drafts can be permanently deleted. Public Product endpoints remain deferred to PH05-05.
+Every update and lifecycle command uses optimistic versions. Published slugs are immutable; duplicates reuse media references without copying stored objects; only never-published drafts can be permanently deleted.
 
 The administrator list is one-based and bounded to 100 rows. It supports strict category, global-status, locale-publication-state, featured, and allowlisted sort filters. Search input is capped and escaped before matching slug, model, series, and names for every locale in the shared registry; regex operators and unknown query keys are rejected. Results contain list summaries rather than editing documents, use an ObjectId tie-breaker, and include collection counts plus per-locale completeness.
+
+The protected workspace at `/admin/products` keeps validated search, filter, sort, locale, and pagination state in the URL so views survive refresh and browser navigation. Its responsive table becomes labeled Product cards on narrow screens. Each row exposes versioned duplicate, publication, unpublication, archive, and eligible never-published-draft deletion commands behind explicit confirmation, refreshes only Product list data after success, and distinguishes invalid URLs, conflicts, expired sessions, and API outages. Product editing is intentionally linked to the PH06-02 route, while draft preview remains visibly unavailable until Phase 8 establishes its authorization flow.
 
 The initial MongoDB query plans for status/category/order and status/featured/order are covered by integration tests. Substring name search, locale-aware name sorting, and derived locale-state filtering are correctness-first paths for the initial modest catalog. Adding a locale automatically adds its name path, but each locale expansion requires a query-plan/data-volume review; adopt a dedicated indexed search strategy such as Atlas Search before those paths are used at large catalog scale. Fuzzy search remains intentionally deferred.
 

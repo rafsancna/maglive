@@ -367,6 +367,7 @@ export function ProductWorkspace() {
       })
       .catch((reason: unknown) => {
         if (active) {
+          setData(null);
           setError(workspaceError(reason));
           setLoadedRequestKey(requestKey);
         }
