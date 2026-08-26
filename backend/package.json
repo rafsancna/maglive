@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "admin:create": "npm run build -w @maglive/contracts && tsx src/scripts/createAdmin.ts",
+    "e2e:server": "tsx src/scripts/e2eServer.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint src tests vitest.config.ts",
     "pretest": "npm run build -w @maglive/contracts",

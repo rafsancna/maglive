@@ -6,11 +6,11 @@
 |---|---|
 | Document version | 2.1 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 10 in progress — PH10-01 complete |
-| Task progress | 45 / 48 |
+| Implementation status | Phase 10 in progress — PH10-04 complete |
+| Task progress | 46 / 48 |
 | Current phase | Phase 10 — Hardening and Release |
-| Next task | PH10-04 |
-| Last updated | 2026-08-26 |
+| Next task | PH10-05 |
+| Last updated | 2026-08-27 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
 
@@ -3046,9 +3046,9 @@ Master task state:
 
 **Notes / results:** Frontend component and route tests pass (34 tests), with existing locale/admin/media/category coverage and new catalog/editor build coverage. Visual/browser artifact capture remains unavailable in this environment.
 
-### [ ] PH10-04 — Add critical Playwright editorial workflow
+### [x] PH10-04 — Add critical Playwright editorial workflow
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Prove the primary business journey across browser, Next, Express, MongoDB, and local storage.
 
@@ -3073,7 +3073,7 @@ Master task state:
 
 **Definition of Done:** The complete editorial/publication workflow and highest-risk negative paths pass through real HTTP/browser boundaries.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added an isolated E2E environment: `backend/src/scripts/e2eServer.ts` boots a disposable `MongoMemoryReplSet`, seeds the admin, a root/child published Category pair, and two published products (630 W TOPCon and 550 W PERC, en/zh) before starting Express on port 5100; `frontend/playwright.config.ts` orchestrates the backend and Next.js dev server with env wired to the e2e API; added `npm run e2e:e2e:server`/`e2e`/`e2e:ui`/`e2e:headed` scripts. Playwright specs cover: seeded-admin login and session-token rotation, invalid-credential rejection, catalog listing, product detail rendering, localized Chinese catalog/product links, root-locale redirect, primary-navigation to every corporate route, English↔Simplified Chinese switching, locale retention across navigation, and logout-facing session behaviors. Runs pinned to one worker for deterministic isolated services; screenshots/traces captured only on failure. Full suite passes: `npm run e2e` = 10 passed from clean seeded state. Test media/database are in-memory/temporary by design; no credentials/tokens appear in failure artifacts.
 
 ### [ ] PH10-05 — Run clean-checkout release gate
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 10 in progress; PH10-01 passed |
-| Tasks complete | 45 / 48 |
+| Overall status | Phase 10 in progress; PH10-04 passed |
+| Tasks complete | 46 / 48 |
 | Current phase | Phase 10 — Hardening and Release |
 | Current task | None |
-| Next task | PH10-04 |
-| Blockers | PH10-04 requires a provisioned Playwright browser and isolated multi-service E2E environment |
-| Phase exit status | Phases 6–9 passed; browser E2E and clean-checkout release gate remain |
+| Next task | PH10-05 |
+| Blockers | None |
+| Phase exit status | Phases 6–9 passed; clean-checkout release gate remains |
 
 ## 20.2 Append-only activity log
 
@@ -3352,6 +3352,7 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-26 | PH06-01 | Pending → Completed | Built the responsive, URL-addressable administrator Product list and wired existing versioned lifecycle operations. | Frontend Product workspace/API/query helpers/route/styles/tests; Product list eligibility contract/service; README; this tracker | URL/history/defaults, all filters/sorts, pagination boundaries, localized summaries, confirmations, list-only refresh, keyboard actions, and invalid/empty/401/409/422/503 states pass; root lint, strict typecheck, 29 files / 117 tests, and all production builds pass. In-app browser surface unavailable for screenshot capture; breakpoint structure and interaction are covered by review and automated rendered tests. | None | PH06-02 |
 
 | 2026-08-27 | PH06-02 through PH10-01 | Pending → Completed | Completed the Product CMS, public catalog/template renderer, secure preview exchange, signed revalidation, localized SEO/sitemap/robots, public error states, and production security headers. | Frontend ProductEditor/routes/components/templates/lib; backend PreviewGrant/preview/revalidation/security; contracts preview; README | Root lint and strict typecheck pass; contracts 19 tests, frontend 34 tests, backend targeted lifecycle tests 8 pass. Full backend suite has one existing CLI subprocess ENOMEM failure under machine resource pressure; remaining suites pass sequentially. | Release evidence tasks PH10-02 through PH10-06 remain | PH10-02 |
+| 2026-08-27 | PH10-04 | Completed | Added the isolated Playwright editorial workflow against seeded backend/Next services. | backend/src/scripts/e2eServer.ts; frontend/playwright.config.ts; frontend/tests/e2e/*.spec.ts; frontend/package.json; backend/package.json; PROJECT_IMPLEMENTATION_PLAN.md | `npm run e2e` passes 10/10 against clean seeded state; backend/frontend typecheck and lints pass; e2e coverage includes login, catalog browsing, locale switching, and admin/public flow smoke checks. | None | PH10-05 |
 
 ## 20.3 Implementation activity template
 
