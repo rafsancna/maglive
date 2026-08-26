@@ -6,9 +6,13 @@ export const logger = pino({
     paths: [
       "req.headers.authorization",
       "req.headers.cookie",
+      "req.body.password",
       "res.headers.set-cookie",
       "password",
+      "passwordHash",
+      "*.passwordHash",
       "csrfToken",
+      "csrfTokenHash",
       "token",
       "SESSION_SECRET",
       "PREVIEW_SIGNING_SECRET",

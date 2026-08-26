@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from "express";
+import mongoose from "mongoose";
 import { AppError } from "../errors/AppError.js";
 import { logger } from "../config/logger.js";
 
@@ -17,6 +18,14 @@ function normalizeError(error: unknown): AppError {
 
   if (error instanceof SyntaxError && isRecord(error) && "body" in error) {
     return new AppError(400, "MALFORMED_JSON", "The request body is not valid JSON.");
+  }
+
+  if (error instanceof mongoose.Error.VersionError) {
+    return new AppError(
+      409,
+      "VERSION_CONFLICT",
+      "This resource changed after it was loaded. Refresh and try again."
+    );
   }
 
   return new AppError(500, "INTERNAL_ERROR", "An unexpected server error occurred.");

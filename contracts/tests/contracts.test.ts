@@ -3,14 +3,23 @@ import {
   DEFAULT_LOCALE,
   LOCALE_CODES,
   LOCALE_REGISTRY,
+  administratorPasswordSchema,
   apiErrorSchema,
   apiSuccessSchema,
+  authenticatedSessionDtoSchema,
+  categorySlugSchema,
+  createCategoryRequestSchema,
   getLocaleMetadata,
   isLocaleCode,
   isProductTemplateId,
   legacyTemplateIdSchema,
+  loginRequestSchema,
+  adminMediaDtoSchema,
+  mediaListQuerySchema,
+  updateMediaRequestSchema,
   objectIdStringSchema,
   paginationQuerySchema,
+  publicCategoryTreeDtoSchema,
   productTemplateIdSchema
 } from "../src/index.js";
 
@@ -74,6 +83,119 @@ describe("transport contracts", () => {
       }
     });
     expect(error.error.code).toBe("VALIDATION_FAILED");
+  });
+});
+
+describe("administrator authentication contracts", () => {
+  it("normalizes credentials and exposes only the safe authenticated session shape", () => {
+    expect(
+      loginRequestSchema.parse({
+        email: " ADMIN@Example.COM ",
+        password: "candidate"
+      }).email
+    ).toBe("admin@example.com");
+    expect(administratorPasswordSchema.safeParse("short").success).toBe(false);
+
+    const session = authenticatedSessionDtoSchema.parse({
+      admin: {
+        id: "507f1f77bcf86cd799439011",
+        email: "admin@example.com",
+        role: "admin"
+      },
+      csrfToken: "authenticated-csrf-token-value-000001"
+    });
+    expect(session.admin).not.toHaveProperty("passwordHash");
+  });
+});
+
+describe("category contracts", () => {
+  it("accepts registry locales and rejects reserved, malformed, or unknown keys", () => {
+    expect(
+      createCategoryRequestSchema.parse({
+        slug: "solar-modules",
+        translations: {
+          en: { name: "Solar modules" },
+          zh: { name: "太阳能组件" }
+        }
+      })
+    ).toMatchObject({ parentId: null, sortOrder: 0 });
+    expect(categorySlugSchema.safeParse("products").success).toBe(false);
+    expect(categorySlugSchema.safeParse("Solar Modules").success).toBe(false);
+    expect(
+      createCategoryRequestSchema.safeParse({
+        slug: "solar-modules",
+        translations: { en: { name: "x".repeat(161) } }
+      }).success
+    ).toBe(false);
+    expect(
+      createCategoryRequestSchema.safeParse({
+        slug: "solar-modules",
+        translations: { de: { name: "Solarmodule" } }
+      }).success
+    ).toBe(false);
+  });
+
+  it("validates recursive localized public trees without working fields", () => {
+    const id = "507f1f77bcf86cd799439011";
+    const parsed = publicCategoryTreeDtoSchema.parse({
+      categories: [
+        {
+          id,
+          slug: "modules",
+          name: "Modules",
+          parentId: null,
+          sortOrder: 0,
+          seo: { title: "Modules" },
+          availableLocales: ["en"],
+          breadcrumbs: [{ slug: "modules", name: "Modules" }],
+          children: []
+        }
+      ]
+    });
+    expect(parsed.categories[0]).not.toHaveProperty("translations");
+    expect(parsed.categories[0]?.children).toEqual([]);
+  });
+});
+
+describe("media contracts", () => {
+  it("accepts serializable metadata while excluding stored binary data", () => {
+    const parsed = adminMediaDtoSchema.parse({
+      id: "507f1f77bcf86cd799439011",
+      kind: "image",
+      url: "http://localhost:5000/uploads/images/media.png",
+      mimeType: "image/png",
+      width: 1200,
+      height: 800,
+      originalName: "module.png",
+      sizeBytes: 2048,
+      checksum: "a".repeat(64),
+      defaultTranslations: {
+        en: { title: "Module", alt: "Solar module" },
+        zh: { title: "太阳能组件" },
+      },
+      status: "ready",
+      uploadedBy: "507f1f77bcf86cd799439012",
+      createdAt: "2026-08-26T06:00:00.000Z",
+      updatedAt: "2026-08-26T06:00:00.000Z",
+      version: 0,
+    });
+    expect(parsed).not.toHaveProperty("binary");
+    expect(parsed).not.toHaveProperty("buffer");
+    expect(parsed.defaultTranslations.zh?.title).toBe("太阳能组件");
+  });
+
+  it("bounds list filters and requires a real versioned metadata change", () => {
+    expect(
+      mediaListQuerySchema.parse({ page: "2", limit: "100", kind: "video" }),
+    ).toMatchObject({ page: 2, limit: 100, kind: "video" });
+    expect(mediaListQuerySchema.safeParse({ kind: "svg" }).success).toBe(false);
+    expect(updateMediaRequestSchema.safeParse({ version: 0 }).success).toBe(false);
+    expect(
+      updateMediaRequestSchema.parse({
+        version: 3,
+        defaultTranslations: { en: { caption: "Installation overview" } },
+      }),
+    ).toMatchObject({ version: 3 });
   });
 });
 

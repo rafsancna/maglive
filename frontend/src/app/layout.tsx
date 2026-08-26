@@ -22,7 +22,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const metadata = getLocaleMetadata(locale);
 
   return (
-    <html dir={metadata.direction} lang={metadata.languageTag}>
+    <html
+      data-scroll-behavior="smooth"
+      dir={metadata.direction}
+      lang={metadata.languageTag}
+    >
       <body>{children}</body>
     </html>
   );

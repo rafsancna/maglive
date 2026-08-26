@@ -2,21 +2,38 @@ import cors from "cors";
 import express, { type Express } from "express";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
+import type { Store } from "express-session";
 import type { AppConfig } from "./config/env.js";
 import { getDatabaseHealth, type DatabaseHealth } from "./config/database.js";
 import { logger } from "./config/logger.js";
+import { createSessionMiddleware } from "./config/session.js";
 import { AppError } from "./errors/AppError.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { requestId } from "./middleware/requestId.js";
 import { createV1Router } from "./routes/v1/index.js";
+import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
+import { createLocalMediaMiddleware } from "./storage/localMediaMiddleware.js";
+import type { StorageProvider } from "./storage/StorageProvider.js";
 
 export type AppDependencies = Readonly<{
   config: AppConfig;
   databaseHealth?: () => DatabaseHealth;
+  sessionStore?: Store;
+  storageProvider?: StorageProvider;
+  now?: () => number;
 }>;
 
-export function createApp({ config, databaseHealth = getDatabaseHealth }: AppDependencies): Express {
+export function createApp({
+  config,
+  databaseHealth = getDatabaseHealth,
+  sessionStore,
+  storageProvider = new LocalStorageProvider(
+    config.uploadRoot,
+    config.publicMediaBaseUrl
+  ),
+  now
+}: AppDependencies): Express {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
@@ -45,8 +62,16 @@ export function createApp({ config, databaseHealth = getDatabaseHealth }: AppDep
     })
   );
   app.use(express.json({ limit: config.jsonBodyLimitBytes }));
+  app.use(createSessionMiddleware(config, sessionStore));
 
-  app.use("/api/v1", createV1Router(databaseHealth));
+  if (storageProvider instanceof LocalStorageProvider) {
+    app.use("/uploads", createLocalMediaMiddleware(storageProvider));
+  }
+
+  app.use(
+    "/api/v1",
+    createV1Router(databaseHealth, config, now, storageProvider)
+  );
   app.use(notFound);
   app.use(errorHandler);
 

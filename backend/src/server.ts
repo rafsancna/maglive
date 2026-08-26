@@ -5,6 +5,7 @@ import { createApp } from "./app.js";
 import { connectDatabase, disconnectDatabase } from "./config/database.js";
 import { loadConfig } from "./config/env.js";
 import { logger } from "./config/logger.js";
+import { createMongoSessionStore } from "./config/session.js";
 import { createGracefulShutdown } from "./runtime/gracefulShutdown.js";
 
 async function listen(app: ReturnType<typeof createApp>, port: number): Promise<Server> {
@@ -17,7 +18,8 @@ async function listen(app: ReturnType<typeof createApp>, port: number): Promise<
 async function bootstrap(): Promise<void> {
   const config = loadConfig(process.env);
   await connectDatabase(config.mongoUri);
-  const app = createApp({ config });
+  const sessionStore = createMongoSessionStore(config);
+  const app = createApp({ config, sessionStore });
   const server = await listen(app, config.port);
   logger.info({ port: config.port }, "Maglive API is ready");
 

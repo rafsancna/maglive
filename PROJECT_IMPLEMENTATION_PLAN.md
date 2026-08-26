@@ -4,12 +4,12 @@
 
 | Document field | Value |
 |---|---|
-| Document version | 1.2 |
+| Document version | 1.5 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 1 complete |
-| Task progress | 6 / 48 |
-| Current phase | Phase 2 — Authentication |
-| Next task | PH02-01 |
+| Implementation status | Phase 4 complete |
+| Task progress | 17 / 48 |
+| Current phase | Phase 5 — Product Backend |
+| Next task | PH05-01 |
 | Last updated | 2026-08-26 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
@@ -1550,9 +1550,9 @@ Folder responsibilities are defined by Sections 2, 4, 7, and 8. No repositories,
 Master task state:
 
 - [x] Phase 1 — Foundation
-- [ ] Phase 2 — Authentication
-- [ ] Phase 3 — Categories
-- [ ] Phase 4 — Media
+- [x] Phase 2 — Authentication
+- [x] Phase 3 — Categories
+- [x] Phase 4 — Media
 - [ ] Phase 5 — Product Backend
 - [ ] Phase 6 — Product CMS
 - [ ] Phase 7 — Public Catalog and Templates
@@ -1781,9 +1781,9 @@ Master task state:
 
 ## Phase 2 — Authentication
 
-### [ ] PH02-01 — Add User model and administrator bootstrap CLI
+### [x] PH02-01 — Add User model and administrator bootstrap CLI
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Store a secure administrator identity and provide a non-public creation workflow.
 
@@ -1809,11 +1809,11 @@ Master task state:
 
 **Definition of Done:** A secure administrator can be bootstrapped through an intentional CLI, passwords are never persisted/logged in plaintext, and identity constraints are tested.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added the normalized unique administrator User model with safe serialization, inactive/account timestamps, and password hashes excluded from default selection. Centralized reviewed Argon2id hashing/verification and added an environment-fed `admin:create` CLI with explicit duplicate/update behavior and password-safe output. Isolated replica-set tests verify hashing, no plaintext/hash serialization, normalization, one-user duplicate/update behavior, and execution of the real CLI process.
 
-### [ ] PH02-02 — Configure Mongo-backed administrator sessions
+### [x] PH02-02 — Configure Mongo-backed administrator sessions
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Establish revocable server-side sessions and a deliberate cookie lifecycle.
 
@@ -1841,11 +1841,11 @@ Master task state:
 
 **Definition of Done:** The backend can create, retrieve, expire, rotate, and destroy opaque sessions without storing authentication tokens in browser-accessible storage.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added `express-session` with an encrypted connect-mongo store in `admin_sessions`, the non-default `maglive_admin_session` cookie, HTTP-only/Lax/root-path flags, production Secure behavior, a 30-minute server-enforced idle window, an 8-hour absolute lifetime, disabled rolling renewal, and MongoDB TTL cleanup. Non-test startup rejects an absent Mongo store. Tests prove session-ID rotation, encrypted persistence across separately created app instances, fixed absolute/idle expiry, development/production cookie flags, authenticated logout destruction, and TTL index presence. README documents localhost cross-port credentials and the preferred HTTPS same-site reverse proxy.
 
-### [ ] PH02-03 — Implement authentication, CSRF, Origin checks, and rate limits
+### [x] PH02-03 — Implement authentication, CSRF, Origin checks, and rate limits
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Provide secure login/logout/session APIs and authoritative protection for all future administrator routes.
 
@@ -1875,11 +1875,11 @@ Master task state:
 
 **Definition of Done:** Authentication lifecycle works through HTTP, all future admin routes can reuse tested requireAdmin/CSRF middleware, and common cross-site/session attacks are rejected.
 
-**Notes / results:** _Pending._
+**Notes / results:** Implemented `/api/v1/admin/auth/csrf`, `/login`, `/me`, and `/logout`; safe DTOs; generic credential failures; active-user checks; reusable `requireAdmin`; hashed, expiring CSRF tokens; exact Origin/safe Referer enforcement; login IP+normalized-account limiting; reusable session/IP mutation limiting; and no-store administrator responses. The isolated real replica-set integration suite covers valid login, fixation resistance, token replacement/reuse rejection, missing/wrong/stale CSRF, missing/foreign Origin, inactive/missing/wrong credentials, rate-limit threshold, protected access, refresh/app-instance persistence, idle/absolute expiry, and authenticated-CSRF logout. Sensitive request/session fields are redacted and absent from DTOs.
 
-### [ ] PH02-04 — Build login page and protected admin shell
+### [x] PH02-04 — Build login page and protected admin shell
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Provide a usable administrator entry point and navigation frame without treating frontend guards as authorization.
 
@@ -1906,13 +1906,13 @@ Master task state:
 
 **Definition of Done:** A valid administrator can enter and leave a protected, accessible admin shell; session failure is handled clearly; Express remains authoritative.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added the noindex `/admin/login` experience, pre-auth CSRF acquisition, post-rotation token replacement, generic/rate-limit/unavailable states, validated local return paths, session verification, global protected-request expiry signaling, and a responsive keyboard-accessible shell with Dashboard, Products, Categories, Media, current-location state, account identity, and authenticated logout. Future module routes are honest reserved shells without premature CRUD. Testing Library verifies login, focused error feedback, navigation/current state, expiry return-path preservation, CSRF request behavior, and hostile return-path rejection. Production HTTP smoke checks return 200/noindex for all five admin routes, render the login form without embedding CSRF, and gate protected routes with session verification. The in-app browser had no connected browser, so screenshot, back/forward, and live narrow-viewport artifacts were unavailable; responsive/focus behavior was verified through code review, component tests, and the production build.
 
 ## Phase 3 — Categories
 
-### [ ] PH03-01 — Add Category model and validation
+### [x] PH03-01 — Add Category model and validation
 
-**Status:** Pending
+**Status:** Completed
 
 **Goal:** Represent a multilingual, ordered two-level product-category hierarchy.
 
@@ -1938,11 +1938,11 @@ Master task state:
 
 **Definition of Done:** Category persistence and contracts express all locked hierarchy/translation fields without embedding products or introducing tree overengineering.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added registry-keyed Category contracts and a typed Mongoose model with working translations/SEO, contextual image usage, split global/locale publication snapshots, source hashes/revisions, lifecycle/audit/version fields, and the required unique, hierarchy-order, and visibility indexes. Slug rules reserve products; schemas bound all content and serialize ObjectIds/maps into narrow DTOs. Completeness derives SEO defaults and requires localized alt text whenever an image usage exists. Contract tests cover locale keys, field bounds, recursive public DTOs, and the absence of working fields from public shapes.
 
-### [ ] PH03-02 — Implement category services and REST routes
+### [x] PH03-02 — Implement category services and REST routes
 
-**Status:** Pending
+**Status:** Completed
 
 **Goal:** Manage category lifecycle and return a safe localized public tree.
 
@@ -1972,11 +1972,11 @@ Master task state:
 
 **Definition of Done:** Categories can be safely managed and localized publicly; hierarchy rules and current deletion guarantees are explicit and tested.
 
-**Notes / results:** _Pending._
+**Notes / results:** Implemented authenticated admin CRUD, complete-sibling reorder, publish/unpublish/archive, and localized public tree/detail APIs. Transactions enforce the two-level hierarchy, committed deleting state, occupied/previously-published deletion blocks, optimistic versions, English-first/retention, parent-locale readiness, explicit all-live-locale shared promotion, and working/live isolation. Public reads are no-store, snapshot-only, and hide any category whose complete ancestor chain is inactive or incoherent. Integration tests cover authentication/CSRF, invalid hierarchy and slugs, duplicate mapping, drafts, locale publication, shared promotion, concurrency, reorder, archive, rollback-safe deletion, and ancestor visibility. Product-reference checks remain explicitly deferred to PH05-03 because Product does not exist yet; media existence checks remain deferred to Phase 4.
 
-### [ ] PH03-03 — Build category administration
+### [x] PH03-03 — Build category administration
 
-**Status:** Pending
+**Status:** Completed
 
 **Goal:** Provide end-to-end category creation, translation, hierarchy, ordering, and conflict handling.
 
@@ -1987,7 +1987,7 @@ Master task state:
 **Implementation scope:**
 
 - Build list/tree view and create/edit form.
-- Add en/zh tabs with Draft, Published, Changes pending, and validation indicators derived from snapshot/source hashes.
+- Add registry-driven locale tabs (initially en/zh) with Draft, Published, Changes pending, and validation indicators derived from snapshot/source hashes.
 - Add slug, parent selection, order, description, and localized SEO fields.
 - Allow only root categories as parents for a second-level category.
 - Provide move-up/move-down ordering controls using complete sibling reorder; drag-and-drop is deferred.
@@ -2004,13 +2004,13 @@ Master task state:
 
 **Definition of Done:** Administrators can manage the current category hierarchy and translations without relying on not-yet-built media or products.
 
-**Notes / results:** _Pending._
+**Notes / results:** Replaced the reserved category page with a responsive hierarchy/editor workspace. It iterates the locale registry for language tabs and status indicators, exposes root-only parent selection, shared/localized/SEO fields, dirty-state protection, complete-sibling move controls, publication/lifecycle confirmations, and actionable stale-session/conflict/API errors. The contextual image panel is visibly disabled until PH04-04. Testing Library covers tree/accessibility state, registry-driven language editing/publication, root-only parent options, draft creation, and stale-version edit preservation. The in-app browser remains unavailable, so no screenshot/live viewport artifact was possible; component accessibility checks, responsive code review, strict checks, and the production build were used for this phase.
 
 ## Phase 4 — Media
 
-### [ ] PH04-01 — Define storage contract and safe local adapter
+### [x] PH04-01 — Define storage contract and safe local adapter
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Make media business logic independent of local disk.
 
@@ -2036,11 +2036,11 @@ Master task state:
 
 **Definition of Done:** Storage operations are safe, tested, and accessed only through the provider contract; local disk can later be replaced without controller/model rewrites.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added a narrow StorageProvider contract and a safe LocalStorageProvider using resolved roots, validated relative keys, UUID/date/type partitions, controlled incoming files, and atomic final renames. Local assets support restart persistence, URL encoding, immutable caching, MIME serving, byte ranges, nosniff, and an explicit same-site resource policy for the split local frontend/API origins. Fake/local contract and HTTP tests cover duplicate names, missing objects, traversal/absolute/backslash keys, persistence, headers, and partial ranges; runtime uploads remain Git-ignored.
 
-### [ ] PH04-02 — Add Media model and secure upload pipeline
+### [x] PH04-02 — Add Media model and secure upload pipeline
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Accept approved media through authenticated streaming uploads and persist only safe metadata.
 
@@ -2070,11 +2070,11 @@ Master task state:
 
 **Definition of Done:** Valid local media becomes a ready Media record and retrievable URL; invalid/failed uploads leave neither public files nor database records.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added registry-locale media contracts, the indexed Media model, admin list/read/upload/update APIs, and a one-file Busboy streaming pipeline. Uploads use controlled request directories, configured type-specific byte limits, backpressure, SHA-256 checksums, safe original names, server-derived extensions, and signature inspection for JPEG, PNG, WebP, MP4, WebM, and PDF; SVG, forged/truncated/multiple/oversized/unauthorized/CSRF-invalid inputs are rejected. Image dimensions are persisted, optional video metadata remains unset when not reliably available, binary content never enters MongoDB, and temp/final cleanup is verified across validation, storage, database, and interrupted-request failures.
 
-### [ ] PH04-03 — Implement media usages and reference-aware deletion
+### [x] PH04-03 — Implement media usages and reference-aware deletion
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Expose current references and safely delete only unreferenced media.
 
@@ -2102,11 +2102,11 @@ Master task state:
 
 **Definition of Done:** Media deletion is recoverable, reports current category usages, and cannot break existing category images.
 
-**Notes / results:** _Pending._
+**Notes / results:** Implemented deterministic usage reporting across Category working image/SEO fields, every live global/locale Category snapshot, and Media poster relationships. Category and poster writes transactionally lock and require a distinct ready image. Delete first commits the protected deleting state, rejects new references, rechecks usages, deletes the stored object, and transactionally removes the record; storage failures retain a retryable deleting record and accept the original retry request. Tests cover working/live blockers, poster use/type/self-reference, concurrent reference rejection, unreferenced and repeated deletion, storage recovery, and rollback-safe state. Product usage checks remain explicitly deferred to PH05-03.
 
-### [ ] PH04-04 — Build media library/picker and integrate categories
+### [x] PH04-04 — Build media library/picker and integrate categories
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Let administrators upload, browse, edit, select, replace, and safely delete reusable media.
 
@@ -2135,7 +2135,7 @@ Master task state:
 
 **Definition of Done:** A category can use a reusable uploaded asset, the media library exposes accurate state/errors, and replacement/deletion preserves integrity.
 
-**Notes / results:** _Pending._
+**Notes / results:** Replaced the reserved media route with a responsive paginated/searchable/type-filtered library, typed image/video/PDF previews, XHR upload progress, cancellation/retry, localized default metadata, immutable replacement uploads, poster assignment, usage details, and guarded deletion. Added a reusable accessible MediaPicker and integrated it into Category contextual images with locale-specific alt/title fields. Component and API-client tests cover filters, locale tabs, progress/retry/cancel, expired sessions, usage blockers, poster selection, and category assignment. Live in-app browser QA verified authenticated desktop rendering and a corrected 390px layout with no horizontal overflow or new console errors.
 
 ## Phase 5 — Product Backend
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 1 complete; Phase 2 not started |
-| Tasks complete | 6 / 48 |
-| Current phase | Phase 2 — Authentication |
+| Overall status | Phase 4 complete; Phase 5 not started |
+| Tasks complete | 17 / 48 |
+| Current phase | Phase 5 — Product Backend |
 | Current task | None |
-| Next task | PH02-01 |
+| Next task | PH05-01 |
 | Blockers | None |
-| Phase exit status | Phase 1 passed — workspace install, builds, locales, health contract, and test harness verified |
+| Phase exit status | Phase 4 passed — secure local uploads, reusable media CMS, complete Category/poster reference integrity, recoverable deletion, and responsive picker integration verified |
 
 ## 20.2 Append-only activity log
 
@@ -3329,6 +3329,20 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-26 | PH01-06 | Pending → Completed | Established isolated workspace test harnesses and safe temporary/database guards. | workspace test configurations and tests | Root npm test passes 8 files / 20 tests; non-test DB guard and temporary cleanup proven. | None | Phase 1 gate |
 | 2026-08-26 | PHASE-01 | In progress → Passed | Completed the Foundation phase and left all workspaces buildable and runnable. | All Phase 1 files plus this tracker | Root lint, strict typecheck, test, and production build pass; localized runtime route matrix and health/error integration pass. | None | PH02-01 |
 | 2026-08-26 | PH01-04A | Completed → Refined | Removed fixed two-language assumptions while retaining en/zh as the initial enabled locales. | contracts locale registry, frontend i18n/switcher/dictionaries/tests, README, plan | Registry/switcher/regional-detection coverage passes; root lint, strict typecheck, 9 files / 21 tests, and production build pass. | None | PH02-01 |
+| 2026-08-26 | PH02-01 | Pending → Completed | Added the administrator identity, Argon2id password operations, and intentional environment-fed bootstrap CLI. | contracts auth, backend User/password/bootstrap/CLI, tests, environment docs | Real isolated replica-set and CLI-process tests verify normalization, create/update/duplicate behavior, hash verification, and safe serialization. | None | PH02-02 |
+| 2026-08-26 | PH02-02 | Pending → Completed | Added encrypted Mongo-backed sessions with fixed cookie and timeout policy. | backend session config/lifecycle/types/env, server/app wiring, README, tests | Rotation, persistence across app instances, encrypted store, TTL index, idle/absolute expiry, cookie flags, and destruction pass against an isolated replica set. | None | PH02-03 |
+| 2026-08-26 | PH02-03 | Pending → Completed | Implemented administrator auth APIs and reusable CSRF, Origin, authorization, and rate-limit defenses. | contracts auth, backend auth service/routes/middleware/logger, integration tests | Valid/invalid lifecycle, fixation, CSRF tampering/staleness/reuse, Origin, rate limit, expiry, unauthorized, and logout scenarios pass. | None | PH02-04 |
+| 2026-08-26 | PH02-04 | Pending → Completed | Built the accessible login flow, safe redirects, protected admin gate, and responsive administration shell. | frontend admin routes/components/API/styles/tests | Frontend interaction/API tests and production build pass; five admin routes return 200/noindex in production HTTP smoke. In-app browser unavailable for screenshots/live viewport artifact. | None | Phase 2 gate |
+| 2026-08-26 | PHASE-02 | In progress → Passed | Completed Authentication and left Express authoritative for every protected operation. | All Phase 2 files plus documentation and tracker | Root lint/typecheck pass; 13 files / 39 tests pass; all production builds pass; production dependency audit reports 0 vulnerabilities. | None | PH03-01 |
+| 2026-08-26 | PH03-01 | Pending → Completed | Added typed multilingual Category contracts, persistence, snapshot shapes, indexes, hashing, and completeness state. | contracts category schemas/tests; backend Category model and mapper support | Contract build/typecheck/lint pass; locale/bounds/public-shape tests pass; backend strict typecheck passes. | None | PH03-02 |
+| 2026-08-26 | PH03-02 | Pending → Completed | Added transactional category lifecycle services plus protected admin and localized public REST routes. | backend category service/routes/validation/model/tests; README | Replica-set integration tests pass for hierarchy, CRUD, CSRF/auth, publication isolation/coherence, English retention, shared promotion, concurrency, ordering, archive, and guarded deletion. | None | PH03-03 |
+| 2026-08-26 | PH03-03 | Pending → Completed | Built the responsive registry-driven category hierarchy and editor with publication and lifecycle controls. | frontend category API/components/route/styles/tests | Four focused editor tests pass; frontend lint/typecheck and production build pass. In-app browser unavailable for visual artifact. | None | Phase 3 gate |
+| 2026-08-26 | PHASE-03 | In progress → Passed | Completed Categories end to end and preserved the locked working/live and ancestor-visibility boundaries. | All Phase 3 files plus README and this tracker | Root strict typecheck, lint, 15 files / 49 tests, production builds, and production audit pass with 0 vulnerabilities. | None | PH04-01 |
+| 2026-08-26 | PH04-01 | Pending → Completed | Added the replaceable storage contract and traversal-safe immutable local adapter. | backend storage modules/app wiring/tests; storage configuration | Fake/local parity, persistence, target safety, typed serving, nosniff, same-site policy, immutable caching, and range tests pass. | None | PH04-02 |
+| 2026-08-26 | PH04-02 | Pending → Completed | Added Media persistence/contracts plus authenticated streaming uploads and validation. | contracts media schemas/tests; backend media model/inspection/receiver/service/routes/tests | All approved signatures pass; forged, SVG, executable, invalid PDF, oversized, multiple, truncated, auth/CSRF, and cleanup scenarios reject safely; MongoDB contains metadata only. | None | PH04-03 |
+| 2026-08-26 | PH04-03 | Pending → Completed | Added deterministic Category/poster usages and transaction-backed recoverable deletion. | backend media/category services/routes/tests | Working/live/poster conflicts, wrong/self poster, concurrent reference rejection, object cleanup failure/retry, repeated delete, and unreferenced deletion pass. Product checks deferred to PH05-03. | None | PH04-04 |
+| 2026-08-26 | PH04-04 | Pending → Completed | Built the media library, reusable picker, and localized Category image integration. | frontend media/category APIs, components, routes, styles, and tests | UI/client tests cover progress, retry/cancel, expiry, filters, translations, usages, poster selection, and Category assignment; live desktop/390px browser QA passes without overflow. | None | Phase 4 gate |
+| 2026-08-26 | PHASE-04 | In progress → Passed | Completed secure reusable media operations end to end and preserved immutable storage/reference integrity. | All Phase 4 files plus README and this tracker | Root lint, strict typecheck, 19 files / 69 tests, all production builds, and production audit pass with 0 vulnerabilities; authenticated in-app browser desktop/narrow QA passes. | None | PH05-01 |
 
 ## 20.3 Implementation activity template
 

@@ -19,6 +19,10 @@ export function createTestConfig(overrides: Partial<AppConfig> = {}): AppConfig 
     nextRevalidationSecret: "test-revalidation-secret-000000000000000",
     trustProxy: false,
     jsonBodyLimitBytes: 1024 * 1024,
+    sessionIdleTimeoutMs: 30 * 60 * 1_000,
+    sessionAbsoluteTimeoutMs: 8 * 60 * 60 * 1_000,
+    loginRateLimitMax: 5,
+    adminMutationRateLimitMax: 120,
     ...overrides
   };
 }

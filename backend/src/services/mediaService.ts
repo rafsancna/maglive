@@ -1,0 +1,520 @@
+import {
+  LOCALE_CODES,
+  type AdminMediaDto,
+  type MediaListDto,
+  type MediaUsageDto,
+  type MediaUsagesDto,
+  type SafeAdminDto,
+  type UpdateMediaRequest,
+  type mediaListQuerySchema,
+} from "@maglive/contracts";
+import type { Request } from "express";
+import mongoose, { Types, type ClientSession } from "mongoose";
+import type { z } from "zod";
+import type { AppConfig } from "../config/env.js";
+import { AppError } from "../errors/AppError.js";
+import {
+  inspectMediaFile,
+  type InspectedMedia,
+} from "../media/mediaInspection.js";
+import {
+  receiveMediaUpload,
+  removeReceivedUpload,
+} from "../media/receiveMediaUpload.js";
+import { CategoryModel, type CategoryDocument } from "../models/Category.js";
+import {
+  MediaModel,
+  type MediaDocument,
+  type MediaTranslation,
+} from "../models/Media.js";
+import type { StorageProvider } from "../storage/StorageProvider.js";
+
+type MediaListQuery = z.output<typeof mediaListQuerySchema>;
+
+function toObjectId(value: string): Types.ObjectId {
+  return new Types.ObjectId(value);
+}
+
+function assertVersion(media: MediaDocument, version: number): void {
+  if (media.version !== version) {
+    throw new AppError(
+      409,
+      "VERSION_CONFLICT",
+      "This media record changed after it was loaded. Refresh and try again.",
+    );
+  }
+}
+
+async function inTransaction<T>(
+  operation: (session: ClientSession) => Promise<T>,
+): Promise<T> {
+  const session = await mongoose.startSession();
+  let result: T | undefined;
+  try {
+    await session.withTransaction(async () => {
+      result = await operation(session);
+    });
+  } finally {
+    await session.endSession();
+  }
+  if (result === undefined) {
+    throw new AppError(500, "TRANSACTION_FAILED", "The database transaction did not complete.");
+  }
+  return result;
+}
+
+function mediaTranslations(
+  values: UpdateMediaRequest["defaultTranslations"],
+): Map<string, MediaTranslation> {
+  return new Map(
+    Object.entries(values ?? {}).map(([locale, translation]) => [
+      locale,
+      {
+        ...(translation.title === undefined
+          ? {}
+          : { title: translation.title }),
+        ...(translation.alt === undefined ? {} : { alt: translation.alt }),
+        ...(translation.caption === undefined
+          ? {}
+          : { caption: translation.caption }),
+      },
+    ]),
+  );
+}
+
+export function toAdminMediaDto(
+  media: MediaDocument,
+  storageProvider: StorageProvider,
+): AdminMediaDto {
+  if (media.storage.provider !== storageProvider.id) {
+    throw new AppError(
+      503,
+      "STORAGE_PROVIDER_UNAVAILABLE",
+      "The media storage provider is unavailable.",
+    );
+  }
+  return {
+    id: media._id.toString(),
+    kind: media.kind,
+    url: storageProvider.getPublicUrl(media.storage.key),
+    mimeType: media.mimeType,
+    ...(media.width === undefined ? {} : { width: media.width }),
+    ...(media.height === undefined ? {} : { height: media.height }),
+    originalName: media.originalName,
+    sizeBytes: media.sizeBytes,
+    checksum: media.checksum,
+    ...(media.durationSeconds === undefined
+      ? {}
+      : { durationSeconds: media.durationSeconds }),
+    ...(media.posterMediaId === undefined
+      ? {}
+      : { posterMediaId: media.posterMediaId.toString() }),
+    defaultTranslations: Object.fromEntries(media.defaultTranslations),
+    status: media.status,
+    uploadedBy: media.uploadedBy.toString(),
+    createdAt: media.createdAt.toISOString(),
+    updatedAt: media.updatedAt.toISOString(),
+    version: media.version,
+  };
+}
+
+async function requireMedia(
+  id: string,
+  session?: ClientSession,
+): Promise<MediaDocument> {
+  const query = MediaModel.findById(id);
+  if (session !== undefined) query.session(session);
+  const media = await query;
+  if (media === null) {
+    throw new AppError(404, "MEDIA_NOT_FOUND", "The media record was not found.");
+  }
+  return media;
+}
+
+function escapedExpression(value: string): RegExp {
+  return new RegExp(value.replace(/[|\\{}()[\]^$+*?.-]/g, "\\$&"), "i");
+}
+
+export async function listMedia(
+  query: MediaListQuery,
+  storageProvider: StorageProvider,
+): Promise<MediaListDto> {
+  const filter: Record<string, unknown> = {};
+  if (query.kind !== undefined) filter.kind = query.kind;
+  if (query.status !== undefined) {
+    filter.status = query.status;
+  } else {
+    filter.status = { $ne: "deleting" };
+  }
+  if (query.search !== undefined && query.search !== "") {
+    filter.originalName = escapedExpression(query.search);
+  }
+  const skip = (query.page - 1) * query.limit;
+  const [items, total] = await Promise.all([
+    MediaModel.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(skip)
+      .limit(query.limit),
+    MediaModel.countDocuments(filter),
+  ]);
+  return {
+    items: items.map((media) => toAdminMediaDto(media, storageProvider)),
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+    },
+  };
+}
+
+export async function getMedia(
+  id: string,
+  storageProvider: StorageProvider,
+): Promise<AdminMediaDto> {
+  return toAdminMediaDto(await requireMedia(id), storageProvider);
+}
+
+function assertStoredSize(
+  inspected: InspectedMedia,
+  sizeBytes: number,
+  config: AppConfig,
+): void {
+  const maximum =
+    inspected.kind === "image"
+      ? config.maxImageBytes
+      : inspected.kind === "video"
+        ? config.maxVideoBytes
+        : config.maxDocumentBytes;
+  if (sizeBytes > maximum) {
+    throw new AppError(
+      413,
+      "MEDIA_TOO_LARGE",
+      "The uploaded file exceeds its configured size limit.",
+    );
+  }
+}
+
+export async function uploadMedia(
+  request: Request,
+  actor: SafeAdminDto,
+  config: AppConfig,
+  storageProvider: StorageProvider,
+): Promise<AdminMediaDto> {
+  const received = await receiveMediaUpload(request, config);
+  let storedKey: string | undefined;
+  try {
+    const inspected = await inspectMediaFile(
+      received.temporaryPath,
+      received.claimedMimeType,
+    );
+    assertStoredSize(inspected, received.sizeBytes, config);
+    const stored = await storageProvider.save({
+      temporaryPath: received.temporaryPath,
+      kind: inspected.kind,
+      extension: inspected.extension,
+    });
+    storedKey = stored.key;
+    const media = new MediaModel({
+      kind: inspected.kind,
+      storage: { provider: stored.provider, key: stored.key },
+      originalName: received.originalName,
+      mimeType: inspected.mimeType,
+      sizeBytes: stored.sizeBytes,
+      checksum: received.checksum,
+      ...(inspected.width === undefined ? {} : { width: inspected.width }),
+      ...(inspected.height === undefined ? {} : { height: inspected.height }),
+      defaultTranslations: new Map(),
+      status: "ready",
+      uploadedBy: toObjectId(actor.id),
+    });
+    await media.save();
+    return toAdminMediaDto(media, storageProvider);
+  } catch (error) {
+    if (storedKey !== undefined) {
+      await storageProvider.delete(storedKey).catch(() => undefined);
+    }
+    throw error;
+  } finally {
+    await removeReceivedUpload(received);
+  }
+}
+
+export async function updateMedia(
+  id: string,
+  input: UpdateMediaRequest,
+  storageProvider: StorageProvider,
+): Promise<AdminMediaDto> {
+  return inTransaction(async (session) => {
+    const media = await requireMedia(id, session);
+    assertVersion(media, input.version);
+    if (media.status !== "ready") {
+      throw new AppError(
+        409,
+        "MEDIA_NOT_READY",
+        "Only ready media can be edited.",
+      );
+    }
+    if (input.defaultTranslations !== undefined) {
+      media.defaultTranslations = mediaTranslations(input.defaultTranslations);
+    }
+    if (input.posterMediaId === null) {
+      media.set("posterMediaId", undefined);
+    } else if (input.posterMediaId !== undefined) {
+      if (media.kind !== "video") {
+        throw new AppError(
+          422,
+          "POSTER_VIDEO_REQUIRED",
+          "Only videos can have poster images.",
+        );
+      }
+      if (input.posterMediaId === media.id) {
+        throw new AppError(
+          422,
+          "POSTER_SELF_REFERENCE",
+          "A media record cannot use itself as a poster.",
+        );
+      }
+      const posterLock = await MediaModel.updateOne(
+        {
+          _id: input.posterMediaId,
+          status: "ready",
+          kind: "image",
+        },
+        { $inc: { referenceGuard: 1 } },
+        { session },
+      );
+      if (posterLock.matchedCount !== 1) {
+        throw new AppError(
+          409,
+          "POSTER_NOT_READY",
+          "Select a distinct ready image as the video poster.",
+        );
+      }
+      media.posterMediaId = toObjectId(input.posterMediaId);
+    }
+    await media.save({ session });
+    return toAdminMediaDto(media, storageProvider);
+  });
+}
+
+function objectIdEquals(
+  value: Types.ObjectId | undefined,
+  expected: Types.ObjectId,
+): boolean {
+  return value?.equals(expected) ?? false;
+}
+
+function categoryUsages(
+  category: CategoryDocument,
+  mediaId: Types.ObjectId,
+): MediaUsageDto[] {
+  const usages: MediaUsageDto[] = [];
+  const ownerId = category._id.toString();
+  const ownerLabel = category.slug;
+  if (objectIdEquals(category.image?.mediaId, mediaId)) {
+    usages.push({
+      kind: "category-working-image",
+      ownerId,
+      ownerLabel,
+      path: "image.mediaId",
+    });
+  }
+  for (const locale of LOCALE_CODES) {
+    const translation = category.translations.get(locale);
+    if (objectIdEquals(translation?.seo.openGraphMediaId, mediaId)) {
+      usages.push({
+        kind: "category-working-seo",
+        ownerId,
+        ownerLabel,
+        path: `translations.${locale}.seo.openGraphMediaId`,
+        locale,
+      });
+    }
+    const snapshot = category.publishedSnapshots.get(locale);
+    if (objectIdEquals(snapshot?.data.seo.openGraphMediaId, mediaId)) {
+      usages.push({
+        kind: "category-published-seo",
+        ownerId,
+        ownerLabel,
+        path: `publishedSnapshots.${locale}.data.seo.openGraphMediaId`,
+        locale,
+      });
+    }
+  }
+  if (objectIdEquals(category.publishedGlobal?.data.imageMediaId, mediaId)) {
+    usages.push({
+      kind: "category-published-image",
+      ownerId,
+      ownerLabel,
+      path: "publishedGlobal.data.imageMediaId",
+    });
+  }
+  return usages;
+}
+
+async function usageDocuments(
+  mediaId: Types.ObjectId,
+  session?: ClientSession,
+): Promise<MediaUsageDto[]> {
+  const categoryPaths = [
+    { "image.mediaId": mediaId },
+    { "publishedGlobal.data.imageMediaId": mediaId },
+    ...LOCALE_CODES.flatMap((locale) => [
+      { [`translations.${locale}.seo.openGraphMediaId`]: mediaId },
+      {
+        [`publishedSnapshots.${locale}.data.seo.openGraphMediaId`]:
+          mediaId,
+      },
+    ]),
+  ];
+  const categoryQuery = CategoryModel.find({
+    status: { $ne: "deleting" },
+    $or: categoryPaths,
+  });
+  const posterQuery = MediaModel.find({
+    status: { $ne: "deleting" },
+    posterMediaId: mediaId,
+  });
+  if (session !== undefined) {
+    categoryQuery.session(session);
+    posterQuery.session(session);
+  }
+  const [categories, posterOwners] = await Promise.all([
+    categoryQuery,
+    posterQuery,
+  ]);
+  const usages = categories.flatMap((category) =>
+    categoryUsages(category, mediaId),
+  );
+  usages.push(
+    ...posterOwners.map((media) => ({
+      kind: "media-poster" as const,
+      ownerId: media._id.toString(),
+      ownerLabel: media.originalName,
+      path: "posterMediaId",
+    })),
+  );
+  return usages.sort(
+    (left, right) =>
+      left.kind.localeCompare(right.kind) ||
+      left.ownerLabel.localeCompare(right.ownerLabel) ||
+      left.path.localeCompare(right.path),
+  );
+}
+
+export async function getMediaUsages(id: string): Promise<MediaUsagesDto> {
+  await requireMedia(id);
+  return { usages: await usageDocuments(toObjectId(id)) };
+}
+
+export async function lockReadyCategoryMedia(
+  mediaIds: readonly string[],
+  session: ClientSession,
+): Promise<void> {
+  for (const id of new Set(mediaIds)) {
+    const result = await MediaModel.updateOne(
+      { _id: id, status: "ready", kind: "image" },
+      { $inc: { referenceGuard: 1 } },
+      { session },
+    );
+    if (result.matchedCount !== 1) {
+      throw new AppError(
+        409,
+        "MEDIA_NOT_READY",
+        "Category images and SEO media must reference ready images.",
+      );
+    }
+  }
+}
+
+export async function deleteMedia(
+  id: string,
+  version: number,
+  storageProvider: StorageProvider,
+): Promise<void> {
+  const previousStatus = await inTransaction(async (session) => {
+    const media = await requireMedia(id, session);
+    if (media.status === "deleting") return "ready" as const;
+    assertVersion(media, version);
+    if (media.status !== "ready" && media.status !== "failed") {
+      throw new AppError(
+        409,
+        "MEDIA_DELETE_UNAVAILABLE",
+        "This media record cannot currently be deleted.",
+      );
+    }
+    const status = media.status;
+    media.status = "deleting";
+    await media.save({ session });
+    return status;
+  });
+
+  const mediaId = toObjectId(id);
+  const usages = await usageDocuments(mediaId);
+  if (usages.length > 0) {
+    await inTransaction(async (session) => {
+      const media = await requireMedia(id, session);
+      if (media.status === "deleting") {
+        media.status = previousStatus;
+        await media.save({ session });
+      }
+      return true;
+    });
+    throw new AppError(
+      409,
+      "MEDIA_IN_USE",
+      "This media is referenced. Remove every usage before deleting it.",
+    );
+  }
+
+  const media = await requireMedia(id);
+  if (media.storage.provider !== storageProvider.id) {
+    throw new AppError(
+      503,
+      "STORAGE_PROVIDER_UNAVAILABLE",
+      "The media storage provider is unavailable.",
+    );
+  }
+  try {
+    await storageProvider.delete(media.storage.key);
+  } catch {
+    throw new AppError(
+      503,
+      "MEDIA_CLEANUP_FAILED",
+      "The stored object could not be removed. Retry deletion safely.",
+    );
+  }
+
+  try {
+    await inTransaction(async (session) => {
+      const deleting = await requireMedia(id, session);
+      if (deleting.status !== "deleting") {
+        throw new AppError(
+          409,
+          "MEDIA_DELETE_STATE_CHANGED",
+          "The media deletion state changed. Refresh and retry.",
+        );
+      }
+      const concurrentUsages = await usageDocuments(mediaId, session);
+      if (concurrentUsages.length > 0) {
+        throw new AppError(
+          409,
+          "MEDIA_IN_USE",
+          "This media became referenced during deletion.",
+        );
+      }
+      await MediaModel.deleteOne({ _id: mediaId, status: "deleting" }).session(
+        session,
+      );
+      return true;
+    });
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(
+      503,
+      "MEDIA_CLEANUP_FAILED",
+      "The media record could not be finalized. Retry deletion safely.",
+    );
+  }
+}

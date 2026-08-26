@@ -48,7 +48,19 @@ const environmentSchema = z.object({
   MAX_DOCUMENT_BYTES: z.coerce.number().int().positive().default(50 * 1024 * 1024),
   NEXT_REVALIDATION_URL: z.url(),
   NEXT_REVALIDATION_SECRET: secretSchema,
-  TRUST_PROXY: trustProxySchema.default(false)
+  TRUST_PROXY: trustProxySchema.default(false),
+  SESSION_IDLE_TIMEOUT_MINUTES: z.coerce.number().int().min(1).max(1_440).default(30),
+  SESSION_ABSOLUTE_TIMEOUT_HOURS: z.coerce.number().int().min(1).max(168).default(8),
+  LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100).default(5),
+  ADMIN_MUTATION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1_000).default(120)
+}).superRefine((value, context) => {
+  if (value.SESSION_ABSOLUTE_TIMEOUT_HOURS * 60 < value.SESSION_IDLE_TIMEOUT_MINUTES) {
+    context.addIssue({
+      code: "custom",
+      path: ["SESSION_ABSOLUTE_TIMEOUT_HOURS"],
+      message: "Absolute session timeout must not be shorter than the idle timeout"
+    });
+  }
 });
 
 export type AppConfig = Readonly<{
@@ -68,6 +80,10 @@ export type AppConfig = Readonly<{
   nextRevalidationSecret: string;
   trustProxy: false | number;
   jsonBodyLimitBytes: number;
+  sessionIdleTimeoutMs: number;
+  sessionAbsoluteTimeoutMs: number;
+  loginRateLimitMax: number;
+  adminMutationRateLimitMax: number;
 }>;
 
 export class ConfigurationError extends Error {
@@ -101,6 +117,10 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     nextRevalidationUrl: result.data.NEXT_REVALIDATION_URL,
     nextRevalidationSecret: result.data.NEXT_REVALIDATION_SECRET,
     trustProxy: result.data.TRUST_PROXY,
-    jsonBodyLimitBytes: 1024 * 1024
+    jsonBodyLimitBytes: 1024 * 1024,
+    sessionIdleTimeoutMs: result.data.SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1_000,
+    sessionAbsoluteTimeoutMs: result.data.SESSION_ABSOLUTE_TIMEOUT_HOURS * 60 * 60 * 1_000,
+    loginRateLimitMax: result.data.LOGIN_RATE_LIMIT_MAX,
+    adminMutationRateLimitMax: result.data.ADMIN_MUTATION_RATE_LIMIT_MAX
   };
 }

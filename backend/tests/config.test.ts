@@ -23,6 +23,8 @@ describe("environment configuration", () => {
     expect(config.frontendOrigin).toBe("http://localhost:3000");
     expect(config.maxImageBytes).toBe(15 * 1024 * 1024);
     expect(config.trustProxy).toBe(false);
+    expect(config.sessionIdleTimeoutMs).toBe(30 * 60 * 1_000);
+    expect(config.sessionAbsoluteTimeoutMs).toBe(8 * 60 * 60 * 1_000);
   });
 
   it("fails startup configuration for missing or short secrets", () => {
@@ -39,5 +41,15 @@ describe("environment configuration", () => {
     expect(() =>
       loadConfig({ ...validEnvironment, FRONTEND_ORIGIN: "http://localhost:3000/app" })
     ).toThrow(/FRONTEND_ORIGIN/);
+  });
+
+  it("rejects an absolute session lifetime shorter than its idle window", () => {
+    expect(() =>
+      loadConfig({
+        ...validEnvironment,
+        SESSION_IDLE_TIMEOUT_MINUTES: "121",
+        SESSION_ABSOLUTE_TIMEOUT_HOURS: "2"
+      })
+    ).toThrow(/SESSION_ABSOLUTE_TIMEOUT_HOURS/);
   });
 });
