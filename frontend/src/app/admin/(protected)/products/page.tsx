@@ -1,11 +1,23 @@
-import { AdminRouteIntro } from "@/admin/components/AdminRouteIntro";
+import { Suspense } from "react";
+import { ProductWorkspace } from "@/admin/products/ProductWorkspace";
+
+function ProductWorkspaceFallback() {
+  return (
+    <section aria-live="polite" className="product-workspace">
+      <div className="product-loading">
+        <span />
+        <span />
+        <span />
+        Loading Product workspace…
+      </div>
+    </section>
+  );
+}
 
 export default function AdminProductsPage() {
   return (
-    <AdminRouteIntro
-      eyebrow="Products · Phase 5–6"
-      text="Product authoring is intentionally unavailable until its schema, publication service, and editor are implemented and tested."
-      title="Product workspace reserved."
-    />
+    <Suspense fallback={<ProductWorkspaceFallback />}>
+      <ProductWorkspace />
+    </Suspense>
   );
 }

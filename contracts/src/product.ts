@@ -1,7 +1,13 @@
 import { z } from "zod";
 
-import { fieldErrorSchema, objectIdStringSchema } from "./api.js";
-import { localeCodeSchema } from "./locale.js";
+import {
+  fieldErrorSchema,
+  objectIdStringSchema,
+  paginationQuerySchema,
+} from "./api.js";
+import { categorySlugSchema } from "./category.js";
+import { DEFAULT_LOCALE, localeCodeSchema } from "./locale.js";
+import { publicMediaDtoSchema } from "./media.js";
 import {
   legacyTemplateIdSchema,
   productTemplateIdSchema,
@@ -620,6 +626,298 @@ export const productSummaryDtoSchema = z.object({
   availableLocales: z.array(localeCodeSchema).min(1),
 });
 
+export const adminProductStatusSchema = z.enum([
+  "draft",
+  "published",
+  "archived",
+]);
+
+export const productLocaleStateSchema = z.enum([
+  "incomplete",
+  "draft",
+  "published",
+  "changes-pending",
+]);
+
+export const productListSortSchema = z.enum([
+  "updated-desc",
+  "updated-asc",
+  "order-asc",
+  "order-desc",
+  "name-asc",
+  "name-desc",
+]);
+
+export const adminProductListQuerySchema = paginationQuerySchema
+  .extend({
+    search: z.string().trim().min(1).max(120).optional(),
+    categoryId: objectIdStringSchema.optional(),
+    status: adminProductStatusSchema.optional(),
+    locale: localeCodeSchema.default(DEFAULT_LOCALE),
+    localeState: productLocaleStateSchema.optional(),
+    featured: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .optional(),
+    sort: productListSortSchema.default("updated-desc"),
+  })
+  .strict();
+
+export const productTranslationCompletenessSchema = z
+  .object({
+    hasTranslation: z.boolean(),
+    hasName: z.boolean(),
+    hasShortDescription: z.boolean(),
+    hasLongDescription: z.boolean(),
+    localizedSpecificationGroups: z.number().int().nonnegative(),
+    requiredSpecificationGroups: z.number().int().nonnegative(),
+    complete: z.boolean(),
+  })
+  .strict();
+
+export const adminProductListItemSchema = z
+  .object({
+    id: objectIdStringSchema,
+    slug: productSlugSchema,
+    name: z.string().min(1).max(PRODUCT_LIMITS.name),
+    nameLocale: localeCodeSchema.optional(),
+    names: z.partialRecord(
+      localeCodeSchema,
+      z.string().min(1).max(PRODUCT_LIMITS.name),
+    ),
+    model: z.string().max(PRODUCT_LIMITS.model).optional(),
+    series: z.string().max(PRODUCT_LIMITS.series).optional(),
+    categoryId: objectIdStringSchema,
+    pageTemplate: productTemplateIdSchema,
+    displayOrder: productOrderSchema,
+    featured: z.boolean(),
+    status: adminProductStatusSchema,
+    sharedState: z.enum(["draft", "published", "changes-pending"]),
+    localeStates: z.record(localeCodeSchema, productLocaleStateSchema),
+    translationCompleteness: z.record(
+      localeCodeSchema,
+      productTranslationCompletenessSchema,
+    ),
+    publishedLocales: z.array(localeCodeSchema),
+    canDeletePermanently: z.boolean(),
+    updatedAt: dateTimeSchema,
+    version: z.number().int().min(0),
+  })
+  .strict();
+
+export const productCollectionCountsSchema = z
+  .object({
+    all: z.number().int().nonnegative(),
+    draft: z.number().int().nonnegative(),
+    published: z.number().int().nonnegative(),
+    archived: z.number().int().nonnegative(),
+    featured: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const adminProductListDtoSchema = z
+  .object({
+    items: z.array(adminProductListItemSchema),
+    pagination: z.object({
+      page: z.number().int().min(1),
+      limit: z.number().int().min(1).max(100),
+      total: z.number().int().nonnegative(),
+      totalPages: z.number().int().nonnegative(),
+    }),
+    collectionCounts: productCollectionCountsSchema,
+  })
+  .strict();
+
+export const publicProductListSortSchema = z.enum([
+  "order-asc",
+  "order-desc",
+  "name-asc",
+  "name-desc",
+  "updated-desc",
+]);
+
+export const publicProductListQuerySchema = paginationQuerySchema
+  .extend({
+    locale: localeCodeSchema,
+    category: categorySlugSchema.optional(),
+    featured: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .optional(),
+    sort: publicProductListSortSchema.default("order-asc"),
+  })
+  .strict();
+
+export const publicProductVisibilityQuerySchema = z
+  .object({ locale: localeCodeSchema })
+  .strict();
+
+export const publicProductDetailQuerySchema = z
+  .object({
+    locale: localeCodeSchema,
+    publicationRevision: revisionSchema,
+  })
+  .strict();
+
+export const publicProductBreadcrumbSchema = z
+  .object({
+    slug: categorySlugSchema,
+    name: z.string().min(1).max(160),
+  })
+  .strict();
+
+export const publicProductCategorySchema = z
+  .object({
+    id: objectIdStringSchema,
+    slug: categorySlugSchema,
+    name: z.string().min(1).max(160),
+    breadcrumbs: z.array(publicProductBreadcrumbSchema).min(1).max(2),
+  })
+  .strict();
+
+export const publicProductMediaUsageDtoSchema = publicMediaDtoSchema
+  .extend({
+    role: productMediaRoleSchema,
+    order: productOrderSchema,
+    locale: localeCodeSchema.optional(),
+    durationSeconds: z.number().nonnegative().optional(),
+    poster: publicMediaDtoSchema.optional(),
+    alt: z.string().min(1).max(PRODUCT_LIMITS.mediaText).optional(),
+    title: z.string().min(1).max(PRODUCT_LIMITS.mediaText).optional(),
+    caption: z.string().min(1).max(PRODUCT_LIMITS.mediaCaption).optional(),
+  })
+  .strict();
+
+export const publicProductSummaryDtoSchema = z
+  .object({
+    id: objectIdStringSchema,
+    slug: productSlugSchema,
+    name: z.string().min(1).max(PRODUCT_LIMITS.name),
+    shortDescription: z.string().min(1).max(PRODUCT_LIMITS.shortDescription),
+    model: z.string().max(PRODUCT_LIMITS.model).optional(),
+    series: z.string().max(PRODUCT_LIMITS.series).optional(),
+    category: publicProductCategorySchema,
+    pageTemplate: legacyTemplateIdSchema,
+    featured: z.boolean(),
+    publicationRevision: revisionSchema,
+    updatedAt: dateTimeSchema,
+    availableLocales: z.array(localeCodeSchema).min(1),
+    primaryMedia: publicProductMediaUsageDtoSchema.optional(),
+    fallbackFields: z.array(z.string().min(1).max(240)),
+  })
+  .strict();
+
+export const publicProductListDtoSchema = z
+  .object({
+    items: z.array(publicProductSummaryDtoSchema),
+    pagination: z
+      .object({
+        page: z.number().int().min(1),
+        limit: z.number().int().min(1).max(100),
+        total: z.number().int().nonnegative(),
+        totalPages: z.number().int().nonnegative(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const publicProductSpecificationItemSchema = z
+  .object({
+    key: productNestedKeySchema,
+    label: z.string().min(1).max(PRODUCT_LIMITS.specificationLabel),
+    order: productOrderSchema,
+    value: z.string().max(PRODUCT_LIMITS.specificationValue),
+    unit: z.string().max(PRODUCT_LIMITS.specificationUnit).optional(),
+    note: z.string().max(PRODUCT_LIMITS.specificationNote).optional(),
+  })
+  .strict();
+
+export const publicProductSpecificationGroupSchema = z
+  .object({
+    key: productNestedKeySchema,
+    label: z.string().min(1).max(PRODUCT_LIMITS.specificationLabel),
+    order: productOrderSchema,
+    items: z.array(publicProductSpecificationItemSchema),
+  })
+  .strict();
+
+export const publicProductFeatureSchema = productFeatureSchema
+  .omit({ iconMediaId: true })
+  .extend({ iconMedia: publicMediaDtoSchema.optional() })
+  .strict();
+
+export const publicProductSeoDtoSchema = z
+  .object({
+    title: z.string().min(1).max(PRODUCT_LIMITS.seoTitle),
+    description: z.string().max(PRODUCT_LIMITS.seoDescription).optional(),
+    keywords: z.array(z.string().min(1).max(PRODUCT_LIMITS.seoKeyword)),
+    openGraphTitle: z.string().max(PRODUCT_LIMITS.seoTitle).optional(),
+    openGraphDescription: z
+      .string()
+      .max(PRODUCT_LIMITS.seoDescription)
+      .optional(),
+    openGraphMedia: publicMediaDtoSchema.optional(),
+  })
+  .strict();
+
+export const publicProductDetailDtoSchema = publicProductSummaryDtoSchema
+  .omit({ primaryMedia: true })
+  .extend({
+    longDescriptionMarkdown: z
+      .string()
+      .max(PRODUCT_LIMITS.longDescriptionMarkdown)
+      .optional(),
+    features: z.array(publicProductFeatureSchema),
+    advantages: z.array(productTextItemSchema),
+    applications: z.array(productTextItemSchema),
+    warrantyInformation: z
+      .string()
+      .max(PRODUCT_LIMITS.warrantyInformation)
+      .optional(),
+    seo: publicProductSeoDtoSchema,
+    specifications: z.array(publicProductSpecificationGroupSchema),
+    media: z.array(publicProductMediaUsageDtoSchema),
+    relatedProducts: z.array(publicProductSummaryDtoSchema).max(6),
+  })
+  .strict();
+
+export const publicProductVisibilityDtoSchema = z
+  .object({
+    slug: productSlugSchema,
+    locale: localeCodeSchema,
+    publicationRevision: revisionSchema,
+    updatedAt: dateTimeSchema,
+    availableLocales: z.array(localeCodeSchema).min(1),
+  })
+  .strict();
+
+export const publicSitemapEntriesQuerySchema = paginationQuerySchema.strict();
+
+export const publicSitemapEntrySchema = z
+  .object({
+    kind: z.enum(["category", "product"]),
+    locale: localeCodeSchema,
+    slug: z.string().min(2).max(140),
+    path: z.string().startsWith("/").max(320),
+    updatedAt: dateTimeSchema,
+    availableLocales: z.array(localeCodeSchema).min(1),
+  })
+  .strict();
+
+export const publicSitemapEntriesDtoSchema = z
+  .object({
+    items: z.array(publicSitemapEntrySchema),
+    pagination: z
+      .object({
+        page: z.number().int().min(1),
+        limit: z.number().int().min(1).max(100),
+        total: z.number().int().nonnegative(),
+        totalPages: z.number().int().nonnegative(),
+      })
+      .strict(),
+  })
+  .strict();
+
 export type ProductFeature = z.infer<typeof productFeatureSchema>;
 export type ProductTextItem = z.infer<typeof productTextItemSchema>;
 export type ProductSeo = z.infer<typeof productSeoSchema>;
@@ -646,6 +944,34 @@ export type CreateProductRequest = z.infer<typeof createProductRequestSchema>;
 export type UpdateProductRequest = z.infer<typeof updateProductRequestSchema>;
 export type ProductAdminDto = z.infer<typeof productAdminDtoSchema>;
 export type ProductSummaryDto = z.infer<typeof productSummaryDtoSchema>;
+export type AdminProductListQuery = z.output<
+  typeof adminProductListQuerySchema
+>;
+export type AdminProductListItem = z.infer<
+  typeof adminProductListItemSchema
+>;
+export type AdminProductListDto = z.infer<typeof adminProductListDtoSchema>;
+export type PublicProductListQuery = z.output<
+  typeof publicProductListQuerySchema
+>;
+export type PublicProductSummaryDto = z.infer<
+  typeof publicProductSummaryDtoSchema
+>;
+export type PublicProductListDto = z.infer<
+  typeof publicProductListDtoSchema
+>;
+export type PublicProductMediaUsageDto = z.infer<
+  typeof publicProductMediaUsageDtoSchema
+>;
+export type PublicProductDetailDto = z.infer<
+  typeof publicProductDetailDtoSchema
+>;
+export type PublicProductVisibilityDto = z.infer<
+  typeof publicProductVisibilityDtoSchema
+>;
+export type PublicSitemapEntriesDto = z.infer<
+  typeof publicSitemapEntriesDtoSchema
+>;
 export type ProductPublicationIssue = z.infer<
   typeof productPublicationIssueSchema
 >;

@@ -10,6 +10,10 @@ import { createHealthRouter } from "./health.js";
 import type { StorageProvider } from "../../storage/StorageProvider.js";
 import { createAdminMediaRouter } from "./media.js";
 import { createAdminProductsRouter } from "./products.js";
+import {
+  createPublicProductsRouter,
+  createPublicSitemapEntriesRouter
+} from "./publicProducts.js";
 
 export function createV1Router(
   getDatabaseHealth: () => DatabaseHealth,
@@ -37,5 +41,10 @@ export function createV1Router(
     createAdminProductsRouter(config, now ?? Date.now)
   );
   router.use("/public/categories", createPublicCategoriesRouter());
+  router.use("/public/products", createPublicProductsRouter(storageProvider));
+  router.use(
+    "/public/sitemap-entries",
+    createPublicSitemapEntriesRouter()
+  );
   return router;
 }

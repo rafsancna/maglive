@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PRODUCT_LIMITS,
+  adminProductListQuerySchema,
   createProductRequestSchema,
   duplicateProductRequestSchema,
   mediaUsageDtoSchema,
@@ -73,6 +74,41 @@ function workingProduct() {
 }
 
 describe("product contracts", () => {
+  it("defines strict, bounded administrator list query defaults and filters", () => {
+    expect(adminProductListQuerySchema.parse({})).toEqual({
+      page: 1,
+      limit: 20,
+      locale: "en",
+      sort: "updated-desc",
+    });
+    expect(
+      adminProductListQuerySchema.parse({
+        page: "2",
+        limit: "100",
+        locale: "zh",
+        status: "published",
+        localeState: "changes-pending",
+        featured: "false",
+        sort: "name-desc",
+      }),
+    ).toEqual({
+      page: 2,
+      limit: 100,
+      locale: "zh",
+      status: "published",
+      localeState: "changes-pending",
+      featured: false,
+      sort: "name-desc",
+    });
+    expect(
+      adminProductListQuerySchema.safeParse({ search: "x".repeat(121) })
+        .success,
+    ).toBe(false);
+    expect(
+      adminProductListQuerySchema.safeParse({ unknown: "value" }).success,
+    ).toBe(false);
+  });
+
   it("parses one bounded shape for multilingual modules and inverters", () => {
     const module = productWorkingDataSchema.parse(workingProduct());
     const inverter = productWorkingDataSchema.parse({

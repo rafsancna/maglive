@@ -114,8 +114,9 @@ Category image fields are contextual usages. The editor uses the shared media pi
 
 Express owns the protected Product lifecycle. Incomplete working drafts may be saved, while publication separately validates templates, localized core fields, specification structure, ready role-compatible media, and the complete localized category chain. Shared changes require explicit atomic promotion across every live locale.
 
-Protected lifecycle endpoints implemented before the bounded list query in PH05-04:
+Protected Product endpoints:
 
+- `GET /api/v1/admin/products`
 - `POST /api/v1/admin/products`
 - `GET/PATCH/DELETE /api/v1/admin/products/:id`
 - `POST /api/v1/admin/products/:id/duplicate`
@@ -124,6 +125,21 @@ Protected lifecycle endpoints implemented before the bounded list query in PH05-
 - `POST /api/v1/admin/products/:id/archive`
 
 Every update and lifecycle command uses optimistic versions. Published slugs are immutable; duplicates reuse media references without copying stored objects; only never-published drafts can be permanently deleted. Public Product endpoints remain deferred to PH05-05.
+
+The administrator list is one-based and bounded to 100 rows. It supports strict category, global-status, locale-publication-state, featured, and allowlisted sort filters. Search input is capped and escaped before matching slug, model, series, and names for every locale in the shared registry; regex operators and unknown query keys are rejected. Results contain list summaries rather than editing documents, use an ObjectId tie-breaker, and include collection counts plus per-locale completeness.
+
+The initial MongoDB query plans for status/category/order and status/featured/order are covered by integration tests. Substring name search, locale-aware name sorting, and derived locale-state filtering are correctness-first paths for the initial modest catalog. Adding a locale automatically adds its name path, but each locale expansion requires a query-plan/data-volume review; adopt a dedicated indexed search strategy such as Atlas Search before those paths are used at large catalog scale. Fuzzy search remains intentionally deferred.
+
+Public Product reads are snapshot-only and remain `no-store` until Phase 8 enables tested invalidation:
+
+- `GET /api/v1/public/products` returns bounded localized summaries using `locale`, optional `category`/`featured`, and allowlisted pagination/sorting.
+- `GET /api/v1/public/products/:slug/visibility` verifies the requested locale and complete Category ancestor chain, then returns the current `publicationRevision`.
+- `GET /api/v1/public/products/:slug` requires that revision and returns a composed global/local snapshot; an obsolete revision returns `409 PUBLICATION_REVISION_CHANGED`.
+- `GET /api/v1/public/sitemap-entries` returns bounded published Category/Product locale-route pairs and public snapshot timestamps.
+
+Draft, archived, deleting, incoherent, untranslated, or category-hidden Products receive the same public 404 and never enter lists, related items, or sitemap results. Detail DTOs use shared snapshot identity/order, requested-locale content, registry-derived `availableLocales`, API-computed media URLs, and explicit `fallbackFields` when an optional value comes from reusable Media metadata or the coherent English snapshot. They never expose working translations, audit actors, storage keys, checksums, or other locale snapshots. Related Products are limited to four ordered items in the same canonical leaf category.
+
+The sitemap feed sorts the complete modest-catalog set by canonical localized path, then applies one-based maximum-100 pagination. Next must request every page until `totalPages`; revisit this aggregation strategy before approaching sitemap protocol or in-memory catalog scale limits.
 
 ## Media operations
 

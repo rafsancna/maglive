@@ -1,4 +1,6 @@
 import {
+  adminProductListDtoSchema,
+  adminProductListQuerySchema,
   createProductRequestSchema,
   duplicateProductRequestSchema,
   objectIdStringSchema,
@@ -27,6 +29,7 @@ import {
   unpublishProduct,
   updateProduct,
 } from "../../services/productService.js";
+import { listAdminProducts } from "../../services/productQueryService.js";
 import { publishProduct } from "../../services/publishingService.js";
 import { parseRequestValue } from "../validation.js";
 
@@ -56,6 +59,22 @@ export function createAdminProductsRouter(
   ];
 
   router.use(requireAdmin);
+
+  router.get("/", async (request, response, next) => {
+    try {
+      const query = parseRequestValue(
+        adminProductListQuerySchema,
+        request.query,
+        "query",
+      );
+      const data = adminProductListDtoSchema.parse(
+        await listAdminProducts(query),
+      );
+      response.json({ data });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.post("/", ...mutationGuards, async (request, response, next) => {
     try {

@@ -872,7 +872,7 @@ function coherentSnapshot(
   );
 }
 
-function coherentChain(
+export function coherentCategoryChain(
   category: CategoryDocument,
   locale: LocaleCode,
   byId: ReadonlyMap<string, CategoryDocument>,
@@ -897,19 +897,20 @@ function coherentChain(
   return chain;
 }
 
-function toPublicDto(
+export function toPublicCategoryDto(
   category: CategoryDocument,
   locale: LocaleCode,
   byId: ReadonlyMap<string, CategoryDocument>,
 ): PublicCategoryDto | undefined {
-  const chain = coherentChain(category, locale, byId);
+  const chain = coherentCategoryChain(category, locale, byId);
   const global = category.publishedGlobal;
   const localized = category.publishedSnapshots.get(locale);
   if (chain === undefined || global === undefined || localized === undefined) {
     return undefined;
   }
   const availableLocales = LOCALE_CODES.filter(
-    (candidate) => coherentChain(category, candidate, byId) !== undefined,
+    (candidate) =>
+      coherentCategoryChain(category, candidate, byId) !== undefined,
   );
   return {
     id: category._id.toString(),
@@ -956,7 +957,9 @@ function toPublicDto(
   };
 }
 
-async function publicCategoryDocuments(): Promise<CategoryDocument[]> {
+export async function loadPublicCategoryDocuments(): Promise<
+  CategoryDocument[]
+> {
   return CategoryModel.find({
     status: "active",
     publishedGlobal: { $exists: true },
@@ -969,13 +972,13 @@ async function publicCategoryDocuments(): Promise<CategoryDocument[]> {
 export async function getPublicCategoryTree(
   locale: LocaleCode,
 ): Promise<PublicCategoryTreeDto> {
-  const documents = await publicCategoryDocuments();
+  const documents = await loadPublicCategoryDocuments();
   const byId = new Map(
     documents.map((category) => [category._id.toString(), category]),
   );
   const dtoById = new Map<string, PublicCategoryTreeNode>();
   for (const category of documents) {
-    const dto = toPublicDto(category, locale, byId);
+    const dto = toPublicCategoryDto(category, locale, byId);
     if (dto !== undefined) {
       dtoById.set(category._id.toString(), { ...dto, children: [] });
     }
@@ -1003,7 +1006,7 @@ export async function getPublicCategory(
   slug: string,
   locale: LocaleCode,
 ): Promise<PublicCategoryDto> {
-  const documents = await publicCategoryDocuments();
+  const documents = await loadPublicCategoryDocuments();
   const byId = new Map(
     documents.map((category) => [category._id.toString(), category]),
   );
@@ -1011,7 +1014,9 @@ export async function getPublicCategory(
     (candidate) => candidate.publishedGlobal?.data.slug === slug,
   );
   const dto =
-    category === undefined ? undefined : toPublicDto(category, locale, byId);
+    category === undefined
+      ? undefined
+      : toPublicCategoryDto(category, locale, byId);
   if (dto === undefined) {
     throw new AppError(404, "CATEGORY_NOT_FOUND", "The category was not found.");
   }

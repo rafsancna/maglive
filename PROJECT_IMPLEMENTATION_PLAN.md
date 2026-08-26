@@ -4,12 +4,12 @@
 
 | Document field | Value |
 |---|---|
-| Document version | 1.8 |
+| Document version | 2.0 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 5 in progress — PH05-03 complete |
-| Task progress | 20 / 48 |
-| Current phase | Phase 5 — Product Backend |
-| Next task | PH05-04 |
+| Implementation status | Phase 5 complete — Phase 6 ready |
+| Task progress | 22 / 48 |
+| Current phase | Phase 6 — Product CMS |
+| Next task | PH06-01 |
 | Last updated | 2026-08-26 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
@@ -1553,7 +1553,7 @@ Master task state:
 - [x] Phase 2 — Authentication
 - [x] Phase 3 — Categories
 - [x] Phase 4 — Media
-- [ ] Phase 5 — Product Backend
+- [x] Phase 5 — Product Backend
 - [ ] Phase 6 — Product CMS
 - [ ] Phase 7 — Public Catalog and Templates
 - [ ] Phase 8 — Preview and Cache
@@ -2243,9 +2243,9 @@ Master task state:
 
 **Notes / results:** Added strict create/update/duplicate/version/unpublish contracts and authenticated, CSRF/Origin/rate-limited Express routes for Product create, read, update, duplicate, publish, unpublish, archive, and permanent draft deletion. Transactional services enforce optimistic versions, clearable optional model/series values, immutable published slugs, active leaf-category assignment, ready role-compatible working media and video posters, audit actors, English retention, all-locale unpublication, archive snapshot preservation, and never-published-only permanent deletion. Duplicate products receive a unique draft slug, copy only working content and references, clear every live/lifecycle field, and never invoke storage. Category reference locks and Product queries now prevent a product-assigned category from gaining children, block referenced category deletion, and block locale unpublication while a live Product snapshot depends on it. Media usage reporting/deletion now covers every Product working usage/SEO/icon field and every global/locale snapshot path in addition to Category and poster references; a product-used video cannot lose its required ready poster. Category and Media reference writes share transaction-conflict guards with Product operations, closing assignment/child/delete races. HTTP and replica-set tests cover authorization/CSRF, create/read/incomplete draft update, optional-field clearing, stale versions, slug collision/immutability, invalid categories/media, English/Chinese publication, explicit shared promotion, working/live isolation, duplicate-without-file-copy, retention, archive, all-locale unpublication, delete eligibility, Category/Media/poster blockers including media retained only in snapshots, stable usage paths, and concurrent category/media reference attempts. Bounded administrator querying, public Product DTOs/routes, cache invalidation, preview, and CMS UI remain deferred.
 
-### [ ] PH05-04 — Add bounded administrator product querying
+### [x] PH05-04 — Add bounded administrator product querying
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Support a predictable, efficient product-list API.
 
@@ -2272,11 +2272,11 @@ Master task state:
 
 **Definition of Done:** The administrator list endpoint remains bounded, deterministic, safe from operator injection, and suitable for the planned UI.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added a strict shared query contract and authenticated `GET /api/v1/admin/products` endpoint with one-based default-20/maximum-100 pagination, capped and regex-escaped search, registry-driven locale-name paths, category/global-status/derived-locale-state/featured filters, six allowlisted sorts, and ascending ObjectId tie breaks. Responses expose bounded list summaries, collection counts, all-registry-locale names and completeness reports, coherent published locales, and derived shared/locale publication states without returning working translations, specifications, media usages, snapshots, or audit actors. Ordinary pages use database sort/skip/limit/count; the derived locale-state path streams sorted matches through hash-based state derivation so memory remains page-bounded and no drifting publication flag is persisted. MongoDB locale collation is selected from registry metadata for name sorts. The README records that substring search, locale-name sorting, and derived-state scans are correctness-first for the initial modest catalog, and requires data-volume/query-plan review as locales or catalog size grow before a dedicated indexed search strategy is adopted. Contract and authenticated replica-set tests cover defaults, maximum and invalid limits, unknown/operator-shaped inputs, English/Chinese/literal-metacharacter search, every filter and sort, combinations, empty/beyond-final pages, deterministic ties, all locale states, completeness, projection privacy, collection counts, and unauthorized access. Execution-plan assertions verify the existing status/category/order and status/featured/order compound indexes are selected without collection scans. Atlas/fuzzy search, arbitrary sorts, saved filters, bulk actions, and frontend list work remain deferred.
 
-### [ ] PH05-05 — Implement public localized product APIs
+### [x] PH05-05 — Implement public localized product APIs
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Expose only public-safe, requested-locale product data for listings and detail pages.
 
@@ -2304,7 +2304,7 @@ Master task state:
 
 **Definition of Done:** Express provides complete localized DTOs for the public catalog and sitemap without exposing drafts, admin fields, raw maps, storage keys, or other translations.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added strict public Product list/detail/visibility and sitemap contracts plus no-store Express routes for `GET /api/v1/public/products`, `GET /api/v1/public/products/:slug/visibility`, revision-required `GET /api/v1/public/products/:slug`, and `GET /api/v1/public/sitemap-entries`. Public visibility requires global Published status, coherent global/requested-locale snapshots, and a complete active, non-deleting, locale-published Category ancestor chain; every hidden condition returns the same Product 404. Detail reads reject obsolete gates with `409 PUBLICATION_REVISION_CHANGED`, compose model/category/template/specification/media identity and order from `publishedGlobal`, and take only requested-locale editorial/contextual data from the matching locale snapshot. Working fields and other snapshots are never used. DTOs include registry-derived coherent `availableLocales`, localized Category breadcrumbs, sorted key-joined specifications, provider-computed ready-media URLs, video posters, normalized same-leaf related summaries capped at four, and explicit `fallbackFields` when optional content comes from the coherent English snapshot or reusable Media defaults. Lists use maximum-100 pagination, descendant-aware Category filtering, featured filtering, five allowlisted deterministic sorts, locale collation, and snapshot-based update times; drafts and incoherent records are excluded in the database predicate and revalidated during composition. The dedicated maximum-100 sitemap feed emits deterministic published Category/Product locale pairs with canonical localized paths and public snapshot timestamps; its modest-catalog in-memory merge and page-consumption algorithm are documented for later scale review. Shared public Category coherence/DTO helpers now serve both Category and Product reads, preventing visibility-rule drift. Contract and replica-set HTTP tests cover working/live isolation, every Product hidden state, missing/mismatched locale snapshots, root/leaf archived/deleting/missing-locale Category chains, new/obsolete revisions, optional fallback diagnostics, shared/local specification and media composition, URLs/posters/icons/OpenGraph assets, related products, filter/pagination/privacy behavior, sitemap pairs/pages, strict invalid queries, no-store errors, and unavailable referenced media. Next pages, cache tags, advanced recommendations, search, and localized slugs remain deferred.
 
 ## Phase 6 — Product CMS
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 5 in progress; PH05-03 complete |
-| Tasks complete | 20 / 48 |
-| Current phase | Phase 5 — Product Backend |
+| Overall status | Phase 5 passed; Phase 6 ready |
+| Tasks complete | 22 / 48 |
+| Current phase | Phase 6 — Product CMS |
 | Current task | None |
-| Next task | PH05-04 |
+| Next task | PH06-01 |
 | Blockers | None |
-| Phase exit status | Phase 5 in progress — Product persistence, deterministic publication, protected lifecycle APIs, and complete reference integrity are verified; bounded querying and public DTOs remain |
+| Phase exit status | Phase 5 passed — multilingual draft/admin/public Product APIs, snapshot publication, reference integrity, bounded querying, revision-gated public reads, and sitemap data are verified |
 
 ## 20.2 Append-only activity log
 
@@ -3346,6 +3346,9 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-26 | PH05-01 | Pending → Completed | Added strict bounded Product contracts, split snapshots, nested Mongoose schemas, five indexes, BSON-size enforcement, and safe DTO serialization. | contracts Product schemas/tests; backend Product model/schema helpers/model tests; this tracker | Solar-module/inverter round trips, snapshot coherence, optional/duplicate/locale/role/array/text/template-data/document-size boundaries, index inspection, and DTO-private-field checks pass; root lint, strict typecheck, 21 files / 79 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-02 |
 | 2026-08-26 | PH05-02 | Pending → Completed | Added deterministic product publication validation, canonical shared/locale hashes and CMS states, plus atomic first/locale/shared snapshot promotion. | contracts Product publication schemas/tests; backend publication domain/service, Product DTO mapper, and replica-set tests; this tracker | Incomplete/no-leakage, English-first/retention, split hashes/states, English then Chinese, unchanged-locale publish, explicit shared promotion/rollback, slug lock, category/media/template/specification paths, and valid module/inverter scenarios pass; root lint, strict typecheck, 22 files / 85 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-03 |
 | 2026-08-26 | PH05-03 | Pending → Completed | Added protected Product lifecycle APIs and transaction-backed Product/Category/Media reference integrity. | Product lifecycle contracts/routes/services/reference locks/tests; Category/Media integration; README; this tracker | CRUD/lifecycle, auth/CSRF, versions, slug rules, shared promotion, duplicate/no file copy, unpublish/archive/delete eligibility, complete working/live blockers, usage paths, and concurrent category/media reference races pass; root lint, strict typecheck, 23 files / 90 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-04 |
+| 2026-08-26 | PH05-04 | Pending → Completed | Added bounded, deterministic administrator Product search, filtering, sorting, pagination, counts, and completeness summaries. | Product list contracts/query service/admin route/tests; README; this tracker | English/Chinese/escaped search, all filters/sorts/states, combinations, pagination boundaries, tie breaks, privacy, auth/input rejection, and representative compound-index plans pass; root lint, strict typecheck, 24 files / 97 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-05 |
+| 2026-08-26 | PH05-05 | Pending → Completed | Added snapshot-only localized public Product list, revision-gated detail, visibility, related-item, media-composition, and sitemap APIs. | Public Product contracts/service/routes/tests; shared Category visibility helpers; README; this tracker | Product/category visibility isolation, revisions, fallback fields, composed specifications/media, related items, sitemap pagination, input/privacy/error paths, and shared DTO validation pass; root lint, strict typecheck, 26 files / 107 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | Phase 5 gate |
+| 2026-08-26 | PHASE-05 | In progress → Passed | Completed Product Backend with working/live isolation and public-safe multilingual APIs end to end. | All Phase 5 files plus README and this tracker | Root lint, strict typecheck, 26 files / 107 tests, all production builds, and production audit pass with 0 vulnerabilities; Phase 5 exit condition satisfied. | None | PH06-01 |
 
 ## 20.3 Implementation activity template
 
