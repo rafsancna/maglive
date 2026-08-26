@@ -4,12 +4,12 @@
 
 | Document field | Value |
 |---|---|
-| Document version | 1.5 |
+| Document version | 1.7 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 4 complete |
-| Task progress | 17 / 48 |
+| Implementation status | Phase 5 in progress — PH05-02 complete |
+| Task progress | 19 / 48 |
 | Current phase | Phase 5 — Product Backend |
-| Next task | PH05-01 |
+| Next task | PH05-03 |
 | Last updated | 2026-08-26 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
@@ -2139,9 +2139,9 @@ Master task state:
 
 ## Phase 5 — Product Backend
 
-### [ ] PH05-01 — Add Product model and bounded nested schemas
+### [x] PH05-01 — Add Product model and bounded nested schemas
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Persist flexible multilingual products without category-specific columns or uncontrolled mixed data.
 
@@ -2170,11 +2170,11 @@ Master task state:
 
 **Definition of Done:** One bounded, understandable Product model represents both product families and retains room for coded templates without becoming a page builder.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added strict JSON-safe Product contracts and one typed Mongoose model for solar modules, inverters, and future product families. Working translations, feature/advantage/application lists, grouped specifications, contextual media usages, SEO, split global/locale publication snapshots, audit fields, lifecycle status, and optimistic versioning are all bounded. Locale map keys, stable nested keys, orders, media roles, UUID revisions, array counts, and practical string lengths validate in both transport and persistence layers. A pre-validation BSON calculation rejects the complete document above 8 MiB. The future templateData envelope accepts unknown only through JSON compatibility, eight-level depth, and 256 KiB guards, while both current templates reject persistence of templateData and no Mixed schema exists. Five locked indexes and a mapper that emits plain objects, string IDs, and ISO dates are verified. Real replica-set tests round-trip module/inverter specifications and coherent/mismatched snapshots, exercise optional fields and every major bound, reject unsupported locales/unknown fields/extra category arrays, and prove API DTOs contain no Map, ObjectId, binary, storage path, or templateData values. Services, routes, publication behavior, and current-template templateData remain deferred exactly as planned.
 
-### [ ] PH05-02 — Implement draft and per-locale publication validation
+### [x] PH05-02 — Implement draft and per-locale publication validation
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Make publication an explicit, deterministic business operation distinct from saving drafts.
 
@@ -2205,7 +2205,7 @@ Master task state:
 
 **Definition of Done:** The same input always yields a clear publishable/not-publishable result, and no incomplete locale can be marked published.
 
-**Notes / results:** _Pending._
+**Notes / results:** Implemented strict publication request/report contracts, canonical shared and per-locale projections, SHA-256 source hashes, derived shared/locale CMS states, English-first and retention validation, immutable post-publication slugs, template-specific completeness, stable specification order/key checks, active coherent leaf-category/ancestor checks, and role-aware ready-media/PDF/video-poster validation with field-addressable errors and noncritical SEO/alt warnings. The transaction-backed publisher creates the shared plus English snapshots on first publication, replaces only a requested locale when shared content is unchanged, and requires an explicit all-live-locale promotion when shared content changes; a failed locale validation leaves every existing live revision unchanged. Draft saves remain independent of the publication service and do not mutate snapshots. Replica-set tests cover incomplete drafts, no leakage, split pending hashes/states, English-only then Chinese publication, English retention, shared-promotion confirmation/rollback/success, slug locking, missing/inactive/unpublished category ancestry, missing/wrong/posterless media, unknown templates, duplicate specification orders, stable editor paths, and valid module/inverter publication. CRUD/routes, lifecycle unpublication mutation, product reference integrity, public DTOs, preview/cache, and templateData remain deferred to their recorded tasks.
 
 ### [ ] PH05-03 — Implement product lifecycle APIs and complete reference integrity
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 4 complete; Phase 5 not started |
-| Tasks complete | 17 / 48 |
+| Overall status | Phase 5 in progress; PH05-02 complete |
+| Tasks complete | 19 / 48 |
 | Current phase | Phase 5 — Product Backend |
 | Current task | None |
-| Next task | PH05-01 |
+| Next task | PH05-03 |
 | Blockers | None |
-| Phase exit status | Phase 4 passed — secure local uploads, reusable media CMS, complete Category/poster reference integrity, recoverable deletion, and responsive picker integration verified |
+| Phase exit status | Phase 5 in progress — bounded Product persistence/contracts and deterministic publication are complete; lifecycle APIs/reference integrity, querying, and public DTOs remain |
 
 ## 20.2 Append-only activity log
 
@@ -3343,6 +3343,8 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-26 | PH04-03 | Pending → Completed | Added deterministic Category/poster usages and transaction-backed recoverable deletion. | backend media/category services/routes/tests | Working/live/poster conflicts, wrong/self poster, concurrent reference rejection, object cleanup failure/retry, repeated delete, and unreferenced deletion pass. Product checks deferred to PH05-03. | None | PH04-04 |
 | 2026-08-26 | PH04-04 | Pending → Completed | Built the media library, reusable picker, and localized Category image integration. | frontend media/category APIs, components, routes, styles, and tests | UI/client tests cover progress, retry/cancel, expiry, filters, translations, usages, poster selection, and Category assignment; live desktop/390px browser QA passes without overflow. | None | Phase 4 gate |
 | 2026-08-26 | PHASE-04 | In progress → Passed | Completed secure reusable media operations end to end and preserved immutable storage/reference integrity. | All Phase 4 files plus README and this tracker | Root lint, strict typecheck, 19 files / 69 tests, all production builds, and production audit pass with 0 vulnerabilities; authenticated in-app browser desktop/narrow QA passes. | None | PH05-01 |
+| 2026-08-26 | PH05-01 | Pending → Completed | Added strict bounded Product contracts, split snapshots, nested Mongoose schemas, five indexes, BSON-size enforcement, and safe DTO serialization. | contracts Product schemas/tests; backend Product model/schema helpers/model tests; this tracker | Solar-module/inverter round trips, snapshot coherence, optional/duplicate/locale/role/array/text/template-data/document-size boundaries, index inspection, and DTO-private-field checks pass; root lint, strict typecheck, 21 files / 79 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-02 |
+| 2026-08-26 | PH05-02 | Pending → Completed | Added deterministic product publication validation, canonical shared/locale hashes and CMS states, plus atomic first/locale/shared snapshot promotion. | contracts Product publication schemas/tests; backend publication domain/service, Product DTO mapper, and replica-set tests; this tracker | Incomplete/no-leakage, English-first/retention, split hashes/states, English then Chinese, unchanged-locale publish, explicit shared promotion/rollback, slug lock, category/media/template/specification paths, and valid module/inverter scenarios pass; root lint, strict typecheck, 22 files / 85 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-03 |
 
 ## 20.3 Implementation activity template
 
