@@ -108,7 +108,22 @@ Public reads are localized and draft-safe:
 
 Public category DTOs are composed only from coherent publication snapshots and validate the complete active ancestor chain. Working edits never appear publicly. English must be published first and remain published while another locale is live. Public reads remain `no-store` until the signed invalidation work in Phase 8.
 
-Category image fields are contextual usages. The editor uses the shared media picker and stores locale-specific alt/title text with the Category usage rather than treating reusable Media defaults as final page copy. Product-reference checks during category deletion are added with the Product model in PH05-03; until then, category deletion protects published categories, media references, and parent/child references.
+Category image fields are contextual usages. The editor uses the shared media picker and stores locale-specific alt/title text with the Category usage rather than treating reusable Media defaults as final page copy. Category child creation, reparenting, locale unpublication, and permanent deletion use transaction-backed Product reference checks so they cannot invalidate working or published products.
+
+## Product operations
+
+Express owns the protected Product lifecycle. Incomplete working drafts may be saved, while publication separately validates templates, localized core fields, specification structure, ready role-compatible media, and the complete localized category chain. Shared changes require explicit atomic promotion across every live locale.
+
+Protected lifecycle endpoints implemented before the bounded list query in PH05-04:
+
+- `POST /api/v1/admin/products`
+- `GET/PATCH/DELETE /api/v1/admin/products/:id`
+- `POST /api/v1/admin/products/:id/duplicate`
+- `POST /api/v1/admin/products/:id/publish`
+- `POST /api/v1/admin/products/:id/unpublish`
+- `POST /api/v1/admin/products/:id/archive`
+
+Every update and lifecycle command uses optimistic versions. Published slugs are immutable; duplicates reuse media references without copying stored objects; only never-published drafts can be permanently deleted. Public Product endpoints remain deferred to PH05-05.
 
 ## Media operations
 
@@ -122,7 +137,7 @@ Protected endpoints:
 - `GET/PATCH/DELETE /api/v1/admin/media/:id`
 - `GET /api/v1/admin/media/:id/usages`
 
-Deletion first enters a transaction-protected `deleting` state so new Category/poster references fail. It then verifies every working/live usage, deletes the stored object, and transactionally removes the Media record. A storage failure leaves a retryable record rather than reporting false success. Category and poster references are enforced now; Product media references are deliberately added in PH05-03 when the Product model exists.
+Deletion first enters a transaction-protected `deleting` state so new Category, Product, and poster references fail. It then verifies every working/live Category and Product usage plus Media poster relationships, deletes the stored object, and transactionally removes the Media record. A storage failure leaves a retryable record rather than reporting false success.
 
 ## Source-control safety
 

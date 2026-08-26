@@ -9,6 +9,7 @@ import {
 import { createHealthRouter } from "./health.js";
 import type { StorageProvider } from "../../storage/StorageProvider.js";
 import { createAdminMediaRouter } from "./media.js";
+import { createAdminProductsRouter } from "./products.js";
 
 export function createV1Router(
   getDatabaseHealth: () => DatabaseHealth,
@@ -30,6 +31,10 @@ export function createV1Router(
   router.use(
     "/admin/media",
     createAdminMediaRouter(config, storageProvider, now ?? Date.now)
+  );
+  router.use(
+    "/admin/products",
+    createAdminProductsRouter(config, now ?? Date.now)
   );
   router.use("/public/categories", createPublicCategoriesRouter());
   return router;

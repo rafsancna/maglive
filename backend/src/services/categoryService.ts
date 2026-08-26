@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   DEFAULT_LOCALE,
+  isLocaleCode,
   LOCALE_CODES,
   type CategoryAdminDto,
   type CategoryListDto,
@@ -29,6 +30,10 @@ import {
   type PublishedCategoryLocaleData,
 } from "../models/Category.js";
 import { lockReadyCategoryMedia } from "./mediaService.js";
+import {
+  categoryHasProductReferences,
+  categoryHasPublishedProductLocale,
+} from "./productService.js";
 
 type AdminActor = Readonly<{ id: string }>;
 
@@ -406,6 +411,14 @@ async function validateParent(
   if (parent === null) {
     throw new AppError(422, "INVALID_PARENT", "Select an active root category.");
   }
+  const parentLock = await CategoryModel.updateOne(
+    { _id: parentId, status: "active" },
+    { $inc: { referenceGuard: 1 } },
+    { session },
+  );
+  if (parentLock.matchedCount !== 1) {
+    throw new AppError(409, "CATEGORY_CHANGED", "The parent category changed. Refresh and try again.");
+  }
   if (parent.parentId !== null) {
     throw new AppError(
       422,
@@ -425,6 +438,13 @@ async function validateParent(
         "A category with children cannot be moved below another category.",
       );
     }
+  }
+  if (await categoryHasProductReferences(parentId, session)) {
+    throw new AppError(
+      409,
+      "CATEGORY_HAS_PRODUCTS",
+      "A category assigned to a product cannot gain child categories.",
+    );
   }
 }
 
@@ -676,7 +696,7 @@ export async function unpublishCategory(
     assertVersion(category, input.version);
     const locales =
       input.locale === undefined
-        ? [...category.publishedSnapshots.keys()]
+        ? [...category.publishedSnapshots.keys()].filter(isLocaleCode)
         : [input.locale];
     if (
       input.locale === DEFAULT_LOCALE &&
@@ -701,6 +721,15 @@ export async function unpublishCategory(
           409,
           "PUBLISHED_CHILD_EXISTS",
           `Unpublish child categories in ${locale} first.`,
+        );
+      }
+      if (
+        await categoryHasPublishedProductLocale(category._id, locale, session)
+      ) {
+        throw new AppError(
+          409,
+          "PUBLISHED_PRODUCT_EXISTS",
+          `Unpublish products in ${locale} before unpublishing this category.`,
         );
       }
     }
@@ -763,6 +792,11 @@ export async function deleteCategory(id: string, version: number): Promise<void>
       await category.save({ session });
       return "blocked" as const;
     }
+    if (await categoryHasProductReferences(category._id, session)) {
+      category.status = "active";
+      await category.save({ session });
+      return "blocked" as const;
+    }
     await CategoryModel.deleteOne({ _id: category._id }).session(session);
     return "deleted" as const;
   });
@@ -770,7 +804,7 @@ export async function deleteCategory(id: string, version: number): Promise<void>
     throw new AppError(
       409,
       "CATEGORY_IN_USE",
-      "Move or remove child categories before deleting this category.",
+      "Move or remove child categories and product references before deleting this category.",
     );
   }
 }

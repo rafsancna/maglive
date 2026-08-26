@@ -4,12 +4,12 @@
 
 | Document field | Value |
 |---|---|
-| Document version | 1.7 |
+| Document version | 1.8 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 5 in progress — PH05-02 complete |
-| Task progress | 19 / 48 |
+| Implementation status | Phase 5 in progress — PH05-03 complete |
+| Task progress | 20 / 48 |
 | Current phase | Phase 5 — Product Backend |
-| Next task | PH05-03 |
+| Next task | PH05-04 |
 | Last updated | 2026-08-26 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
@@ -2207,9 +2207,9 @@ Master task state:
 
 **Notes / results:** Implemented strict publication request/report contracts, canonical shared and per-locale projections, SHA-256 source hashes, derived shared/locale CMS states, English-first and retention validation, immutable post-publication slugs, template-specific completeness, stable specification order/key checks, active coherent leaf-category/ancestor checks, and role-aware ready-media/PDF/video-poster validation with field-addressable errors and noncritical SEO/alt warnings. The transaction-backed publisher creates the shared plus English snapshots on first publication, replaces only a requested locale when shared content is unchanged, and requires an explicit all-live-locale promotion when shared content changes; a failed locale validation leaves every existing live revision unchanged. Draft saves remain independent of the publication service and do not mutate snapshots. Replica-set tests cover incomplete drafts, no leakage, split pending hashes/states, English-only then Chinese publication, English retention, shared-promotion confirmation/rollback/success, slug locking, missing/inactive/unpublished category ancestry, missing/wrong/posterless media, unknown templates, duplicate specification orders, stable editor paths, and valid module/inverter publication. CRUD/routes, lifecycle unpublication mutation, product reference integrity, public DTOs, preview/cache, and templateData remain deferred to their recorded tasks.
 
-### [ ] PH05-03 — Implement product lifecycle APIs and complete reference integrity
+### [x] PH05-03 — Implement product lifecycle APIs and complete reference integrity
 
-**Status:** Pending
+**Status:** Completed — 2026-08-26
 
 **Goal:** Provide protected product CRUD/lifecycle operations while closing category/media reference gaps.
 
@@ -2241,7 +2241,7 @@ Master task state:
 
 **Definition of Done:** All product state changes occur through protected services, optimistic concurrency prevents silent overwrite, and category/media deletion cannot break products.
 
-**Notes / results:** _Pending._
+**Notes / results:** Added strict create/update/duplicate/version/unpublish contracts and authenticated, CSRF/Origin/rate-limited Express routes for Product create, read, update, duplicate, publish, unpublish, archive, and permanent draft deletion. Transactional services enforce optimistic versions, clearable optional model/series values, immutable published slugs, active leaf-category assignment, ready role-compatible working media and video posters, audit actors, English retention, all-locale unpublication, archive snapshot preservation, and never-published-only permanent deletion. Duplicate products receive a unique draft slug, copy only working content and references, clear every live/lifecycle field, and never invoke storage. Category reference locks and Product queries now prevent a product-assigned category from gaining children, block referenced category deletion, and block locale unpublication while a live Product snapshot depends on it. Media usage reporting/deletion now covers every Product working usage/SEO/icon field and every global/locale snapshot path in addition to Category and poster references; a product-used video cannot lose its required ready poster. Category and Media reference writes share transaction-conflict guards with Product operations, closing assignment/child/delete races. HTTP and replica-set tests cover authorization/CSRF, create/read/incomplete draft update, optional-field clearing, stale versions, slug collision/immutability, invalid categories/media, English/Chinese publication, explicit shared promotion, working/live isolation, duplicate-without-file-copy, retention, archive, all-locale unpublication, delete eligibility, Category/Media/poster blockers including media retained only in snapshots, stable usage paths, and concurrent category/media reference attempts. Bounded administrator querying, public Product DTOs/routes, cache invalidation, preview, and CMS UI remain deferred.
 
 ### [ ] PH05-04 — Add bounded administrator product querying
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 5 in progress; PH05-02 complete |
-| Tasks complete | 19 / 48 |
+| Overall status | Phase 5 in progress; PH05-03 complete |
+| Tasks complete | 20 / 48 |
 | Current phase | Phase 5 — Product Backend |
 | Current task | None |
-| Next task | PH05-03 |
+| Next task | PH05-04 |
 | Blockers | None |
-| Phase exit status | Phase 5 in progress — bounded Product persistence/contracts and deterministic publication are complete; lifecycle APIs/reference integrity, querying, and public DTOs remain |
+| Phase exit status | Phase 5 in progress — Product persistence, deterministic publication, protected lifecycle APIs, and complete reference integrity are verified; bounded querying and public DTOs remain |
 
 ## 20.2 Append-only activity log
 
@@ -3345,6 +3345,7 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-26 | PHASE-04 | In progress → Passed | Completed secure reusable media operations end to end and preserved immutable storage/reference integrity. | All Phase 4 files plus README and this tracker | Root lint, strict typecheck, 19 files / 69 tests, all production builds, and production audit pass with 0 vulnerabilities; authenticated in-app browser desktop/narrow QA passes. | None | PH05-01 |
 | 2026-08-26 | PH05-01 | Pending → Completed | Added strict bounded Product contracts, split snapshots, nested Mongoose schemas, five indexes, BSON-size enforcement, and safe DTO serialization. | contracts Product schemas/tests; backend Product model/schema helpers/model tests; this tracker | Solar-module/inverter round trips, snapshot coherence, optional/duplicate/locale/role/array/text/template-data/document-size boundaries, index inspection, and DTO-private-field checks pass; root lint, strict typecheck, 21 files / 79 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-02 |
 | 2026-08-26 | PH05-02 | Pending → Completed | Added deterministic product publication validation, canonical shared/locale hashes and CMS states, plus atomic first/locale/shared snapshot promotion. | contracts Product publication schemas/tests; backend publication domain/service, Product DTO mapper, and replica-set tests; this tracker | Incomplete/no-leakage, English-first/retention, split hashes/states, English then Chinese, unchanged-locale publish, explicit shared promotion/rollback, slug lock, category/media/template/specification paths, and valid module/inverter scenarios pass; root lint, strict typecheck, 22 files / 85 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-03 |
+| 2026-08-26 | PH05-03 | Pending → Completed | Added protected Product lifecycle APIs and transaction-backed Product/Category/Media reference integrity. | Product lifecycle contracts/routes/services/reference locks/tests; Category/Media integration; README; this tracker | CRUD/lifecycle, auth/CSRF, versions, slug rules, shared promotion, duplicate/no file copy, unpublish/archive/delete eligibility, complete working/live blockers, usage paths, and concurrent category/media reference races pass; root lint, strict typecheck, 23 files / 90 tests, all production builds, and production audit pass with 0 vulnerabilities. | None | PH05-04 |
 
 ## 20.3 Implementation activity template
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   PRODUCT_LIMITS,
+  createProductRequestSchema,
+  duplicateProductRequestSchema,
+  mediaUsageDtoSchema,
   productAdminDtoSchema,
   productMediaUsageSchema,
   productPublicationValidationResultSchema,
@@ -9,6 +12,8 @@ import {
   productWorkingDataSchema,
   publishProductRequestSchema,
   templateDataEnvelopeSchema,
+  unpublishProductRequestSchema,
+  updateProductRequestSchema,
 } from "../src/index.js";
 
 const categoryId = "507f1f77bcf86cd799439011";
@@ -299,5 +304,41 @@ describe("product contracts", () => {
     });
     expect(report.errors[0]?.severity).toBe("error");
     expect(report.warnings[0]?.severity).toBe("warning");
+  });
+
+  it("defines strict create, patch, duplicate, and unpublish lifecycle commands", () => {
+    expect(createProductRequestSchema.parse(workingProduct()).slug).toBe(
+      "630w-topcon",
+    );
+    expect(
+      updateProductRequestSchema.parse({ version: 4, featured: false }),
+    ).toEqual({ version: 4, featured: false });
+    expect(
+      updateProductRequestSchema.parse({ version: 4, model: null }),
+    ).toEqual({ version: 4, model: null });
+    expect(
+      updateProductRequestSchema.safeParse({ version: 4 }).success,
+    ).toBe(false);
+    expect(
+      duplicateProductRequestSchema.parse({ version: 4 }),
+    ).toEqual({ version: 4 });
+    expect(
+      duplicateProductRequestSchema.safeParse({
+        version: 4,
+        slug: "Not-A-Slug",
+      }).success,
+    ).toBe(false);
+    expect(
+      unpublishProductRequestSchema.parse({ version: 5, locale: "zh" }),
+    ).toEqual({ version: 5, locale: "zh" });
+    expect(
+      mediaUsageDtoSchema.parse({
+        kind: "product-published-feature-icon",
+        ownerId: "507f1f77bcf86cd799439013",
+        ownerLabel: "630w-topcon",
+        path: "publishedSnapshots.en.data.features.0.iconMediaId",
+        locale: "en",
+      }).kind,
+    ).toBe("product-published-feature-icon");
   });
 });

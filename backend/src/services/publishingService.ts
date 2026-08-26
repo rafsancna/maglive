@@ -28,6 +28,7 @@ import {
   type PublishedProductGlobalData,
   type PublishedProductLocaleData,
 } from "../models/Product.js";
+import { lockProductPublicationReferences } from "./productReferenceService.js";
 
 type AdminActor = Readonly<{ id: string }>;
 
@@ -698,6 +699,7 @@ export async function publishProduct(
           "The shared product snapshot could not be generated.",
         );
       }
+      await lockProductPublicationReferences(product, session);
 
       const publishedAt = new Date();
       const globalRevision = analysis.sharedChanged

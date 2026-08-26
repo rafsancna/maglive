@@ -27,6 +27,7 @@ import {
   type MediaDocument,
   type MediaTranslation,
 } from "../models/Media.js";
+import { ProductModel, type ProductDocument } from "../models/Product.js";
 import type { StorageProvider } from "../storage/StorageProvider.js";
 
 type MediaListQuery = z.output<typeof mediaListQuerySchema>;
@@ -240,6 +241,32 @@ export async function uploadMedia(
   }
 }
 
+async function productRequiresVideoPoster(
+  mediaId: Types.ObjectId,
+  session: ClientSession,
+): Promise<boolean> {
+  const videoUsage = {
+    mediaId,
+    role: { $in: ["video", "backgroundVideo"] },
+  };
+  return (
+    (await ProductModel.exists({
+      status: { $ne: "deleting" },
+      $or: [
+        { mediaUsages: { $elemMatch: videoUsage } },
+        {
+          "publishedGlobal.data.mediaUsages": { $elemMatch: videoUsage },
+        },
+        ...LOCALE_CODES.map((locale) => ({
+          [`publishedSnapshots.${locale}.data.mediaUsages`]: {
+            $elemMatch: videoUsage,
+          },
+        })),
+      ],
+    }).session(session)) !== null
+  );
+}
+
 export async function updateMedia(
   id: string,
   input: UpdateMediaRequest,
@@ -257,6 +284,17 @@ export async function updateMedia(
     }
     if (input.defaultTranslations !== undefined) {
       media.defaultTranslations = mediaTranslations(input.defaultTranslations);
+    }
+    if (
+      input.posterMediaId === null &&
+      media.kind === "video" &&
+      (await productRequiresVideoPoster(media._id, session))
+    ) {
+      throw new AppError(
+        409,
+        "MEDIA_POSTER_REQUIRED_BY_PRODUCT",
+        "This video is used by a product and must retain a ready image poster.",
+      );
     }
     if (input.posterMediaId === null) {
       media.set("posterMediaId", undefined);
@@ -353,6 +391,100 @@ function categoryUsages(
   return usages;
 }
 
+function productUsages(
+  product: ProductDocument,
+  mediaId: Types.ObjectId,
+): MediaUsageDto[] {
+  const usages: MediaUsageDto[] = [];
+  const ownerId = product._id.toString();
+  const ownerLabel = product.slug;
+  for (const [index, usage] of product.mediaUsages.entries()) {
+    if (objectIdEquals(usage.mediaId, mediaId)) {
+      usages.push({
+        kind: "product-working-media",
+        ownerId,
+        ownerLabel,
+        path: `mediaUsages.${index}.mediaId`,
+        ...(usage.locale === undefined
+          ? {}
+          : { locale: usage.locale as (typeof LOCALE_CODES)[number] }),
+      });
+    }
+  }
+  for (const locale of LOCALE_CODES) {
+    const translation = product.translations.get(locale);
+    for (const [index, feature] of (translation?.features ?? []).entries()) {
+      if (objectIdEquals(feature.iconMediaId, mediaId)) {
+        usages.push({
+          kind: "product-working-feature-icon",
+          ownerId,
+          ownerLabel,
+          path: `translations.${locale}.features.${index}.iconMediaId`,
+          locale,
+        });
+      }
+    }
+    if (objectIdEquals(translation?.seo.openGraphMediaId, mediaId)) {
+      usages.push({
+        kind: "product-working-seo",
+        ownerId,
+        ownerLabel,
+        path: `translations.${locale}.seo.openGraphMediaId`,
+        locale,
+      });
+    }
+
+    const snapshot = product.publishedSnapshots.get(locale);
+    for (const [index, usage] of (snapshot?.data.mediaUsages ?? []).entries()) {
+      if (objectIdEquals(usage.mediaId, mediaId)) {
+        usages.push({
+          kind: "product-published-media",
+          ownerId,
+          ownerLabel,
+          path: `publishedSnapshots.${locale}.data.mediaUsages.${index}.mediaId`,
+          locale,
+        });
+      }
+    }
+    for (const [index, feature] of (snapshot?.data.features ?? []).entries()) {
+      if (objectIdEquals(feature.iconMediaId, mediaId)) {
+        usages.push({
+          kind: "product-published-feature-icon",
+          ownerId,
+          ownerLabel,
+          path: `publishedSnapshots.${locale}.data.features.${index}.iconMediaId`,
+          locale,
+        });
+      }
+    }
+    if (objectIdEquals(snapshot?.data.seo.openGraphMediaId, mediaId)) {
+      usages.push({
+        kind: "product-published-seo",
+        ownerId,
+        ownerLabel,
+        path: `publishedSnapshots.${locale}.data.seo.openGraphMediaId`,
+        locale,
+      });
+    }
+  }
+  for (const [index, usage] of (
+    product.publishedGlobal?.data.mediaUsages ?? []
+  ).entries()) {
+    if (objectIdEquals(usage.mediaId, mediaId)) {
+      usages.push({
+        kind: "product-published-media",
+        ownerId,
+        ownerLabel,
+        path: `publishedGlobal.data.mediaUsages.${index}.mediaId`,
+        ...(usage.locale === undefined
+          ? {}
+          : { locale: usage.locale as (typeof LOCALE_CODES)[number] }),
+      });
+    }
+  }
+  return usages;
+}
+
 async function usageDocuments(
   mediaId: Types.ObjectId,
   session?: ClientSession,
@@ -372,21 +504,45 @@ async function usageDocuments(
     status: { $ne: "deleting" },
     $or: categoryPaths,
   });
+  const productPaths = [
+    { "mediaUsages.mediaId": mediaId },
+    { "publishedGlobal.data.mediaUsages.mediaId": mediaId },
+    ...LOCALE_CODES.flatMap((locale) => [
+      { [`translations.${locale}.features.iconMediaId`]: mediaId },
+      { [`translations.${locale}.seo.openGraphMediaId`]: mediaId },
+      {
+        [`publishedSnapshots.${locale}.data.mediaUsages.mediaId`]: mediaId,
+      },
+      {
+        [`publishedSnapshots.${locale}.data.features.iconMediaId`]: mediaId,
+      },
+      {
+        [`publishedSnapshots.${locale}.data.seo.openGraphMediaId`]: mediaId,
+      },
+    ]),
+  ];
+  const productQuery = ProductModel.find({
+    status: { $ne: "deleting" },
+    $or: productPaths,
+  });
   const posterQuery = MediaModel.find({
     status: { $ne: "deleting" },
     posterMediaId: mediaId,
   });
   if (session !== undefined) {
     categoryQuery.session(session);
+    productQuery.session(session);
     posterQuery.session(session);
   }
-  const [categories, posterOwners] = await Promise.all([
+  const [categories, products, posterOwners] = await Promise.all([
     categoryQuery,
+    productQuery,
     posterQuery,
   ]);
   const usages = categories.flatMap((category) =>
     categoryUsages(category, mediaId),
   );
+  usages.push(...products.flatMap((product) => productUsages(product, mediaId)));
   usages.push(
     ...posterOwners.map((media) => ({
       kind: "media-poster" as const,
@@ -399,7 +555,8 @@ async function usageDocuments(
     (left, right) =>
       left.kind.localeCompare(right.kind) ||
       left.ownerLabel.localeCompare(right.ownerLabel) ||
-      left.path.localeCompare(right.path),
+      left.path.localeCompare(right.path) ||
+      left.ownerId.localeCompare(right.ownerId),
   );
 }
 

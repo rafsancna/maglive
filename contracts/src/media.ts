@@ -86,6 +86,12 @@ export const mediaUsageKindSchema = z.enum([
   "category-working-seo",
   "category-published-image",
   "category-published-seo",
+  "product-working-media",
+  "product-working-seo",
+  "product-working-feature-icon",
+  "product-published-media",
+  "product-published-seo",
+  "product-published-feature-icon",
   "media-poster",
 ]);
 

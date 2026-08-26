@@ -74,6 +74,7 @@ export type Category = {
   publishedGlobal?: PublishedCategoryGlobal;
   publishedSnapshots: Map<string, PublishedCategoryLocale>;
   status: "active" | "archived" | "deleting";
+  referenceGuard: number;
   firstPublishedAt?: Date;
   createdBy: Types.ObjectId;
   updatedBy: Types.ObjectId;
@@ -216,6 +217,7 @@ const categorySchema = new Schema<Category>(
       required: true,
       default: "active",
     },
+    referenceGuard: { type: Number, required: true, default: 0, select: false },
     firstPublishedAt: Date,
     createdBy: { type: Schema.Types.ObjectId, required: true, immutable: true },
     updatedBy: { type: Schema.Types.ObjectId, required: true },

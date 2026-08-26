@@ -497,6 +497,31 @@ export const productWorkingDataSchema = z.object({
   featured: z.boolean(),
 }).strict();
 
+export const createProductRequestSchema = productWorkingDataSchema;
+
+export const updateProductRequestSchema = productWorkingDataSchema
+  .partial()
+  .extend({
+    version: z.number().int().min(0),
+    model: z
+      .string()
+      .trim()
+      .max(PRODUCT_LIMITS.model)
+      .nullable()
+      .optional(),
+    series: z
+      .string()
+      .trim()
+      .max(PRODUCT_LIMITS.series)
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    ({ version: _version, ...changes }) =>
+      Object.values(changes).some((value) => value !== undefined),
+    { message: "At least one product field must be updated." },
+  );
+
 export const productAdminDtoSchema = productWorkingDataSchema.extend({
   id: objectIdStringSchema,
   publishedGlobal: publishedProductGlobalSchema.optional(),
@@ -563,6 +588,28 @@ export const unpublishProductRequestSchema = z
   })
   .strict();
 
+export const duplicateProductRequestSchema = z
+  .object({
+    version: z.number().int().min(0),
+    slug: productSlugSchema.optional(),
+  })
+  .strict();
+
+export const productVersionRequestSchema = z
+  .object({ version: z.number().int().min(0) })
+  .strict();
+
+export const productPublicationResultSchema = z
+  .object({
+    product: productAdminDtoSchema,
+    validation: productPublicationValidationResultSchema,
+  })
+  .strict();
+
+export const productDeletedDtoSchema = z
+  .object({ deleted: z.literal(true) })
+  .strict();
+
 export const productSummaryDtoSchema = z.object({
   id: objectIdStringSchema,
   slug: productSlugSchema,
@@ -595,6 +642,8 @@ export type PublishedProductLocale = z.infer<
 >;
 export type TemplateDataEnvelope = z.infer<typeof templateDataEnvelopeSchema>;
 export type ProductWorkingData = z.infer<typeof productWorkingDataSchema>;
+export type CreateProductRequest = z.infer<typeof createProductRequestSchema>;
+export type UpdateProductRequest = z.infer<typeof updateProductRequestSchema>;
 export type ProductAdminDto = z.infer<typeof productAdminDtoSchema>;
 export type ProductSummaryDto = z.infer<typeof productSummaryDtoSchema>;
 export type ProductPublicationIssue = z.infer<
@@ -608,4 +657,7 @@ export type PublishProductRequest = z.infer<
 >;
 export type UnpublishProductRequest = z.infer<
   typeof unpublishProductRequestSchema
+>;
+export type DuplicateProductRequest = z.infer<
+  typeof duplicateProductRequestSchema
 >;
