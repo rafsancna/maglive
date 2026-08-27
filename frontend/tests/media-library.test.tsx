@@ -86,7 +86,7 @@ describe("media library", () => {
     expect(screen.getByRole("button", { name: /launch.mp4/ })).toBeInTheDocument();
     expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Media type"), "image");
+    await user.click(screen.getByRole("button", { name: /Photos/ }));
     await waitFor(() => {
       expect(mediaApi.listMedia).toHaveBeenLastCalledWith(
         expect.objectContaining({ kind: "image", page: 1 }),
@@ -151,7 +151,9 @@ describe("media library", () => {
     render(<MediaLibrary />);
     await screen.findByRole("button", { name: /poster.png/ });
 
-    expect(await screen.findByText(/modules · category working image/)).toBeInTheDocument();
+    expect(await screen.findByText("modules")).toBeInTheDocument();
+    expect(screen.getByText("Category image")).toBeInTheDocument();
+    expect(screen.getByText("Working draft")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete asset" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: /launch.mp4/ }));

@@ -95,10 +95,24 @@ export const mediaUsageKindSchema = z.enum([
   "media-poster",
 ]);
 
+export const mediaUsageOwnerTypeSchema = z.enum([
+  "product",
+  "category",
+  "news",
+  "story",
+  "blog",
+  "page",
+  "media",
+  "other",
+]);
+export type MediaUsageOwnerType = z.infer<typeof mediaUsageOwnerTypeSchema>;
+
 export const mediaUsageDtoSchema = z.object({
   kind: mediaUsageKindSchema,
+  ownerType: mediaUsageOwnerTypeSchema.optional(),
   ownerId: objectIdStringSchema,
   ownerLabel: z.string().min(1).max(255),
+  placement: z.string().min(1).max(120).optional(),
   path: z.string().min(1).max(255),
   locale: localeCodeSchema.optional(),
 });

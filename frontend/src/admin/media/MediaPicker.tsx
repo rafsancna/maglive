@@ -1,10 +1,48 @@
 "use client";
 
 import type { AdminMediaDto, MediaKind } from "@maglive/contracts";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminApiError } from "../auth/api";
-import { listMedia } from "./api";
+import { listMedia, uploadMedia } from "./api";
 import { MediaPreview } from "./MediaPreview";
+
+const MEDIA_KIND_COPY: Record<
+  MediaKind,
+  { label: string; singular: string; accept: string }
+> = {
+  image: {
+    label: "Photos",
+    singular: "photo",
+    accept: ".jpg,.jpeg,.png,.webp",
+  },
+  video: { label: "Videos", singular: "video", accept: ".mp4,.webm" },
+  document: {
+    label: "Documents",
+    singular: "document",
+    accept: ".pdf",
+  },
+};
+
+function mediaError(reason: unknown): string {
+  if (!(reason instanceof AdminApiError)) {
+    return "The media operation failed unexpectedly.";
+  }
+  if (reason.code === "UPLOAD_ABORTED") return "Upload cancelled.";
+  if (reason.code === "API_UNAVAILABLE") {
+    return "The CMS API is unavailable. Please retry the upload.";
+  }
+  return reason.message;
+}
+
+function mediaDetails(media: AdminMediaDto): string {
+  if (media.kind === "image" && media.width && media.height) {
+    return `${media.width} × ${media.height}`;
+  }
+  if (media.kind === "video" && media.durationSeconds !== undefined) {
+    return `${Math.round(media.durationSeconds)} sec`;
+  }
+  return media.mimeType.replace("application/", "").toUpperCase();
+}
 
 export function MediaPicker({
   kind,
@@ -23,28 +61,26 @@ export function MediaPicker({
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let active = true;
     void listMedia({
       ...(kind === undefined ? {} : { kind }),
       search,
+      status: "ready",
       limit: 100,
     })
       .then((result) => {
         if (active) {
-          setItems(result.items.filter((item) => item.status === "ready"));
+          setItems(result.items);
           setError(null);
         }
       })
       .catch((reason: unknown) => {
-        if (active) {
-          setError(
-            reason instanceof AdminApiError
-              ? reason.message
-              : "The media library could not be loaded.",
-          );
-        }
+        if (active) setError(mediaError(reason));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -53,6 +89,50 @@ export function MediaPicker({
       active = false;
     };
   }, [kind, search]);
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape" && !uploading) onClose();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose, uploading]);
+
+  async function uploadAndUse(file: File): Promise<void> {
+    const controller = new AbortController();
+    uploadAbort.current = controller;
+    setUploading(true);
+    setUploadProgress(0);
+    setError(null);
+    try {
+      const uploaded = await uploadMedia(
+        file,
+        setUploadProgress,
+        controller.signal,
+      );
+      if (kind !== undefined && uploaded.kind !== kind) {
+        setError(
+          `${uploaded.originalName} was uploaded to ${MEDIA_KIND_COPY[uploaded.kind].label}, but this field requires a ${MEDIA_KIND_COPY[kind].singular}.`,
+        );
+        return;
+      }
+      onSelect(uploaded);
+    } catch (reason) {
+      setError(mediaError(reason));
+    } finally {
+      uploadAbort.current = null;
+      setUploading(false);
+    }
+  }
+
+  const categoryLabel =
+    kind === undefined ? "All media" : MEDIA_KIND_COPY[kind].label;
+  const acceptedFiles =
+    kind === undefined
+      ? Object.values(MEDIA_KIND_COPY)
+          .map(({ accept }) => accept)
+          .join(",")
+      : MEDIA_KIND_COPY[kind].accept;
 
   return (
     <div
@@ -64,36 +144,79 @@ export function MediaPicker({
       <button
         aria-label="Close media picker"
         className="media-picker__backdrop"
+        disabled={uploading}
         onClick={onClose}
         type="button"
       />
       <div className="media-picker__panel">
         <header>
           <div>
-            <span className="admin-kicker">Reusable assets</span>
+            <span className="admin-kicker">Media library · {categoryLabel}</span>
             <h2 id="media-picker-title">{title}</h2>
+            <p>Select an existing asset or upload a new one without leaving this page.</p>
           </div>
-          <button
-            aria-label="Close media picker"
-            className="admin-button admin-button--quiet"
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
+          <div className="media-picker__header-actions">
+            <label className="admin-button admin-button--primary media-upload-button">
+              <span>{uploading ? `Uploading ${uploadProgress}%` : "Upload new"}</span>
+              <input
+                accept={acceptedFiles}
+                aria-label={`Upload new ${kind === undefined ? "media" : MEDIA_KIND_COPY[kind].singular}`}
+                disabled={uploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file !== undefined) void uploadAndUse(file);
+                  event.target.value = "";
+                }}
+                type="file"
+              />
+            </label>
+            <button
+              aria-label="Close media picker"
+              className="admin-button admin-button--quiet"
+              disabled={uploading}
+              onClick={onClose}
+              type="button"
+            >
+              Close
+            </button>
+          </div>
         </header>
-        <label className="admin-field">
-          <span>Search media</span>
-          <input
-            onChange={(event) => {
-              setLoading(true);
-              setSearch(event.target.value);
-            }}
-            placeholder="Search original filenames"
-            type="search"
-            value={search}
-          />
-        </label>
+
+        {uploading ? (
+          <div className="media-picker__upload" role="status">
+            <div>
+              <strong>Uploading and validating asset</strong>
+              <span>{uploadProgress}%</span>
+            </div>
+            <progress max="100" value={uploadProgress}>
+              {uploadProgress}%
+            </progress>
+            <button onClick={() => uploadAbort.current?.abort()} type="button">
+              Cancel
+            </button>
+          </div>
+        ) : null}
+
+        <div className="media-picker__toolbar">
+          <label className="admin-field">
+            <span>Search {categoryLabel.toLowerCase()}</span>
+            <input
+              autoFocus
+              onChange={(event) => {
+                setLoading(true);
+                setSearch(event.target.value);
+              }}
+              placeholder="Search by filename"
+              type="search"
+              value={search}
+            />
+          </label>
+          <div className="media-picker__result-count" aria-live="polite">
+            <strong>{items.length}</strong>
+            <span>ready assets</span>
+          </div>
+        </div>
+
         {loading ? <p aria-live="polite">Loading media…</p> : null}
         {error === null ? null : (
           <div className="admin-alert" role="alert">
@@ -101,9 +224,10 @@ export function MediaPicker({
           </div>
         )}
         {!loading && error === null && items.length === 0 ? (
-          <p className="media-picker__empty">
-            No ready {kind ?? "media"} assets match this search.
-          </p>
+          <div className="media-picker__empty">
+            <strong>No {categoryLabel.toLowerCase()} found</strong>
+            <p>Upload an approved asset here or change your search.</p>
+          </div>
         ) : null}
         <div className="media-picker__grid">
           {items.map((media) => (
@@ -114,8 +238,8 @@ export function MediaPicker({
               type="button"
             >
               <MediaPreview compact media={media} />
-              <span>{media.originalName}</span>
-              <small>{media.kind}</small>
+              <span>{media.defaultTranslations.en?.title ?? media.originalName}</span>
+              <small>{media.originalName} · {mediaDetails(media)}</small>
             </button>
           ))}
         </div>

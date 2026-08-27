@@ -9,6 +9,7 @@ import {
   type LocaleCode,
   type ProductAdminDto,
   type ProductFeature,
+  type ProductMediaRole,
   type ProductMediaUsage,
   type ProductTextItem,
   type ProductTranslation,
@@ -21,7 +22,9 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminApiError } from "../auth/api";
 import { listCategories } from "../categories/api";
 import type { AdminMediaDto } from "@maglive/contracts";
+import { getMedia } from "../media/api";
 import { MediaPicker } from "../media/MediaPicker";
+import { MediaPreview } from "../media/MediaPreview";
 import { createProduct, createPreviewGrant, getProduct, updateProduct } from "./api";
 import { archiveProduct, publishProduct, unpublishProduct } from "./api";
 import { useLanguages } from "../languages/LanguageProvider";
@@ -42,6 +45,23 @@ const EDITOR_SECTIONS = [
 ] as const;
 
 type EditorSectionId = (typeof EDITOR_SECTIONS)[number]["id"];
+
+const PRODUCT_MEDIA_FIELDS: readonly {
+  role: ProductMediaRole;
+  label: string;
+  description: string;
+  kind: "image" | "video" | "document";
+}[] = [
+  { role: "hero", label: "Hero photo", description: "Primary product image", kind: "image" },
+  { role: "gallery", label: "Gallery photo", description: "Supporting product view", kind: "image" },
+  { role: "video", label: "Product video", description: "Main product video", kind: "video" },
+  { role: "backgroundVideo", label: "Background video", description: "Decorative motion media", kind: "video" },
+  { role: "datasheet", label: "Datasheet", description: "Technical PDF download", kind: "document" },
+  { role: "certificate", label: "Certificate", description: "Certification PDF", kind: "document" },
+  { role: "brochure", label: "Brochure", description: "Marketing PDF", kind: "document" },
+  { role: "document", label: "Other document", description: "Additional PDF download", kind: "document" },
+  { role: "openGraph", label: "Social sharing image", description: "Open Graph preview", kind: "image" },
+];
 
 const emptyTranslation = (): ProductTranslation => ({
   name: "",
@@ -212,7 +232,10 @@ export function ProductEditor({ productId }: EditorProps) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [previewMarkdown, setPreviewMarkdown] = useState(false);
-  const [mediaPickerRole, setMediaPickerRole] = useState<"hero" | "gallery" | "video" | "backgroundVideo" | "datasheet" | "certificate" | "brochure" | "document" | "openGraph" | null>(null);
+  const [mediaPickerRole, setMediaPickerRole] = useState<ProductMediaRole | null>(null);
+  const [mediaById, setMediaById] = useState<
+    Record<string, AdminMediaDto | null>
+  >({});
 
   useEffect(() => {
     let active = true;
@@ -255,6 +278,29 @@ export function ProductEditor({ productId }: EditorProps) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  const mediaIdKey = [...new Set(state.mediaUsages.map(({ mediaId }) => mediaId))]
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    const ids = mediaIdKey === "" ? [] : mediaIdKey.split(",");
+    if (ids.length === 0) return;
+    let active = true;
+    void Promise.allSettled(ids.map((id) => getMedia(id))).then((results) => {
+      if (!active) return;
+      const resolved: Record<string, AdminMediaDto | null> = {};
+      for (const [index, result] of results.entries()) {
+        const id = ids[index];
+        if (id === undefined) continue;
+        resolved[id] = result.status === "fulfilled" ? result.value : null;
+      }
+      setMediaById(resolved);
+    });
+    return () => {
+      active = false;
+    };
+  }, [mediaIdKey]);
 
   const translation = state.translations[locale] ?? emptyTranslation();
   const categoryOptions = useMemo(
@@ -402,7 +448,19 @@ export function ProductEditor({ productId }: EditorProps) {
       if (existing) existing.mediaId = media.id;
       else draft.mediaUsages.push({ mediaId: media.id, role: mediaPickerRole, order: draft.mediaUsages.length, translations: {} } as ProductMediaUsage);
     });
+    setMediaById((current) => ({ ...current, [media.id]: media }));
     setMediaPickerRole(null);
+  }
+
+  function removeMedia(role: ProductMediaRole): void {
+    mutate((draft) => {
+      draft.mediaUsages = draft.mediaUsages.filter(
+        (usage) => !(usage.role === role && usage.locale === undefined),
+      );
+      draft.mediaUsages.forEach((usage, index) => {
+        usage.order = index;
+      });
+    });
   }
 
   function leave(): void {
@@ -428,6 +486,9 @@ export function ProductEditor({ productId }: EditorProps) {
   const selectedMediaId = mediaPickerRole === null
     ? undefined
     : state.mediaUsages.find((usage) => usage.role === mediaPickerRole && usage.locale === undefined)?.mediaId;
+  const activeMediaField = PRODUCT_MEDIA_FIELDS.find(
+    ({ role }) => role === mediaPickerRole,
+  );
   const englishName = state.translations[DEFAULT_LOCALE]?.name ?? "";
   const draftIdentityReady = englishName.trim() !== "" && state.categoryId !== "" && state.slug !== "";
   const noActiveLeafCategories = !categoriesLoading && categoriesError === null && categoryOptions.length === 0;
@@ -583,11 +644,31 @@ export function ProductEditor({ productId }: EditorProps) {
         {activeSection === "media" ? (
         <fieldset className="product-editor__panel" id="product-media">
           <legend>Media and downloads</legend>
-          <p className="product-editor__muted">Assign reusable assets by role. Shared assets apply to every published locale unless a locale is selected.</p>
+          <p className="product-editor__muted">Choose from the reusable library or upload a new approved asset inside the picker. Shared assets apply to every published locale.</p>
           <div className="product-editor__media-grid">
-            {["hero", "gallery", "video", "backgroundVideo", "datasheet", "certificate", "brochure", "document", "openGraph"].map((role) => {
-              const usage = state.mediaUsages.find((candidate) => candidate.role === role && candidate.locale === undefined);
-              return <div className="product-editor__media-role" key={role}><div><strong>{role}</strong><small>{usage ? usage.mediaId : "Not assigned"}</small></div><button className="admin-button admin-button--quiet" onClick={() => setMediaPickerRole(role as typeof mediaPickerRole & string)} type="button">{usage ? "Replace" : "Choose"}</button></div>;
+            {PRODUCT_MEDIA_FIELDS.map((field) => {
+              const usage = state.mediaUsages.find((candidate) => candidate.role === field.role && candidate.locale === undefined);
+              const media = usage === undefined ? undefined : mediaById[usage.mediaId];
+              return (
+                <article className={`product-editor__media-role${usage ? " is-assigned" : ""}`} key={field.role}>
+                  <div className="product-editor__media-role-preview">
+                    {media === undefined || media === null ? (
+                      <span aria-hidden="true">{field.kind === "image" ? "IMG" : field.kind === "video" ? "VID" : "PDF"}</span>
+                    ) : (
+                      <MediaPreview compact media={media} />
+                    )}
+                  </div>
+                  <div className="product-editor__media-role-copy">
+                    <strong>{field.label}</strong>
+                    <span>{media?.originalName ?? (usage ? media === null ? "Asset unavailable" : "Loading asset details…" : field.description)}</span>
+                    <small>{usage ? `${field.kind} assigned` : `Requires ${field.kind}`}</small>
+                  </div>
+                  <div className="product-editor__media-role-actions">
+                    <button className="admin-button admin-button--quiet" onClick={() => setMediaPickerRole(field.role)} type="button">{usage ? "Replace" : "Choose"}</button>
+                    {usage ? <button className="product-editor__media-remove" onClick={() => removeMedia(field.role)} type="button">Remove</button> : null}
+                  </div>
+                </article>
+              );
             })}
           </div>
         </fieldset>
@@ -629,7 +710,7 @@ export function ProductEditor({ productId }: EditorProps) {
         <span>{dirty ? "Unsaved changes" : "All changes saved"}</span>
         <button className="admin-button admin-button--primary" disabled={!canSave} form="product-editor-form" type="submit">{saving ? "Saving..." : "Save Draft"}</button>
       </footer>
-      {mediaPickerRole !== null ? <MediaPicker kind={mediaPickerRole === "video" || mediaPickerRole === "backgroundVideo" ? "video" : ["datasheet", "certificate", "brochure", "document"].includes(mediaPickerRole) ? "document" : "image"} onClose={() => setMediaPickerRole(null)} onSelect={assignMedia} {...(selectedMediaId === undefined ? {} : { selectedId: selectedMediaId })} title={`Choose ${mediaPickerRole} media`} /> : null}
+      {mediaPickerRole !== null && activeMediaField !== undefined ? <MediaPicker kind={activeMediaField.kind} onClose={() => setMediaPickerRole(null)} onSelect={assignMedia} {...(selectedMediaId === undefined ? {} : { selectedId: selectedMediaId })} title={`Choose ${activeMediaField.label.toLowerCase()}`} /> : null}
     </section>
   );
 }

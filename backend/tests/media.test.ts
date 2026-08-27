@@ -409,7 +409,9 @@ describe.sequential("media metadata, usage, and deletion", () => {
     ).toEqual([
       expect.objectContaining({
         kind: "media-poster",
+        ownerType: "media",
         ownerId: video.id,
+        placement: "Video poster",
       }),
     ]);
 

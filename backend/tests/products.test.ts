@@ -724,7 +724,10 @@ describe.sequential("product lifecycle APIs and reference integrity", () => {
       expect.arrayContaining([
         expect.objectContaining({
           kind: "product-working-media",
+          ownerType: "product",
           ownerId: draft.id,
+          ownerLabel: "630 W TOPCon module",
+          placement: "Hero photo",
           path: "mediaUsages.0.mediaId",
         }),
       ]),

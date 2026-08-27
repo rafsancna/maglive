@@ -33,6 +33,14 @@ export function MediaPreview({
       </video>
     );
   }
+  if (compact) {
+    return (
+      <div className="media-preview__document">
+        <span aria-hidden="true">PDF</span>
+        <strong>PDF document</strong>
+      </div>
+    );
+  }
   return (
     <a
       className="media-preview__document"

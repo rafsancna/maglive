@@ -3,6 +3,7 @@ import {
   type MediaListDto,
   type MediaUsageDto,
   type MediaUsagesDto,
+  type ProductMediaRole,
   type SafeAdminDto,
   type UpdateMediaRequest,
   type mediaListQuerySchema,
@@ -357,12 +358,14 @@ function categoryUsages(
 ): MediaUsageDto[] {
   const usages: MediaUsageDto[] = [];
   const ownerId = category._id.toString();
-  const ownerLabel = category.slug;
+  const ownerLabel = category.translations.get("en")?.name ?? category.slug;
   if (objectIdEquals(category.image?.mediaId, mediaId)) {
     usages.push({
       kind: "category-working-image",
+      ownerType: "category",
       ownerId,
       ownerLabel,
+      placement: "Category image",
       path: "image.mediaId",
     });
   }
@@ -370,8 +373,10 @@ function categoryUsages(
     if (objectIdEquals(translation?.seo.openGraphMediaId, mediaId)) {
       usages.push({
         kind: "category-working-seo",
+        ownerType: "category",
         ownerId,
         ownerLabel,
+        placement: "Open Graph image",
         path: `translations.${locale}.seo.openGraphMediaId`,
         locale,
       });
@@ -380,8 +385,10 @@ function categoryUsages(
     if (objectIdEquals(snapshot?.data.seo.openGraphMediaId, mediaId)) {
       usages.push({
         kind: "category-published-seo",
+        ownerType: "category",
         ownerId,
         ownerLabel,
+        placement: "Open Graph image",
         path: `publishedSnapshots.${locale}.data.seo.openGraphMediaId`,
         locale,
       });
@@ -390,12 +397,29 @@ function categoryUsages(
   if (objectIdEquals(category.publishedGlobal?.data.imageMediaId, mediaId)) {
     usages.push({
       kind: "category-published-image",
+      ownerType: "category",
       ownerId,
       ownerLabel,
+      placement: "Category image",
       path: "publishedGlobal.data.imageMediaId",
     });
   }
   return usages;
+}
+
+function productMediaPlacement(role: ProductMediaRole): string {
+  const labels: Record<ProductMediaRole, string> = {
+    hero: "Hero photo",
+    gallery: "Gallery photo",
+    video: "Product video",
+    backgroundVideo: "Background video",
+    datasheet: "Datasheet",
+    certificate: "Certificate",
+    brochure: "Brochure",
+    document: "Other document",
+    openGraph: "Social sharing image",
+  };
+  return labels[role];
 }
 
 function productUsages(
@@ -404,13 +428,15 @@ function productUsages(
 ): MediaUsageDto[] {
   const usages: MediaUsageDto[] = [];
   const ownerId = product._id.toString();
-  const ownerLabel = product.slug;
+  const ownerLabel = product.translations.get("en")?.name ?? product.slug;
   for (const [index, usage] of product.mediaUsages.entries()) {
     if (objectIdEquals(usage.mediaId, mediaId)) {
       usages.push({
         kind: "product-working-media",
+        ownerType: "product",
         ownerId,
         ownerLabel,
+        placement: productMediaPlacement(usage.role),
         path: `mediaUsages.${index}.mediaId`,
         ...(usage.locale === undefined
           ? {}
@@ -423,8 +449,10 @@ function productUsages(
       if (objectIdEquals(feature.iconMediaId, mediaId)) {
         usages.push({
           kind: "product-working-feature-icon",
+          ownerType: "product",
           ownerId,
           ownerLabel,
+          placement: "Feature icon",
           path: `translations.${locale}.features.${index}.iconMediaId`,
           locale,
         });
@@ -433,8 +461,10 @@ function productUsages(
     if (objectIdEquals(translation?.seo.openGraphMediaId, mediaId)) {
       usages.push({
         kind: "product-working-seo",
+        ownerType: "product",
         ownerId,
         ownerLabel,
+        placement: "Open Graph image",
         path: `translations.${locale}.seo.openGraphMediaId`,
         locale,
       });
@@ -445,8 +475,10 @@ function productUsages(
       if (objectIdEquals(usage.mediaId, mediaId)) {
         usages.push({
           kind: "product-published-media",
+          ownerType: "product",
           ownerId,
           ownerLabel,
+          placement: productMediaPlacement(usage.role),
           path: `publishedSnapshots.${locale}.data.mediaUsages.${index}.mediaId`,
           locale,
         });
@@ -456,8 +488,10 @@ function productUsages(
       if (objectIdEquals(feature.iconMediaId, mediaId)) {
         usages.push({
           kind: "product-published-feature-icon",
+          ownerType: "product",
           ownerId,
           ownerLabel,
+          placement: "Feature icon",
           path: `publishedSnapshots.${locale}.data.features.${index}.iconMediaId`,
           locale,
         });
@@ -466,8 +500,10 @@ function productUsages(
     if (objectIdEquals(snapshot?.data.seo.openGraphMediaId, mediaId)) {
       usages.push({
         kind: "product-published-seo",
+        ownerType: "product",
         ownerId,
         ownerLabel,
+        placement: "Open Graph image",
         path: `publishedSnapshots.${locale}.data.seo.openGraphMediaId`,
         locale,
       });
@@ -479,8 +515,10 @@ function productUsages(
     if (objectIdEquals(usage.mediaId, mediaId)) {
       usages.push({
         kind: "product-published-media",
+        ownerType: "product",
         ownerId,
         ownerLabel,
+        placement: productMediaPlacement(usage.role),
         path: `publishedGlobal.data.mediaUsages.${index}.mediaId`,
         ...(usage.locale === undefined
           ? {}
@@ -553,8 +591,10 @@ async function usageDocuments(
   usages.push(
     ...posterOwners.map((media) => ({
       kind: "media-poster" as const,
+      ownerType: "media" as const,
       ownerId: media._id.toString(),
       ownerLabel: media.originalName,
+      placement: "Video poster",
       path: "posterMediaId",
     })),
   );

@@ -25,6 +25,7 @@ export type MediaListOptions = Readonly<{
   limit?: number;
   search?: string;
   kind?: MediaKind;
+  status?: AdminMediaDto["status"];
 }>;
 
 export function listMedia(
@@ -38,6 +39,7 @@ export function listMedia(
     query.set("search", options.search);
   }
   if (options.kind !== undefined) query.set("kind", options.kind);
+  if (options.status !== undefined) query.set("status", options.status);
   return requestAdminData(
     `/admin/media?${query.toString()}`,
     mediaListDtoSchema,

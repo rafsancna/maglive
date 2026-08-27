@@ -5,7 +5,9 @@ import {
   type LocaleCode,
   type MediaKind,
   type MediaUsageDto,
+  type MediaUsageOwnerType,
 } from "@maglive/contracts";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminApiError } from "../auth/api";
 import {
@@ -29,6 +31,31 @@ const emptyTranslation: TranslationFields = {
   title: "",
   alt: "",
   caption: "",
+};
+
+type MediaCategory = MediaKind | "";
+
+const MEDIA_CATEGORIES: readonly {
+  value: MediaCategory;
+  label: string;
+  description: string;
+  marker: string;
+}[] = [
+  { value: "", label: "All media", description: "Every reusable asset", marker: "ALL" },
+  { value: "image", label: "Photos", description: "JPG, PNG and WebP", marker: "IMG" },
+  { value: "video", label: "Videos", description: "MP4 and WebM", marker: "VID" },
+  { value: "document", label: "Documents", description: "PDF downloads", marker: "PDF" },
+];
+
+const OWNER_TYPE_LABELS: Record<MediaUsageOwnerType, string> = {
+  product: "Products",
+  category: "Categories",
+  news: "News",
+  story: "Stories",
+  blog: "Blogs",
+  page: "Pages",
+  media: "Media",
+  other: "Other",
 };
 
 function translationFor(
@@ -73,18 +100,54 @@ function usageLabel(usage: MediaUsageDto): string {
   return `${usage.ownerLabel} · ${usage.kind.replaceAll("-", " ")}${usage.locale === undefined ? "" : ` · ${usage.locale}`}`;
 }
 
+function usageOwnerType(usage: MediaUsageDto): MediaUsageOwnerType {
+  if (usage.ownerType !== undefined) return usage.ownerType;
+  if (usage.kind.startsWith("product-")) return "product";
+  if (usage.kind.startsWith("category-")) return "category";
+  if (usage.kind === "media-poster") return "media";
+  return "other";
+}
+
+function usagePlacement(usage: MediaUsageDto): string {
+  if (usage.placement !== undefined) return usage.placement;
+  if (usage.kind.includes("feature-icon")) return "Feature icon";
+  if (usage.kind.includes("seo")) return "Open Graph image";
+  if (usage.kind.includes("category") && usage.kind.includes("image")) {
+    return "Category image";
+  }
+  if (usage.kind === "media-poster") return "Video poster";
+  return "Product media";
+}
+
+function usageStage(usage: MediaUsageDto): string {
+  if (usage.kind.includes("published")) return "Published";
+  if (usage.kind === "media-poster") return "Media relationship";
+  return "Working draft";
+}
+
+function usageHref(usage: MediaUsageDto): string | undefined {
+  const ownerType = usageOwnerType(usage);
+  if (ownerType === "product") return `/admin/products/${usage.ownerId}`;
+  if (ownerType === "category") return "/admin/categories";
+  return undefined;
+}
+
 export function MediaLibrary() {
   const { localeCodes, languageByCode } = useLanguages();
   const [items, setItems] = useState<AdminMediaDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [kind, setKind] = useState<MediaKind | "">("");
+  const [kind, setKind] = useState<MediaCategory>("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalResults, setTotalResults] = useState(0);
   const [locale, setLocale] = useState<LocaleCode>("en");
   const [translation, setTranslation] =
     useState<TranslationFields>(emptyTranslation);
-  const [usages, setUsages] = useState<MediaUsageDto[]>([]);
+  const [usageResult, setUsageResult] = useState<{
+    mediaId: string;
+    usages: MediaUsageDto[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +162,15 @@ export function MediaLibrary() {
     () => items.find((item) => item.id === selectedId),
     [items, selectedId],
   );
+  const usages = useMemo(
+    () =>
+      selected !== undefined && usageResult?.mediaId === selected.id
+        ? usageResult.usages
+        : [],
+    [selected, usageResult],
+  );
+  const usagesLoading =
+    selected !== undefined && usageResult?.mediaId !== selected.id;
 
   useEffect(() => {
     let active = true;
@@ -112,6 +184,7 @@ export function MediaLibrary() {
         if (!active) return;
         setItems(result.items);
         setTotalPages(result.pagination.totalPages);
+        setTotalResults(result.pagination.total);
         setSelectedId((current) => {
           if (result.items.some((item) => item.id === current)) return current;
           const first = result.items[0];
@@ -136,15 +209,29 @@ export function MediaLibrary() {
     let active = true;
     void getMediaUsages(selected.id)
       .then((result) => {
-        if (active) setUsages(result.usages);
+        if (active) {
+          setUsageResult({ mediaId: selected.id, usages: result.usages });
+        }
       })
       .catch((reason: unknown) => {
-        if (active) setError(mediaError(reason));
+        if (active) {
+          setUsageResult({ mediaId: selected.id, usages: [] });
+          setError(mediaError(reason));
+        }
       });
     return () => {
       active = false;
     };
-  }, [locale, selected]);
+  }, [selected]);
+
+  const usageGroups = useMemo(() => {
+    const groups = new Map<MediaUsageOwnerType, MediaUsageDto[]>();
+    for (const usage of usages) {
+      const ownerType = usageOwnerType(usage);
+      groups.set(ownerType, [...(groups.get(ownerType) ?? []), usage]);
+    }
+    return [...groups.entries()];
+  }, [usages]);
 
   function replaceItem(media: AdminMediaDto): void {
     setItems((current) =>
@@ -246,7 +333,7 @@ export function MediaLibrary() {
       setError(mediaError(reason));
       if (reason instanceof AdminApiError && reason.code === "MEDIA_IN_USE") {
         void getMediaUsages(selected.id).then((result) =>
-          setUsages(result.usages),
+          setUsageResult({ mediaId: selected.id, usages: result.usages }),
         );
       }
     } finally {
@@ -331,35 +418,46 @@ export function MediaLibrary() {
         </div>
       )}
 
+      <nav aria-label="Media categories" className="media-categories">
+        {MEDIA_CATEGORIES.map((category) => (
+          <button
+            aria-current={kind === category.value ? "page" : undefined}
+            key={category.value || "all"}
+            onClick={() => {
+              setLoading(true);
+              setKind(category.value);
+              setPage(1);
+            }}
+            type="button"
+          >
+            <span aria-hidden="true">{category.marker}</span>
+            <div>
+              <strong>{category.label}</strong>
+              <small>{category.description}</small>
+            </div>
+            {kind === category.value ? <b>{totalResults}</b> : null}
+          </button>
+        ))}
+      </nav>
+
       <div className="media-toolbar">
         <label className="admin-field">
-          <span>Search filenames</span>
+          <span>Search media</span>
           <input
             onChange={(event) => {
               setLoading(true);
               setSearch(event.target.value);
               setPage(1);
             }}
+            placeholder="Search by original filename"
             type="search"
             value={search}
           />
         </label>
-        <label className="admin-field">
-          <span>Media type</span>
-          <select
-            onChange={(event) => {
-              setLoading(true);
-              setKind(event.target.value as MediaKind | "");
-              setPage(1);
-            }}
-            value={kind}
-          >
-            <option value="">All types</option>
-            <option value="image">Images</option>
-            <option value="video">Videos</option>
-            <option value="document">PDF documents</option>
-          </select>
-        </label>
+        <div className="media-toolbar__summary" aria-live="polite">
+          <strong>{totalResults}</strong>
+          <span>{totalResults === 1 ? "asset" : "assets"} in this category</span>
+        </div>
       </div>
 
       {loading ? <p aria-live="polite">Loading media library…</p> : null}
@@ -525,19 +623,59 @@ export function MediaLibrary() {
               </div>
             ) : null}
 
-            <div className="media-inspector__section">
-              <strong>Current usages</strong>
-              {usages.length === 0 ? (
-                <p>Not currently referenced.</p>
+            <div className="media-inspector__section media-usages">
+              <div className="media-usages__heading">
+                <strong>Used in content</strong>
+                <span>{usages.length}</span>
+              </div>
+              {usagesLoading ? (
+                <p aria-live="polite">Checking references…</p>
+              ) : usages.length === 0 ? (
+                <div className="media-usages__empty">
+                  <strong>Available to use</strong>
+                  <p>This asset is not referenced by any managed content.</p>
+                </div>
               ) : (
-                <ul>
-                  {usages.map((usage) => (
-                    <li key={`${usage.kind}:${usage.ownerId}:${usage.path}`}>
-                      {usageLabel(usage)}
-                    </li>
+                <div className="media-usage-groups">
+                  {usageGroups.map(([ownerType, ownerUsages]) => (
+                    <section key={ownerType}>
+                      <header>
+                        <strong>{OWNER_TYPE_LABELS[ownerType]}</strong>
+                        <span>{ownerUsages.length}</span>
+                      </header>
+                      <ul>
+                        {ownerUsages.map((usage) => {
+                          const href = usageHref(usage);
+                          return (
+                            <li
+                              aria-label={usageLabel(usage)}
+                              key={`${usage.kind}:${usage.ownerId}:${usage.path}`}
+                            >
+                              {href === undefined ? (
+                                <strong>{usage.ownerLabel}</strong>
+                              ) : (
+                                <Link href={href}>{usage.ownerLabel}</Link>
+                              )}
+                              <span>{usagePlacement(usage)}</span>
+                              <small>
+                                {usageStage(usage)}
+                                {usage.locale === undefined
+                                  ? ""
+                                  : ` · ${usage.locale.toUpperCase()}`}
+                              </small>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
                   ))}
-                </ul>
+                </div>
               )}
+              <p className="media-usages__coverage">
+                References are tracked automatically for Products, Categories,
+                and video posters. News, Stories, Blogs, Pages, and Other content
+                will appear here when those managed CMS modules are enabled.
+              </p>
             </div>
 
             <div className="media-inspector__actions">
