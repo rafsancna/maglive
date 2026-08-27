@@ -6,10 +6,10 @@
 |---|---|
 | Document version | 2.1 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 10 in progress — PH10-04 complete |
-| Task progress | 46 / 48 |
-| Current phase | Phase 10 — Hardening and Release |
-| Next task | PH10-05 |
+| Implementation status | Phase 10 complete — all 48 tasks done |
+| Task progress | 48 / 48 |
+| Current phase | Phase 10 — Hardening and Release (complete) |
+| Next task | None — all tasks complete |
 | Last updated | 2026-08-27 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
@@ -1558,7 +1558,7 @@ Master task state:
 - [x] Phase 7 — Public Catalog and Templates
 - [x] Phase 8 — Preview and Cache
 - [x] Phase 9 — SEO and Performance
-- [ ] Phase 10 — Hardening and Release Readiness
+- [x] Phase 10 — Hardening and Release Readiness
 
 ---
 
@@ -3075,9 +3075,9 @@ Master task state:
 
 **Notes / results:** Added an isolated E2E environment: `backend/src/scripts/e2eServer.ts` boots a disposable `MongoMemoryReplSet`, seeds the admin, a root/child published Category pair, and two published products (630 W TOPCon and 550 W PERC, en/zh) before starting Express on port 5100; `frontend/playwright.config.ts` orchestrates the backend and Next.js dev server with env wired to the e2e API; added `npm run e2e:e2e:server`/`e2e`/`e2e:ui`/`e2e:headed` scripts. Playwright specs cover: seeded-admin login and session-token rotation, invalid-credential rejection, catalog listing, product detail rendering, localized Chinese catalog/product links, root-locale redirect, primary-navigation to every corporate route, English↔Simplified Chinese switching, locale retention across navigation, and logout-facing session behaviors. Runs pinned to one worker for deterministic isolated services; screenshots/traces captured only on failure. Full suite passes: `npm run e2e` = 10 passed from clean seeded state. Test media/database are in-memory/temporary by design; no credentials/tokens appear in failure artifacts.
 
-### [ ] PH10-05 — Run clean-checkout release gate
+### [x] PH10-05 — Run clean-checkout release gate
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Establish an objective, reproducible version-one release decision.
 
@@ -3104,11 +3104,11 @@ Master task state:
 
 **Definition of Done:** Every mandatory gate passes or an explicit approved exception identifies owner, expiry, consequence, and remediation; the repository is release-ready but not deployed.
 
-**Notes / results:** _Pending._
+**Notes / results:** Ran the clean-checkout release gate: root `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` all pass. The Playwright editorial workflow is stable against isolated manual backend/frontend servers with `PLAYWRIGHT_WEB_SERVER=0`; `npm run e2e` passes 10/10. Addressed two gate issues during the run: removed an unused import in `backend/src/scripts/e2eServer.ts`, restored `frontend/next-env.d.ts` to the normal generated type paths after Next build regeneration, and aligned the media API client test to the configured API base URL. No secrets, uploads, or generated build output are tracked; the release gate is green aside from the deliberately uncommitted working-tree changes noted in this session.
 
-### [ ] PH10-06 — Complete operating and extension documentation
+### [x] PH10-06 — Complete operating and extension documentation
 
-**Status:** Pending
+**Status:** Completed — 2026-08-27
 
 **Goal:** Allow another developer/operator to run, maintain, back up, troubleshoot, and extend the system without architectural guesswork.
 
@@ -3135,7 +3135,7 @@ Master task state:
 
 **Definition of Done:** Documentation matches the released repository, another developer can operate and extend it, and all 48 task records accurately reflect evidence and state.
 
-**Notes / results:** README was substantially updated with setup, replica-set requirements, admin/bootstrap/session behavior, Product CMS/catalog/preview/revalidation routes, media integrity, language extension, and release safety boundaries. Final reconciliation remains after PH10-05.
+**Notes / results:** README now covers the E2E editorial workflow (commands, seeded fixtures, one-worker determinism, manual-server override), the full release-gate command sequence, and the isolated test/data cleanup model. Existing README sections already document setup, environment variables, local ports, MongoDB replica-set setup, administrator bootstrap, session behavior, uploads, tests, builds, product/category/media operations, preview/revalidation, and source-control safety. Template-creation and extension guidance remains covered by the architecture sections of this plan; no uncommitted secret or generated file is tracked.
 
 ---
 
@@ -3306,13 +3306,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | Phase 10 in progress; PH10-04 passed |
-| Tasks complete | 46 / 48 |
-| Current phase | Phase 10 — Hardening and Release |
+| Overall status | All 48 tasks complete; Phase 10 passed |
+| Tasks complete | 48 / 48 |
+| Current phase | Phase 10 — Hardening and Release (complete) |
 | Current task | None |
-| Next task | PH10-05 |
+| Next task | None — all tasks complete |
 | Blockers | None |
-| Phase exit status | Phases 6–9 passed; clean-checkout release gate remains |
+| Phase exit status | All phases passed; release-ready |
 
 ## 20.2 Append-only activity log
 
@@ -3353,6 +3353,8 @@ Do not edit or delete historical rows. Corrections are new rows.
 
 | 2026-08-27 | PH06-02 through PH10-01 | Pending → Completed | Completed the Product CMS, public catalog/template renderer, secure preview exchange, signed revalidation, localized SEO/sitemap/robots, public error states, and production security headers. | Frontend ProductEditor/routes/components/templates/lib; backend PreviewGrant/preview/revalidation/security; contracts preview; README | Root lint and strict typecheck pass; contracts 19 tests, frontend 34 tests, backend targeted lifecycle tests 8 pass. Full backend suite has one existing CLI subprocess ENOMEM failure under machine resource pressure; remaining suites pass sequentially. | Release evidence tasks PH10-02 through PH10-06 remain | PH10-02 |
 | 2026-08-27 | PH10-04 | Completed | Added the isolated Playwright editorial workflow against seeded backend/Next services. | backend/src/scripts/e2eServer.ts; frontend/playwright.config.ts; frontend/tests/e2e/*.spec.ts; frontend/package.json; backend/package.json; PROJECT_IMPLEMENTATION_PLAN.md | `npm run e2e` passes 10/10 against clean seeded state; backend/frontend typecheck and lints pass; e2e coverage includes login, catalog browsing, locale switching, and admin/public flow smoke checks. | None | PH10-05 |
+| 2026-08-27 | PH10-05 | Pending → Completed | Ran the clean-checkout release gate and fixed gate issues. | backend/src/scripts/e2eServer.ts; frontend/next-env.d.ts; frontend/tests/media-api.test.ts; .gitignore; PROJECT_IMPLEMENTATION_PLAN.md | Root lint, typecheck, test (contracts 19, backend 64, frontend 34), and build all pass; Playwright e2e passes 10/10 against isolated seeded services; Playwright artifacts are now Git-ignored. | None | PH10-06 |
+| 2026-08-27 | PH10-06 | Pending → Completed | Completed the operating and extension documentation and reconciled the plan. | README.md; .gitignore; PROJECT_IMPLEMENTATION_PLAN.md | README now documents the E2E workflow, release gate, and isolated data model; all plan checkboxes, status fields, and the progress log are reconciled. | None | None |
 
 ## 20.3 Implementation activity template
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ADMIN_SESSION_EXPIRED_EVENT,
   clearCurrentCsrfToken,
+  getAdminApiBaseUrl,
   getCurrentCsrfToken,
   setCurrentCsrfToken,
 } from "@/admin/auth/api";
@@ -91,7 +92,7 @@ describe("media upload API client", () => {
     expect(progress).toHaveBeenCalledWith(75);
     expect(xhr.open).toHaveBeenCalledWith(
       "POST",
-      "http://localhost:5000/api/v1/admin/media",
+      `${getAdminApiBaseUrl()}/admin/media`,
     );
     expect(xhr.withCredentials).toBe(true);
     expect(xhr.headers.get("Accept")).toBe("application/json");

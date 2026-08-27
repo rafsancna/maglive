@@ -15,6 +15,11 @@ out/
 coverage/
 *.tsbuildinfo
 
+# Playwright artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
 # Logs and diagnostics
 *.log
 npm-debug.log*

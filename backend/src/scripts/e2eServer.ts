@@ -3,7 +3,7 @@ import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import { createApp } from "../app.js";
 import { connectDatabase, disconnectDatabase } from "../config/database.js";
 import { loadConfig, type AppConfig } from "../config/env.js";

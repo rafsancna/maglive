@@ -59,9 +59,47 @@ Wait for `rs.status()` to report a primary before starting the backend. Never po
 - `npm run typecheck` — strict type checks in every workspace
 - `npm run lint` — ESLint in every workspace
 - `npm test` — deterministic workspace tests
+- `npm run e2e` — Playwright editorial workflow (from `frontend/`)
 - `npm run clean` — remove generated build and coverage output
 
 Each command can also be run for one workspace, for example `npm test -w @maglive/backend`.
+
+## End-to-end tests
+
+`frontend/tests/e2e` contains Playwright specs that exercise the primary administrator and public journeys through real browser, Next.js, Express, and MongoDB boundaries. The suite covers:
+
+- Administrator login with pre-auth CSRF acquisition, session/CSRF token rotation, and invalid-credential rejection.
+- Public catalog listing, product detail rendering, and the localized Chinese catalog.
+- Locale detection, root-path redirect, primary-navigation coverage of every corporate route, English↔Simplified Chinese switching, and locale retention across navigation.
+
+The backend e2e bootstrap script (`backend/src/scripts/e2eServer.ts`) starts a disposable in-memory MongoDB replica set, seeds an administrator, a root/child published category pair, and two published products in both languages, then serves the API on port `5100`. Playwright's `webServer` configuration starts the backend and the Next.js dev server automatically and wires the frontend environment to the e2e API.
+
+```text
+npm run e2e -w @maglive/frontend
+```
+
+Additional Playwright modes:
+
+```text
+npm run e2e:ui -w @maglive/frontend      # interactive UI mode
+npm run e2e:headed -w @maglive/frontend  # headed browser
+```
+
+The suite is pinned to one worker so the isolated services stay deterministic. Test data and the database are in-memory and are discarded when the servers stop; screenshots and traces are captured only on failure. If you prefer to run the servers manually, start the backend with `npm run e2e:server -w @maglive/backend` (with `PORT=5100 FRONTEND_ORIGIN=http://localhost:3000`) and a normal frontend dev server configured to use `http://localhost:5100/api/v1`, then run `PLAYWRIGHT_WEB_SERVER=0 npm run e2e -w @maglive/frontend`.
+
+## Release gate
+
+The version-one release gate runs from the repository root:
+
+```text
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run e2e -w @maglive/frontend
+```
+
+The gate must pass on a clean checkout with the lockfile, and the Playwright suite must pass from a clean seeded state. See `PROJECT_IMPLEMENTATION_PLAN.md` (PH10-05) for the full acceptance criteria.
 
 ## Test isolation
 
