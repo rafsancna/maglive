@@ -488,6 +488,28 @@ export async function getAdminCategory(id: string): Promise<CategoryAdminDto> {
   return toCategoryAdminDto(category, localeCodes);
 }
 
+function numberedCategorySlug(base: string, sequence: number): string {
+  if (sequence === 1) return base;
+  const suffix = `-${sequence}`;
+  return `${base.slice(0, 120 - suffix.length).replace(/-+$/g, "")}${suffix}`;
+}
+
+async function chooseAvailableCategorySlug(
+  base: string,
+  session: ClientSession,
+): Promise<string> {
+  for (let sequence = 1; sequence <= 1_000; sequence += 1) {
+    const candidate = numberedCategorySlug(base, sequence);
+    const exists = await CategoryModel.exists({ slug: candidate }).session(session);
+    if (exists === null) return candidate;
+  }
+  throw new AppError(
+    409,
+    "CATEGORY_SLUG_UNAVAILABLE",
+    "A unique category URL could not be generated. Choose a different category name.",
+  );
+}
+
 export async function createCategory(
   input: CreateCategoryRequest,
   actor: AdminActor,
@@ -496,31 +518,37 @@ export async function createCategory(
     ...Object.keys(input.translations),
     ...Object.keys(input.image?.translations ?? {}),
   ]);
-  try {
-    return await inTransaction(async (session) => {
-      const parentId = input.parentId === null ? null : toObjectId(input.parentId);
-      await validateParent(undefined, parentId, session);
-      const category = new CategoryModel({
-        slug: input.slug,
-        parentId,
-        sortOrder: input.sortOrder,
-        translations: toTranslations(input.translations),
-        ...(input.image === undefined ? {} : { image: toImageUsage(input.image) }),
-        status: "active",
-        publishedSnapshots: new Map(),
-        createdBy: toObjectId(actor.id),
-        updatedBy: toObjectId(actor.id),
+  for (let raceAttempt = 0; raceAttempt < 5; raceAttempt += 1) {
+    try {
+      return await inTransaction(async (session) => {
+        const slug = await chooseAvailableCategorySlug(input.slug, session);
+        const parentId = input.parentId === null ? null : toObjectId(input.parentId);
+        await validateParent(undefined, parentId, session);
+        const category = new CategoryModel({
+          slug,
+          parentId,
+          sortOrder: input.sortOrder,
+          translations: toTranslations(input.translations),
+          ...(input.image === undefined ? {} : { image: toImageUsage(input.image) }),
+          status: "active",
+          publishedSnapshots: new Map(),
+          createdBy: toObjectId(actor.id),
+          updatedBy: toObjectId(actor.id),
+        });
+        await lockReadyCategoryMedia(workingMediaIds(category), session);
+        await category.save({ session });
+        return toCategoryAdminDto(category, await listLanguageCodes());
       });
-      await lockReadyCategoryMedia(workingMediaIds(category), session);
-      await category.save({ session });
-      return toCategoryAdminDto(category, await listLanguageCodes());
-    });
-  } catch (error) {
-    if (duplicateKeyError(error)) {
-      throw new AppError(409, "CATEGORY_SLUG_EXISTS", "That category slug is already in use.");
+    } catch (error) {
+      if (duplicateKeyError(error)) continue;
+      throw error;
     }
-    throw error;
   }
+  throw new AppError(
+    409,
+    "CATEGORY_SLUG_UNAVAILABLE",
+    "A unique category URL could not be generated. Choose a different category name.",
+  );
 }
 
 export async function updateCategory(

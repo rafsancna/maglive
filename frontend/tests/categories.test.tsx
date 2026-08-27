@@ -134,7 +134,7 @@ describe("category manager", () => {
   it("creates an English draft and exposes only root categories as parents", async () => {
     const created = category({
       id: "507f1f77bcf86cd799439013",
-      slug: "storage",
+      slug: "energy-storage",
       translations: { en: { name: "Energy storage", seo: {} } },
       publishedGlobal: undefined,
       publishedSnapshots: {},
@@ -148,8 +148,9 @@ describe("category manager", () => {
     await screen.findByDisplayValue("modules");
 
     await user.click(screen.getByRole("button", { name: "New category" }));
-    await user.type(screen.getByLabelText("Stable slug"), "storage");
     await user.type(screen.getByLabelText("Display name"), "Energy storage");
+    expect(screen.getByLabelText("Category URL slug")).toHaveValue("energy-storage");
+    expect(screen.getByLabelText("Category URL slug")).toHaveAttribute("readonly");
     const parent = screen.getByLabelText("Parent category");
     expect(parent).toHaveTextContent("Solar modules");
     expect(parent).not.toHaveTextContent("Residential");
@@ -157,7 +158,7 @@ describe("category manager", () => {
 
     await waitFor(() => {
       expect(categoryApi.createCategory).toHaveBeenCalledWith({
-        slug: "storage",
+        slug: "energy-storage",
         parentId: null,
         sortOrder: 0,
         translations: {

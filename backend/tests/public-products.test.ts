@@ -828,11 +828,11 @@ describe.sequential("public localized Product APIs", () => {
         ).data.items,
       );
     }
-    expect(all.some((item) => item.path === "/zh/products/main-module")).toBe(
+    expect(all.some((item) => item.path === "/zh/products/modules/main-module")).toBe(
       true,
     );
     expect(
-      all.some((item) => item.path === "/zh/products/english-only"),
+      all.some((item) => item.path === "/zh/products/modules/english-only"),
     ).toBe(false);
     expect(all.every((item) => item.updatedAt.endsWith("Z"))).toBe(true);
   });

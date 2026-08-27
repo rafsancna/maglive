@@ -431,10 +431,10 @@ describe.sequential("product lifecycle APIs and reference integrity", () => {
       "post",
       "/api/v1/admin/products",
       productInput(leaf._id, hero._id),
-    ).expect(409);
-    expect(apiErrorSchema.parse(duplicateSlug.body).error.code).toBe(
-      "PRODUCT_SLUG_EXISTS",
-    );
+    ).expect(201);
+    expect(
+      apiSuccessSchema(productAdminDtoSchema).parse(duplicateSlug.body).data.slug,
+    ).toBe("630w-topcon-2");
   });
 
   it("runs publish, edit, duplicate, locale unpublish, archive, and delete-eligibility transitions", async () => {

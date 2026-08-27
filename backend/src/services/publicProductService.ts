@@ -888,11 +888,13 @@ export async function listPublicSitemapEntries(
     for (const locale of locales) {
       const context = coherentProductContext(product, locale, catalog);
       if (context === undefined) continue;
+      const categorySlug = context.category.publishedGlobal?.data.slug;
+      if (categorySlug === undefined) continue;
       entries.push({
         kind: "product",
         locale,
         slug,
-        path: `/${locale}/products/${slug}`,
+        path: `/${locale}/products/${categorySlug}/${slug}`,
         updatedAt: publicUpdatedAt(context),
         availableLocales: locales,
       });

@@ -1,29 +1,20 @@
 "use client";
 
-import type { CreateLanguageRequest } from "@maglive/contracts";
 import { useState, type FormEvent } from "react";
 import { AdminApiError } from "../auth/api";
 import { AdminRouteIntro } from "../components/AdminRouteIntro";
 import { addLanguage } from "./api";
 import { useLanguages } from "./LanguageProvider";
-
-const initialForm: CreateLanguageRequest = {
-  code: "",
-  languageTag: "",
-  acceptLanguageAliases: [],
-  direction: "ltr",
-  fallback: "en",
-  label: "",
-  nativeLabel: "",
-};
+import { LANGUAGE_PRESETS, getLanguagePreset } from "./presets";
 
 export function LanguageManager() {
   const { languages, loading, error, refresh } = useLanguages();
-  const [form, setForm] = useState(initialForm);
-  const [aliases, setAliases] = useState("");
+  const [selectedCode, setSelectedCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const selectedPreset = getLanguagePreset(selectedCode);
+  const enabledCodes = new Set(languages.map(({ code }) => code));
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -31,20 +22,13 @@ export function LanguageManager() {
     setFormError(null);
     setNotice(null);
     try {
-      const created = await addLanguage({
-        ...form,
-        code: form.code.trim().toLowerCase(),
-        languageTag: form.languageTag.trim(),
-        label: form.label.trim(),
-        nativeLabel: form.nativeLabel.trim(),
-        acceptLanguageAliases: aliases
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean),
-      });
+      if (selectedPreset === undefined) {
+        setFormError("Choose a language first.");
+        return;
+      }
+      const created = await addLanguage(selectedPreset.request);
       await refresh();
-      setForm({ ...initialForm, fallback: "en" });
-      setAliases("");
+      setSelectedCode("");
       setNotice(`${created.label} is now available in the CMS and public language switcher.`);
     } catch (reason) {
       setFormError(
@@ -60,7 +44,7 @@ export function LanguageManager() {
   return (
     <AdminRouteIntro
       eyebrow="Localization"
-      text="Add a language once, then translate and publish its category and product content from the existing editors. Code-owned site copy uses the selected fallback dictionary until a dedicated translation is deployed."
+      text="Choose a language and add it in one step. Everything else is configured automatically."
       title="Languages"
     >
       {error ? <p className="admin-alert admin-alert--error" role="alert">{error}</p> : null}
@@ -78,9 +62,14 @@ export function LanguageManager() {
           <div className="admin-language-list">
             {languages.map((language) => (
               <article className="admin-language-card" key={language.code}>
-                <div>
-                  <strong lang={language.languageTag}>{language.nativeLabel}</strong>
-                  <span>{language.label}</span>
+                <div className="admin-language-card__identity">
+                  <span aria-hidden="true" className="admin-language-flag">
+                    {getLanguagePreset(language.code)?.flag ?? "🌐"}
+                  </span>
+                  <div>
+                    <strong lang={language.languageTag}>{language.nativeLabel}</strong>
+                    <span>{language.label}</span>
+                  </div>
                 </div>
                 <dl>
                   <div><dt>Route</dt><dd>/{language.code}</dd></div>
@@ -103,42 +92,46 @@ export function LanguageManager() {
           </div>
           {formError ? <p className="admin-alert admin-alert--error" role="alert">{formError}</p> : null}
           <label className="admin-field">
-            <span>Route code</span>
-            <input maxLength={24} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="fr" required value={form.code} />
-            <small>Lowercase URL code, such as fr or pt-br.</small>
-          </label>
-          <label className="admin-field">
-            <span>BCP 47 language tag</span>
-            <input maxLength={64} onChange={(event) => setForm({ ...form, languageTag: event.target.value })} placeholder="fr-FR" required value={form.languageTag} />
-          </label>
-          <label className="admin-field">
-            <span>English name</span>
-            <input maxLength={80} onChange={(event) => setForm({ ...form, label: event.target.value })} placeholder="French" required value={form.label} />
-          </label>
-          <label className="admin-field">
-            <span>Native name</span>
-            <input maxLength={80} onChange={(event) => setForm({ ...form, nativeLabel: event.target.value })} placeholder="Français" required value={form.nativeLabel} />
-          </label>
-          <label className="admin-field">
-            <span>Text direction</span>
-            <select onChange={(event) => setForm({ ...form, direction: event.target.value as "ltr" | "rtl" })} value={form.direction}>
-              <option value="ltr">Left to right</option>
-              <option value="rtl">Right to left</option>
+            <span>Language</span>
+            <select
+              aria-label="Language"
+              onChange={(event) => {
+                setSelectedCode(event.target.value);
+                setFormError(null);
+                setNotice(null);
+              }}
+              required
+              value={selectedCode}
+            >
+              <option value="">Choose a language</option>
+              {LANGUAGE_PRESETS.map(({ flag, request }) => (
+                <option
+                  disabled={enabledCodes.has(request.code)}
+                  key={request.code}
+                  value={request.code}
+                >
+                  {flag} {request.nativeLabel} — {request.label}{enabledCodes.has(request.code) ? " (already enabled)" : ""}
+                </option>
+              ))}
             </select>
+            <small>The technical settings are predefined and added automatically.</small>
           </label>
-          <label className="admin-field">
-            <span>Fallback language</span>
-            <select onChange={(event) => setForm({ ...form, fallback: event.target.value })} value={form.fallback}>
-              {languages.map((language) => <option key={language.code} value={language.code}>{language.label}</option>)}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Accept-Language aliases</span>
-            <input onChange={(event) => setAliases(event.target.value)} placeholder="fr-CA, fr-BE" value={aliases} />
-            <small>Optional comma-separated browser language tags.</small>
-          </label>
-          <button className="admin-button admin-button--primary" disabled={saving || loading} type="submit">
-            {saving ? "Adding language…" : "Add language"}
+
+          {selectedPreset ? (
+            <div className="admin-language-selection" aria-live="polite">
+              <span aria-hidden="true" className="admin-language-selection__flag">{selectedPreset.flag}</span>
+              <div>
+                <strong lang={selectedPreset.request.languageTag}>{selectedPreset.request.nativeLabel}</strong>
+                <span>{selectedPreset.request.label}</span>
+                <small>
+                  Route /{selectedPreset.request.code} · {selectedPreset.request.languageTag} · {selectedPreset.request.direction.toUpperCase()}
+                </small>
+              </div>
+            </div>
+          ) : null}
+
+          <button className="admin-button admin-button--primary" disabled={saving || loading || selectedPreset === undefined} type="submit">
+            {saving ? "Adding language…" : selectedPreset ? `Add ${selectedPreset.request.label}` : "Add language"}
           </button>
         </form>
       </div>

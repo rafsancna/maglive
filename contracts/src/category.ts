@@ -12,6 +12,19 @@ export const categorySlugSchema = z
     message: 'The slug "products" is reserved.',
   });
 
+export function createCategorySlugBase(categoryName: string): string {
+  const slug = categoryName
+    .replace(/\p{S}/gu, "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120)
+    .replace(/-+$/g, "");
+  return slug === "products" ? "products-category" : slug;
+}
+
 export const categorySeoInputSchema = z.object({
   title: z.string().trim().min(1).max(70).optional(),
   description: z.string().trim().min(1).max(320).optional(),

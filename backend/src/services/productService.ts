@@ -181,35 +181,60 @@ export async function getAdminProduct(id: string): Promise<ProductAdminDto> {
   return toProductAdminDto(product, localeCodes);
 }
 
+function numberedProductSlug(base: string, sequence: number): string {
+  if (sequence === 1) return base;
+  const suffix = `-${sequence}`;
+  return `${base.slice(0, 140 - suffix.length).replace(/-+$/g, "")}${suffix}`;
+}
+
+async function chooseAvailableProductSlug(
+  base: string,
+  session: ClientSession,
+): Promise<string> {
+  for (let sequence = 1; sequence <= 1_000; sequence += 1) {
+    const candidate = numberedProductSlug(base, sequence);
+    const exists = await ProductModel.exists({ slug: candidate }).session(session);
+    if (exists === null) return candidate;
+  }
+  throw new AppError(
+    409,
+    "PRODUCT_SLUG_UNAVAILABLE",
+    "A unique product URL could not be generated. Choose a different product name.",
+  );
+}
+
 export async function createProduct(
   input: CreateProductRequest,
   actor: AdminActor,
 ): Promise<ProductAdminDto> {
   await assertLanguagesExist(inputLocaleCodes(input));
-  try {
-    return await inTransaction(async (session) => {
-      const product = new ProductModel({
-        ...input,
-        publishedSnapshots: new Map(),
-        status: "draft",
-        createdBy: toObjectId(actor.id),
-        updatedBy: toObjectId(actor.id),
+  for (let raceAttempt = 0; raceAttempt < 5; raceAttempt += 1) {
+    try {
+      return await inTransaction(async (session) => {
+        const slug = await chooseAvailableProductSlug(input.slug, session);
+        const product = new ProductModel({
+          ...input,
+          slug,
+          publishedSnapshots: new Map(),
+          status: "draft",
+          createdBy: toObjectId(actor.id),
+          updatedBy: toObjectId(actor.id),
+        });
+        await lockProductCategoryAssignment(product.categoryId, undefined, session);
+        await lockProductWorkingMediaReferences(product, session);
+        await product.save({ session });
+        return toProductAdminDto(product, await listLanguageCodes());
       });
-      await lockProductCategoryAssignment(product.categoryId, undefined, session);
-      await lockProductWorkingMediaReferences(product, session);
-      await product.save({ session });
-      return toProductAdminDto(product, await listLanguageCodes());
-    });
-  } catch (error) {
-    if (duplicateKeyError(error)) {
-      throw new AppError(
-        409,
-        "PRODUCT_SLUG_EXISTS",
-        "That product slug is already in use.",
-      );
+    } catch (error) {
+      if (duplicateKeyError(error)) continue;
+      throw error;
     }
-    throw error;
   }
+  throw new AppError(
+    409,
+    "PRODUCT_SLUG_UNAVAILABLE",
+    "A unique product URL could not be generated. Choose a different product name.",
+  );
 }
 
 export async function updateProduct(

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  createCategorySlugBase,
   type AdminMediaDto,
   type CategoryAdminDto,
   type LocaleCode,
@@ -268,6 +269,18 @@ export function CategoryManager() {
     value: EditorFields[Key],
   ): void {
     setFields((current) => ({ ...current, [key]: value }));
+    setDirty(true);
+    setNotice(null);
+  }
+
+  function updateCategoryName(value: string): void {
+    setFields((current) => ({
+      ...current,
+      name: value,
+      ...(selected === undefined && locale === "en"
+        ? { slug: createCategorySlugBase(value) }
+        : {}),
+    }));
     setDirty(true);
     setNotice(null);
   }
@@ -576,17 +589,16 @@ export function CategoryManager() {
               <legend>Shared category fields</legend>
               <div className="category-form__grid">
                 <div className="admin-field">
-                  <label htmlFor="category-slug">Stable slug</label>
+                  <label htmlFor="category-slug">Category URL slug</label>
                   <input
-                    disabled={selected?.publishedGlobal !== undefined}
                     id="category-slug"
                     maxLength={120}
-                    onChange={(event) => updateField("slug", event.target.value)}
-                    pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                    placeholder="Generated from the English category name"
+                    readOnly
                     required
                     value={fields.slug}
                   />
-                  <small>Lowercase ASCII; locked after first publication.</small>
+                  <small>{fields.slug ? <>Category path: /products/{fields.slug}</> : "Enter the English display name to generate it."} A number is added automatically if it already exists.</small>
                 </div>
                 <div className="admin-field">
                   <label htmlFor="category-parent">Parent category</label>
@@ -630,7 +642,7 @@ export function CategoryManager() {
                   <input
                     id="category-name"
                     maxLength={160}
-                    onChange={(event) => updateField("name", event.target.value)}
+                    onChange={(event) => updateCategoryName(event.target.value)}
                     required
                     value={fields.name}
                   />

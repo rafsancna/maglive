@@ -197,10 +197,10 @@ describe.sequential("category administration and publication", () => {
       "/api/v1/admin/categories",
       categoryInput("modules", "Duplicate"),
     );
-    expect(duplicate.status).toBe(409);
-    expect(apiErrorSchema.parse(duplicate.body).error.code).toBe(
-      "CATEGORY_SLUG_EXISTS",
-    );
+    expect(duplicate.status).toBe(201);
+    expect(
+      apiSuccessSchema(categoryAdminDtoSchema).parse(duplicate.body).data.slug,
+    ).toBe("modules-2");
 
     const invalid = await mutate(
       auth,

@@ -12,7 +12,7 @@ test.describe("public catalog browsing", () => {
   test("opens a product detail page from the catalog", async ({ page }) => {
     await page.goto("/en/products");
     await page.getByRole("link", { name: "630 W TOPCon module" }).first().click();
-    await expect(page).toHaveURL(/\/en\/products\/630w-topcon$/);
+    await expect(page).toHaveURL(/\/en\/products\/modules\/630w-topcon$/);
     await expect(page.getByRole("heading", { level: 1, name: "630 W TOPCon module" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Technology" })).toBeVisible();
   });

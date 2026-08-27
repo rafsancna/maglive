@@ -1,8 +1,9 @@
 import type { LocaleCode, PublicCategoryTreeNode, PublicProductSummaryDto } from "@maglive/contracts";
+import { productPath } from "@/lib/product-path";
 import { LocaleLink } from "../site/LocaleLink";
 
 export function ProductCard({ product, locale }: { product: PublicProductSummaryDto; locale: LocaleCode }) {
-  return <article className="catalog-card"><div className="catalog-card__body"><span className="catalog-card__category">{product.category.name}</span><h2><LocaleLink href={`/products/${product.slug}`} locale={locale}>{product.name}</LocaleLink></h2><p>{product.shortDescription}</p>{product.model ? <small>{product.model}</small> : null}</div><LocaleLink className="text-link" href={`/products/${product.slug}`} locale={locale}>View product</LocaleLink></article>;
+  return <article className="catalog-card"><div className="catalog-card__body"><span className="catalog-card__category">{product.category.name}</span><h2><LocaleLink href={productPath(product)} locale={locale}>{product.name}</LocaleLink></h2><p>{product.shortDescription}</p>{product.model ? <small>{product.model}</small> : null}</div><LocaleLink className="text-link" href={productPath(product)} locale={locale}>View product</LocaleLink></article>;
 }
 
 export function CategoryTree({ nodes, locale }: { nodes: readonly PublicCategoryTreeNode[]; locale: LocaleCode }) {

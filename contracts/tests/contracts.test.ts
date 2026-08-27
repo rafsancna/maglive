@@ -8,6 +8,7 @@ import {
   apiSuccessSchema,
   authenticatedSessionDtoSchema,
   categorySlugSchema,
+  createCategorySlugBase,
   createCategoryRequestSchema,
   getLocaleMetadata,
   isLocaleCode,
@@ -154,6 +155,15 @@ describe("category contracts", () => {
     });
     expect(parsed.categories[0]).not.toHaveProperty("translations");
     expect(parsed.categories[0]?.children).toEqual([]);
+  });
+});
+
+describe("category slug generation", () => {
+  it("normalizes the English category name into a stable URL segment", () => {
+    expect(createCategorySlugBase("Solar Modules")).toBe("solar-modules");
+    expect(createCategorySlugBase("Café & Storage™")).toBe("cafe-storage");
+    expect(createCategorySlugBase("Products")).toBe("products-category");
+    expect(createCategorySlugBase("x".repeat(150))).toHaveLength(120);
   });
 });
 

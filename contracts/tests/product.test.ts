@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   PRODUCT_LIMITS,
   adminProductListQuerySchema,
+  createProductSlugBase,
   createProductRequestSchema,
   duplicateProductRequestSchema,
   mediaUsageDtoSchema,
@@ -74,6 +75,18 @@ function workingProduct() {
 }
 
 describe("product contracts", () => {
+  it("creates stable product-name slug bases", () => {
+    expect(createProductSlugBase("630 W TOPCon Module")).toBe(
+      "630-w-topcon-module",
+    );
+    expect(createProductSlugBase("Café Hybrid™")).toBe(
+      "cafe-hybrid",
+    );
+    expect(createProductSlugBase("")).toBe("");
+    expect(createProductSlugBase("Preview")).toBe("preview-product");
+    expect(createProductSlugBase("x".repeat(200))).toHaveLength(140);
+  });
+
   it("defines strict, bounded administrator list query defaults and filters", () => {
     expect(adminProductListQuerySchema.parse({})).toEqual({
       page: 1,

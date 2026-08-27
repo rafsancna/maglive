@@ -2,6 +2,7 @@
 
 import {
   DEFAULT_LOCALE,
+  createProductSlugBase,
   type CategoryAdminDto,
   type CreateProductRequest,
   type LocaleCode,
@@ -229,6 +230,9 @@ export function ProductEditor({ productId }: EditorProps) {
     mutate((draft) => {
       const existing = draft.translations[locale] ?? emptyTranslation();
       draft.translations[locale] = { ...existing, [field]: value };
+      if (isNew && locale === DEFAULT_LOCALE && field === "name") {
+        draft.slug = createProductSlugBase(value);
+      }
     });
   }
 
@@ -406,7 +410,7 @@ export function ProductEditor({ productId }: EditorProps) {
         <fieldset className="product-editor__panel" id="product-basic">
           <legend>Basic information</legend>
           <div className="product-editor__grid">
-            <label className="admin-field"><span>Canonical slug</span><input value={state.slug} onChange={(e) => mutate((draft) => { draft.slug = e.target.value; })} /><small>Lowercase ASCII; locked after first publication.</small>{fieldErrorFor(fieldErrors, "slug") ? <em>{fieldErrorFor(fieldErrors, "slug")}</em> : null}</label>
+            <label className="admin-field"><span>Product URL slug</span><input aria-label="Product URL slug" placeholder="Generated from the English product name" readOnly value={state.slug} /><small>{state.slug && state.categoryId ? <>Public URL: /products/{categories.find(({ id }) => id === state.categoryId)?.slug ?? "category"}/{state.slug}</> : "Select a category and enter the English product name."} A number is added automatically if the product slug already exists.</small>{fieldErrorFor(fieldErrors, "slug") ? <em>{fieldErrorFor(fieldErrors, "slug")}</em> : null}</label>
             <label className="admin-field"><span>Category</span><select value={state.categoryId} onChange={(e) => mutate((draft) => { draft.categoryId = e.target.value; })}><option value="">Select a leaf category</option>{categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.translations[locale]?.name ?? category.translations.en?.name ?? category.slug}</option>)}</select>{fieldErrorFor(fieldErrors, "categoryId") ? <em>{fieldErrorFor(fieldErrors, "categoryId")}</em> : null}</label>
             <label className="admin-field"><span>Model</span><input value={state.model ?? ""} onChange={(e) => mutate((draft) => { draft.model = e.target.value; })} /></label>
             <label className="admin-field"><span>Series</span><input value={state.series ?? ""} onChange={(e) => mutate((draft) => { draft.series = e.target.value; })} /></label>

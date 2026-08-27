@@ -1,4 +1,5 @@
 import type { ProductPageViewModel } from "@/lib/product-view-model";
+import { productPath } from "@/lib/product-path";
 import { LocaleLink } from "../site/LocaleLink";
 import Image from "next/image";
 
@@ -7,7 +8,7 @@ export function ProductBreadcrumb({ product }: { product: ProductPageViewModel }
 }
 
 export function ProductLanguageSwitcher({ product }: { product: ProductPageViewModel }) {
-  return <nav aria-label="Product languages" className="product-language-switcher">{product.availableLocales.map((locale) => <LocaleLink aria-current={locale === product.locale ? "page" : undefined} href={`/products/${product.slug}`} key={locale} locale={locale}>{locale.toUpperCase()}</LocaleLink>)}</nav>;
+  return <nav aria-label="Product languages" className="product-language-switcher">{product.availableLocales.map((locale) => <LocaleLink aria-current={locale === product.locale ? "page" : undefined} href={productPath(product)} key={locale} locale={locale}>{locale.toUpperCase()}</LocaleLink>)}</nav>;
 }
 
 export function ProductSpecifications({ groups }: { groups: ProductPageViewModel["specifications"] }) {
@@ -35,7 +36,7 @@ export function ProductVideos({ product }: { product: ProductPageViewModel }) {
 
 export function RelatedProducts({ product }: { product: ProductPageViewModel }) {
   if (product.relatedProducts.length === 0) return null;
-  return <section className="product-section product-related" aria-labelledby="product-related-title"><h2 id="product-related-title">Related products</h2><div className="product-related__grid">{product.relatedProducts.map((item) => <article key={item.id}><h3><LocaleLink href={`/products/${item.slug}`} locale={product.locale}>{item.name}</LocaleLink></h3><p>{item.shortDescription}</p></article>)}</div></section>;
+  return <section className="product-section product-related" aria-labelledby="product-related-title"><h2 id="product-related-title">Related products</h2><div className="product-related__grid">{product.relatedProducts.map((item) => <article key={item.id}><h3><LocaleLink href={productPath(item)} locale={product.locale}>{item.name}</LocaleLink></h3><p>{item.shortDescription}</p></article>)}</div></section>;
 }
 
 export function EnquiryCta({ locale }: { locale: ProductPageViewModel["locale"] }) {

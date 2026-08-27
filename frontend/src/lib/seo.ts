@@ -1,4 +1,5 @@
 import type { LanguageDto, LocaleCode, PublicProductDetailDto, PublicCategoryDto } from "@maglive/contracts";
+import { productPath } from "./product-path";
 
 export const siteUrl = new URL(process.env.SITE_URL ?? "http://localhost:3000");
 
@@ -14,9 +15,9 @@ export function productMetadata(product: PublicProductDetailDto, locale: LocaleC
   const title = product.seo.title || product.name;
   const description = product.seo.description || product.shortDescription;
   const alternates: Record<string, string> = {};
-  for (const available of product.availableLocales) alternates[languageTag(available, languages)] = localizedPath(available, `/products/${product.slug}`);
-  alternates["x-default"] = localizedPath("en", `/products/${product.slug}`);
-  return { title, description, alternates: { canonical: localizedPath(locale, `/products/${product.slug}`), languages: alternates }, openGraph: { type: "website" as const, title, description, url: localizedPath(locale, `/products/${product.slug}`), locale: languageTag(locale, languages), ...(product.seo.openGraphMedia ? { images: [{ url: product.seo.openGraphMedia.url, width: product.seo.openGraphMedia.width, height: product.seo.openGraphMedia.height, alt: title }] } : {}) }, ...(product.seo.openGraphMedia ? { twitter: { card: "summary_large_image" as const, title, description, images: [product.seo.openGraphMedia.url] } } : {}) };
+  for (const available of product.availableLocales) alternates[languageTag(available, languages)] = localizedPath(available, productPath(product));
+  alternates["x-default"] = localizedPath("en", productPath(product));
+  return { title, description, alternates: { canonical: localizedPath(locale, productPath(product)), languages: alternates }, openGraph: { type: "website" as const, title, description, url: localizedPath(locale, productPath(product)), locale: languageTag(locale, languages), ...(product.seo.openGraphMedia ? { images: [{ url: product.seo.openGraphMedia.url, width: product.seo.openGraphMedia.width, height: product.seo.openGraphMedia.height, alt: title }] } : {}) }, ...(product.seo.openGraphMedia ? { twitter: { card: "summary_large_image" as const, title, description, images: [product.seo.openGraphMedia.url] } } : {}) };
 }
 
 export function categoryMetadata(category: PublicCategoryDto, locale: LocaleCode, languageDefinitions: readonly LanguageDto[]) {

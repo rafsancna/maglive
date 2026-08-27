@@ -61,6 +61,20 @@ export const productSlugSchema = z
     message: "The product slug is reserved.",
   });
 
+export function createProductSlugBase(
+  productName: string,
+): string {
+  const nameSegment = productName
+    .replace(/\p{S}/gu, "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const slug = nameSegment.slice(0, 140).replace(/-+$/g, "");
+  return reservedProductSlugs.has(slug) ? `${slug}-product` : slug;
+}
+
 export const productNestedKeySchema = z
   .string()
   .min(1)
