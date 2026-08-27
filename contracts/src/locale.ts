@@ -21,7 +21,8 @@ const localeDefinitions = {
   }
 } as const;
 
-export type LocaleCode = keyof typeof localeDefinitions;
+export type LocaleCode = string;
+export type BuiltInLocaleCode = keyof typeof localeDefinitions;
 
 export const DEFAULT_LOCALE: LocaleCode = "en";
 
@@ -35,19 +36,27 @@ export type LocaleMetadata = Readonly<{
   nativeLabel: string;
 }>;
 
-export const LOCALE_REGISTRY = localeDefinitions satisfies {
-  readonly [Code in LocaleCode]: LocaleMetadata & { readonly routeCode: Code };
+const checkedLocaleDefinitions = localeDefinitions satisfies {
+  readonly [Code in keyof typeof localeDefinitions]: LocaleMetadata & {
+    readonly routeCode: Code;
+  };
 };
 
-const localeCodeValues = Object.keys(LOCALE_REGISTRY) as [LocaleCode, ...LocaleCode[]];
+export const LOCALE_REGISTRY = checkedLocaleDefinitions;
 
-export const LOCALE_CODES: readonly LocaleCode[] = Object.freeze(localeCodeValues);
-export const localeCodeSchema = z.enum(localeCodeValues);
+const localeCodeValues = Object.keys(LOCALE_REGISTRY) as BuiltInLocaleCode[];
+
+export const LOCALE_CODES: readonly BuiltInLocaleCode[] = Object.freeze(localeCodeValues);
+export const localeCodeSchema = z
+  .string()
+  .min(2)
+  .max(24)
+  .regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,2}$/, "Expected a lowercase locale route code");
 
 export function isLocaleCode(value: string): value is LocaleCode {
   return localeCodeSchema.safeParse(value).success;
 }
 
 export function getLocaleMetadata(locale: LocaleCode): LocaleMetadata {
-  return LOCALE_REGISTRY[locale];
+  return checkedLocaleDefinitions[locale as BuiltInLocaleCode] ?? checkedLocaleDefinitions.en;
 }

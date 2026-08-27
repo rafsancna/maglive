@@ -5,11 +5,18 @@ import { requireLocale } from "@/i18n/page-locale";
 import { LocaleLink } from "@/components/site/LocaleLink";
 import { notFound } from "next/navigation";
 import { categoryMetadata } from "@/lib/seo";
+import { getAvailableLanguages } from "@/i18n/languages";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; categorySlug: string }> }): Promise<import("next").Metadata> {
   const { locale: rawLocale, categorySlug } = await params;
   const locale = await requireLocale(Promise.resolve({ locale: rawLocale })) as LocaleCode;
-  try { return categoryMetadata(await getPublicCategory(categorySlug, locale), locale); } catch { return { title: "Product category" }; }
+  try {
+    const [category, languages] = await Promise.all([
+      getPublicCategory(categorySlug, locale),
+      getAvailableLanguages(),
+    ]);
+    return categoryMetadata(category, locale, languages);
+  } catch { return { title: "Product category" }; }
 }
 
 export default async function ProductCategoryPage({ params, searchParams }: { params: Promise<{ locale: string; categorySlug: string }>; searchParams?: Promise<{ page?: string }> }) {

@@ -1,5 +1,5 @@
 import mongoose, { Schema, type HydratedDocument, type Model, type Types } from "mongoose";
-import { LOCALE_CODES, type LocaleCode } from "@maglive/contracts";
+import type { LocaleCode } from "@maglive/contracts";
 
 export type PreviewGrant = {
   tokenHash: string;
@@ -16,7 +16,11 @@ export type PreviewGrantDocument = HydratedDocument<PreviewGrant>;
 const schema = new Schema<PreviewGrant>({
   tokenHash: { type: String, required: true, unique: true, index: true },
   productId: { type: Schema.Types.ObjectId, required: true, index: true },
-  locale: { type: String, enum: LOCALE_CODES, required: true },
+  locale: {
+    type: String,
+    match: /^[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,2}$/,
+    required: true,
+  },
   administratorId: { type: Schema.Types.ObjectId, required: true, index: true },
   workingVersion: { type: Number, required: true, min: 0 },
   consumedAt: { type: Date },

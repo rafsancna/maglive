@@ -109,17 +109,13 @@ Phase 1 smoke tests do not mutate MongoDB. Later integration suites must opt int
 
 ## Adding a language
 
-English (`en`) and Simplified Chinese (`zh`) are the initial enabled languages, not a fixed two-language limit. Locale-aware routing, static route parameters, HTML language/direction metadata, request detection, and the language switcher derive from the typed registry in `contracts/src/locale.ts`.
+English (`en`) and Simplified Chinese (`zh`) are protected built-in languages, not a fixed two-language limit. Sign in and open `/admin/languages` to add another language. Enter its lowercase route code, BCP 47 language tag, English and native names, text direction, fallback language, and optional exact `Accept-Language` aliases.
 
-To enable another language:
+The new language is persisted in MongoDB and immediately becomes available to locale-aware public routing, HTML language/direction metadata, the public language switcher, sitemap generation, search, and the Category, Product, and Media editors. Translate and publish the complete Category ancestor chain before publishing Products in the new language. English must be published first and remain live while another locale is published.
 
-1. Add one entry to `localeDefinitions` with its route code, BCP 47 language tag, direction, fallback, names, and any exact `Accept-Language` aliases.
-2. Add a JSON dictionary matching `Dictionary` in `frontend/src/i18n/dictionaries/`.
-3. Add its static dictionary import to `frontend/src/i18n/get-dictionary.ts`; the compiler rejects a missing loader.
-4. Add routing, content, long-text, and—when applicable—RTL tests and visual QA.
-5. In later CMS phases, include the locale in publication validation, localized metadata, `hreflang`, sitemap, and editorial completeness coverage before public launch.
+Corporate shell copy such as navigation and general content pages remains code-owned. An admin-added language uses its selected fallback dictionary for that shell until a schema-compatible JSON dictionary is deployed in `frontend/src/i18n/dictionaries/` and registered in `frontend/src/i18n/get-dictionary.ts`. Database-backed Category, Product, specification, SEO, and contextual Media text can all be translated through the admin immediately.
 
-Do not add locale-specific conditionals to navigation or layouts. When two variants share a base language, assign explicit `acceptLanguageAliases` (for example, regional tags) so request detection remains deterministic.
+Languages cannot currently be removed after creation because translations and immutable publication snapshots may reference their route codes. When two variants share a base language, assign explicit aliases so browser request detection remains deterministic. RTL languages additionally require layout, long-content, keyboard, and visual QA before public launch.
 
 ## Administrator bootstrap and sessions
 

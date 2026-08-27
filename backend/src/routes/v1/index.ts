@@ -15,6 +15,10 @@ import {
   createPublicSitemapEntriesRouter
 } from "./publicProducts.js";
 import { createPreviewRouter } from "./preview.js";
+import {
+  createAdminLanguagesRouter,
+  createPublicLanguagesRouter,
+} from "./languages.js";
 
 export function createV1Router(
   getDatabaseHealth: () => DatabaseHealth,
@@ -30,6 +34,10 @@ export function createV1Router(
   });
   router.use("/admin/auth", createAuthRouter(now === undefined ? { config } : { config, now }));
   router.use(
+    "/admin/languages",
+    createAdminLanguagesRouter(config, now ?? Date.now),
+  );
+  router.use(
     "/admin/categories",
     createAdminCategoriesRouter(config, now ?? Date.now)
   );
@@ -42,6 +50,7 @@ export function createV1Router(
     createAdminProductsRouter(config, now ?? Date.now)
   );
   router.use("/public/categories", createPublicCategoriesRouter());
+  router.use("/public/languages", createPublicLanguagesRouter());
   router.use("/public/products", createPublicProductsRouter(storageProvider));
   router.use("/preview", createPreviewRouter(config, now ?? Date.now));
   router.use(

@@ -2,8 +2,6 @@
 
 import {
   DEFAULT_LOCALE,
-  LOCALE_CODES,
-  LOCALE_REGISTRY,
   type CategoryAdminDto,
   type CreateProductRequest,
   type LocaleCode,
@@ -24,6 +22,7 @@ import type { AdminMediaDto } from "@maglive/contracts";
 import { MediaPicker } from "../media/MediaPicker";
 import { createProduct, createPreviewGrant, getProduct, updateProduct } from "./api";
 import { archiveProduct, publishProduct, unpublishProduct } from "./api";
+import { useLanguages } from "../languages/LanguageProvider";
 
 type EditorProps = Readonly<{ productId?: string }>;
 
@@ -93,11 +92,14 @@ function errorMessage(reason: unknown): string {
   return reason.message;
 }
 
-function normalizedPayload(state: EditorState): EditorState {
+function normalizedPayload(
+  state: EditorState,
+  localeCodes: readonly LocaleCode[],
+): EditorState {
   const copy = cloneState(state);
   if (copy.model?.trim() === "") delete copy.model;
   if (copy.series?.trim() === "") delete copy.series;
-  for (const locale of LOCALE_CODES) {
+  for (const locale of localeCodes) {
     const translation = copy.translations[locale];
     if (translation === undefined) continue;
     if (translation.name.trim() === "") {
@@ -158,6 +160,7 @@ function ContentItemsEditor({
 
 export function ProductEditor({ productId }: EditorProps) {
   const router = useRouter();
+  const { localeCodes, languageByCode } = useLanguages();
   const isNew = productId === undefined;
   const [state, setState] = useState<EditorState>(() => emptyState());
   const [loaded, setLoaded] = useState<ProductAdminDto | null>(null);
@@ -234,7 +237,7 @@ export function ProductEditor({ productId }: EditorProps) {
     setError(null);
     setNotice(null);
     setFieldErrors({});
-    const payload = normalizedPayload(state);
+    const payload = normalizedPayload(state, localeCodes);
     try {
       const saved = isNew
         ? await createProduct(payload as CreateProductRequest)
@@ -262,11 +265,11 @@ export function ProductEditor({ productId }: EditorProps) {
   async function publishCurrent(): Promise<void> {
     if (loaded === null || dirty) return;
     const sharedPromotion = loaded.sharedState === "changes-pending";
-    const liveLocales = LOCALE_CODES.filter((candidate) => loaded.publishedSnapshots[candidate] !== undefined);
+    const liveLocales = localeCodes.filter((candidate) => loaded.publishedSnapshots[candidate] !== undefined);
     const locales = sharedPromotion
       ? [...new Set([...liveLocales, locale])]
       : [locale];
-    if (sharedPromotion && !window.confirm(`Shared fields changed. Republish ${locales.map((candidate) => LOCALE_REGISTRY[candidate].label).join(", ")} together?`)) return;
+    if (sharedPromotion && !window.confirm(`Shared fields changed. Republish ${locales.map((candidate) => languageByCode[candidate]?.label ?? candidate).join(", ")} together?`)) return;
     setSaving(true);
     setError(null);
     try {
@@ -277,7 +280,7 @@ export function ProductEditor({ productId }: EditorProps) {
       });
       setLoaded(result.product);
       setState(stateFromDto(result.product));
-      setNotice(`${LOCALE_REGISTRY[locale].label} publication completed.`);
+      setNotice(`${languageByCode[locale]?.label ?? locale} publication completed.`);
     } catch (reason) {
       setError(errorMessage(reason));
       if (reason instanceof AdminApiError) {
@@ -289,13 +292,13 @@ export function ProductEditor({ productId }: EditorProps) {
   }
 
   async function unpublishCurrent(): Promise<void> {
-    if (loaded === null || !loaded.publishedSnapshots[locale] || !window.confirm(`Unpublish ${LOCALE_REGISTRY[locale].label}?`)) return;
+    if (loaded === null || !loaded.publishedSnapshots[locale] || !window.confirm(`Unpublish ${languageByCode[locale]?.label ?? locale}?`)) return;
     setSaving(true);
     try {
       const result = await unpublishProduct(loaded.id, { version: loaded.version, locale });
       setLoaded(result);
       setState(stateFromDto(result));
-      setNotice(`${LOCALE_REGISTRY[locale].label} was unpublished.`);
+      setNotice(`${languageByCode[locale]?.label ?? locale} was unpublished.`);
     } catch (reason) { setError(errorMessage(reason)); } finally { setSaving(false); }
   }
 
@@ -380,7 +383,7 @@ export function ProductEditor({ productId }: EditorProps) {
       </nav>
 
       <div className="product-editor__language" role="tablist" aria-label="Product language">
-        {LOCALE_CODES.map((candidate) => {
+        {localeCodes.map((candidate) => {
           const candidateTranslation = state.translations[candidate];
           const stateLabel = loaded?.localeStates[candidate] ?? "draft";
           return (
@@ -392,7 +395,7 @@ export function ProductEditor({ productId }: EditorProps) {
               role="tab"
               type="button"
             >
-              {LOCALE_REGISTRY[candidate].nativeLabel}
+              {languageByCode[candidate]?.nativeLabel ?? candidate.toUpperCase()}
               <small>{candidateTranslation?.name ? stateLabel : "incomplete"}</small>
             </button>
           );
@@ -413,7 +416,7 @@ export function ProductEditor({ productId }: EditorProps) {
         </fieldset>
 
         <fieldset className="product-editor__panel" id="product-content">
-          <legend>{LOCALE_REGISTRY[locale].nativeLabel} content</legend>
+          <legend>{languageByCode[locale]?.nativeLabel ?? locale.toUpperCase()} content</legend>
           <div className="product-editor__grid">
             <label className="admin-field product-editor__wide"><span>Name</span><input value={translation.name} onChange={(e) => updateTranslation("name", e.target.value)} />{fieldErrorFor(fieldErrors, `translations.${locale}.name`) ? <em>{fieldErrorFor(fieldErrors, `translations.${locale}.name`)}</em> : null}</label>
             <label className="admin-field product-editor__wide"><span>Short description</span><textarea rows={3} value={translation.shortDescription ?? ""} onChange={(e) => updateTranslation("shortDescription", e.target.value)} /></label>
@@ -491,11 +494,11 @@ export function ProductEditor({ productId }: EditorProps) {
         <fieldset className="product-editor__panel" id="product-publication">
           <legend>Publication</legend>
           <p className="product-editor__muted">Publication controls require a successful Save Draft and complete validation. English must publish before other locales.</p>
-          <div className="product-editor__publication-state"><span>{LOCALE_REGISTRY[locale].nativeLabel}</span><strong>{localeState}</strong></div>
+          <div className="product-editor__publication-state"><span>{languageByCode[locale]?.nativeLabel ?? locale.toUpperCase()}</span><strong>{localeState}</strong></div>
           <button className="admin-button" disabled={loaded === null || dirty || saving} onClick={() => void previewCurrent()} type="button">Preview Saved Draft</button>
           <div className="product-editor__publish-actions">
-            <button className="admin-button admin-button--primary" disabled={loaded === null || dirty || saving || localeState === "incomplete"} onClick={() => void publishCurrent()} type="button">{loaded?.publishedSnapshots[locale] ? "Republish" : "Publish"} {LOCALE_REGISTRY[locale].label}</button>
-            <button className="admin-button" disabled={loaded === null || dirty || saving || loaded?.publishedSnapshots[locale] === undefined} onClick={() => void unpublishCurrent()} type="button">Unpublish {LOCALE_REGISTRY[locale].label}</button>
+            <button className="admin-button admin-button--primary" disabled={loaded === null || dirty || saving || localeState === "incomplete"} onClick={() => void publishCurrent()} type="button">{loaded?.publishedSnapshots[locale] ? "Republish" : "Publish"} {languageByCode[locale]?.label ?? locale}</button>
+            <button className="admin-button" disabled={loaded === null || dirty || saving || loaded?.publishedSnapshots[locale] === undefined} onClick={() => void unpublishCurrent()} type="button">Unpublish {languageByCode[locale]?.label ?? locale}</button>
             {loaded && loaded.status !== "archived" ? <button className="admin-button admin-button--danger" disabled={dirty || saving} onClick={() => void archiveCurrent()} type="button">Archive Product</button> : null}
           </div>
         </fieldset>

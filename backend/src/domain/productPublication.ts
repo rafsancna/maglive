@@ -417,6 +417,7 @@ export function buildProductLocaleProjection(
 
 export function deriveProductPublicationState(
   product: ProductLike,
+  localeCodes: readonly LocaleCode[] = LOCALE_CODES,
 ): ProductPublicationState {
   const global = buildProductGlobalProjection(product);
   if (global.data === undefined) {
@@ -426,7 +427,7 @@ export function deriveProductPublicationState(
   const workingLocaleHashes: Partial<Record<LocaleCode, string>> = {};
   const localeStates = {} as ProductPublicationState["localeStates"];
 
-  for (const locale of LOCALE_CODES) {
+  for (const locale of localeCodes) {
     const localized = buildProductLocaleProjection(product, locale);
     const snapshot = product.publishedSnapshots.get(locale);
     if (localized.data !== undefined) {
@@ -465,9 +466,8 @@ export function validateProductUnpublication(
   locale?: LocaleCode,
 ): ProductPublicationIssue[] {
   if (locale !== DEFAULT_LOCALE) return [];
-  const hasAdditionalLiveLocale = LOCALE_CODES.some(
-    (candidate) =>
-      candidate !== DEFAULT_LOCALE && product.publishedSnapshots.has(candidate),
+  const hasAdditionalLiveLocale = [...product.publishedSnapshots.keys()].some(
+    (candidate) => candidate !== DEFAULT_LOCALE,
   );
   return hasAdditionalLiveLocale
     ? [
@@ -481,6 +481,9 @@ export function validateProductUnpublication(
     : [];
 }
 
-export function publicationStateForDto(product: ProductDocument) {
-  return deriveProductPublicationState(product);
+export function publicationStateForDto(
+  product: ProductDocument,
+  localeCodes: readonly LocaleCode[] = LOCALE_CODES,
+) {
+  return deriveProductPublicationState(product, localeCodes);
 }

@@ -150,11 +150,11 @@ describe("product contracts", () => {
     expect(inverter).not.toHaveProperty("templateData");
   });
 
-  it("rejects unsupported locales, roles, duplicate keys, and array limits", () => {
+  it("rejects malformed locales, roles, duplicate keys, and array limits", () => {
     expect(
       productWorkingDataSchema.safeParse({
         ...workingProduct(),
-        translations: { de: { name: "Produkt" } },
+        translations: { DE: { name: "Produkt" } },
       }).success,
     ).toBe(false);
     expect(

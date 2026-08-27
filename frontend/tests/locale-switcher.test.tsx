@@ -21,4 +21,40 @@ describe("LocaleSwitcher", () => {
       expect(link).toHaveAttribute("lang", metadata.languageTag);
     }
   });
+
+  it("renders languages supplied by the managed registry", () => {
+    render(
+      <LocaleSwitcher
+        currentLocale="en"
+        label="Choose language"
+        languages={[
+          {
+            code: "en",
+            languageTag: "en",
+            acceptLanguageAliases: [],
+            direction: "ltr",
+            fallback: "en",
+            label: "English",
+            nativeLabel: "English",
+            builtIn: true,
+          },
+          {
+            code: "fr",
+            languageTag: "fr-FR",
+            acceptLanguageAliases: [],
+            direction: "ltr",
+            fallback: "en",
+            label: "French",
+            nativeLabel: "Français",
+            builtIn: false,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Français" })).toHaveAttribute(
+      "href",
+      "/fr/about",
+    );
+  });
 });

@@ -1,6 +1,11 @@
 "use client";
 
-import { LOCALE_CODES, LOCALE_REGISTRY, type LocaleCode } from "@maglive/contracts";
+import {
+  LOCALE_CODES,
+  getLocaleMetadata,
+  type LanguageDto,
+  type LocaleCode,
+} from "@maglive/contracts";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LOCALE_COOKIE_NAME, switchPathLocale } from "@/i18n/routing";
@@ -8,9 +13,24 @@ import { LOCALE_COOKIE_NAME, switchPathLocale } from "@/i18n/routing";
 type LocaleSwitcherProps = {
   currentLocale: LocaleCode;
   label: string;
+  languages?: readonly LanguageDto[];
 };
 
-export function LocaleSwitcher({ currentLocale, label }: LocaleSwitcherProps) {
+const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
+  const metadata = getLocaleMetadata(code);
+  return {
+    code,
+    languageTag: metadata.languageTag,
+    acceptLanguageAliases: [...metadata.acceptLanguageAliases],
+    direction: metadata.direction,
+    fallback: metadata.fallback,
+    label: metadata.label,
+    nativeLabel: metadata.nativeLabel,
+    builtIn: true,
+  };
+});
+
+export function LocaleSwitcher({ currentLocale, label, languages = builtInLanguages }: LocaleSwitcherProps) {
   const pathname = usePathname();
 
   function rememberLocale(locale: LocaleCode) {
@@ -21,8 +41,8 @@ export function LocaleSwitcher({ currentLocale, label }: LocaleSwitcherProps) {
 
   return (
     <div aria-label={label} className="locale-switcher" role="group">
-      {LOCALE_CODES.map((locale) => {
-        const metadata = LOCALE_REGISTRY[locale];
+      {languages.map((metadata) => {
+        const locale = metadata.code;
         return (
           <Link
             aria-current={locale === currentLocale ? "page" : undefined}

@@ -9,7 +9,8 @@ const navigation = [
   { href: "/admin", label: "Dashboard", marker: "01" },
   { href: "/admin/products", label: "Products", marker: "02" },
   { href: "/admin/categories", label: "Categories", marker: "03" },
-  { href: "/admin/media", label: "Media", marker: "04" }
+  { href: "/admin/media", label: "Media", marker: "04" },
+  { href: "/admin/languages", label: "Languages", marker: "05" }
 ] as const;
 
 function isCurrentPath(pathname: string, href: string): boolean {

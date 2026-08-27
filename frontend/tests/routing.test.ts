@@ -13,6 +13,30 @@ describe("locale routing", () => {
     expect(detectLocale(undefined, "fr;q=1, zh-CN;q=0.9, en;q=0.5")).toBe("zh");
     expect(detectLocale(undefined, "zh-Hans-SG;q=0.9, en;q=0.5")).toBe("zh");
     expect(detectLocale(undefined, "de-DE")).toBe("en");
+    expect(
+      detectLocale(undefined, "fr-CA, en;q=0.8", [
+        {
+          code: "en",
+          languageTag: "en",
+          acceptLanguageAliases: [],
+          direction: "ltr",
+          fallback: "en",
+          label: "English",
+          nativeLabel: "English",
+          builtIn: true,
+        },
+        {
+          code: "fr",
+          languageTag: "fr-FR",
+          acceptLanguageAliases: ["fr-CA"],
+          direction: "ltr",
+          fallback: "en",
+          label: "French",
+          nativeLabel: "Français",
+          builtIn: false,
+        },
+      ]),
+    ).toBe("fr");
   });
 
   it("preserves localized paths and rejects accidental external hrefs", () => {
@@ -27,7 +51,9 @@ describe("locale routing", () => {
     expect(isExcludedFromLocaleRouting("/api/internal/preview")).toBe(true);
     expect(isExcludedFromLocaleRouting("/_next/static/app.js")).toBe(true);
     expect(isExcludedFromLocaleRouting("/manual.pdf")).toBe(true);
-    expect(looksLikeUnsupportedLocale("/xx")).toBe(true);
+    // Syntactically valid locale routes are validated against the managed
+    // registry by the server-rendered locale layout.
+    expect(looksLikeUnsupportedLocale("/xx")).toBe(false);
     expect(looksLikeUnsupportedLocale("/pt-BR")).toBe(true);
     expect(looksLikeUnsupportedLocale("/about")).toBe(false);
   });

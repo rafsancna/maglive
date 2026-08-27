@@ -1,7 +1,6 @@
 import {
   DEFAULT_LOCALE,
-  LOCALE_CODES,
-  getLocaleMetadata,
+  isLocaleCode,
   type LocaleCode,
   type PublicMediaDto,
   type PublicProductDetailDto,
@@ -26,6 +25,7 @@ import {
   type PublishedProductLocaleMediaUsage,
 } from "../models/Product.js";
 import type { StorageProvider } from "../storage/StorageProvider.js";
+import { requireLanguage } from "./languageService.js";
 import {
   coherentCategoryChain,
   loadPublicCategoryDocuments,
@@ -97,8 +97,10 @@ function availableLocales(
   product: ProductDocument,
   catalog: CategoryCatalog,
 ): LocaleCode[] {
-  return LOCALE_CODES.filter(
-    (locale) => coherentProductContext(product, locale, catalog) !== undefined,
+  return [...product.publishedSnapshots.keys()].filter(
+    (locale) =>
+      isLocaleCode(locale) &&
+      coherentProductContext(product, locale, catalog) !== undefined,
   );
 }
 
@@ -519,6 +521,7 @@ export async function listPublicProducts(
   query: PublicProductListQuery,
   storageProvider: StorageProvider,
 ): Promise<PublicProductListDto> {
+  const language = await requireLanguage(query.locale);
   const catalog = await loadCategoryCatalog();
   const categoryIds = visibleCategoryIds(
     query.locale,
@@ -548,7 +551,7 @@ export async function listPublicProducts(
     .limit(query.limit);
   if (query.sort === "name-asc" || query.sort === "name-desc") {
     findQuery = findQuery.collation({
-      locale: getLocaleMetadata(query.locale).languageTag,
+      locale: language.languageTag,
       strength: 1,
     });
   }
@@ -600,6 +603,7 @@ export async function getPublicProductVisibility(
   slug: string,
   locale: LocaleCode,
 ): Promise<PublicProductVisibilityDto> {
+  await requireLanguage(locale);
   const catalog = await loadCategoryCatalog();
   const context = await requireVisibleProduct(slug, locale, catalog);
   return {
@@ -709,6 +713,7 @@ export async function getPublicProductDetail(
   requiredPublicationRevision: string,
   storageProvider: StorageProvider,
 ): Promise<PublicProductDetailDto> {
+  await requireLanguage(locale);
   const catalog = await loadCategoryCatalog();
   const context = await requireVisibleProduct(slug, locale, catalog);
   if (context.localized.publicationRevision !== requiredPublicationRevision) {
@@ -854,8 +859,9 @@ export async function listPublicSitemapEntries(
   const catalog = await loadCategoryCatalog();
   const entries: PublicSitemapEntriesDto["items"] = [];
   for (const category of catalog.documents) {
-    const locales = LOCALE_CODES.filter(
+    const locales = [...category.publishedSnapshots.keys()].filter(
       (locale) =>
+        isLocaleCode(locale) &&
         coherentCategoryChain(category, locale, catalog.byId) !== undefined,
     );
     const slug = category.publishedGlobal?.data.slug;

@@ -1,14 +1,15 @@
 import type { MetadataRoute } from "next";
-import { LOCALE_CODES, LOCALE_REGISTRY } from "@maglive/contracts";
 import { getSitemapEntries } from "@/lib/public-api";
 import { localizedPath } from "@/lib/seo";
+import { getAvailableLanguages } from "@/i18n/languages";
 
 const corporatePaths = ["/", "/about", "/products", "/projects", "/news", "/downloads", "/contact"] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [];
-  for (const locale of LOCALE_CODES) {
-    for (const path of corporatePaths) entries.push({ url: localizedPath(locale, path), alternates: { languages: Object.fromEntries(LOCALE_CODES.map((code) => [LOCALE_REGISTRY[code].languageTag, localizedPath(code, path)])) } });
+  const languages = await getAvailableLanguages();
+  for (const { code: locale } of languages) {
+    for (const path of corporatePaths) entries.push({ url: localizedPath(locale, path), alternates: { languages: Object.fromEntries(languages.map((language) => [language.languageTag, localizedPath(language.code, path)])) } });
   }
   try {
     const first = await getSitemapEntries(1, 100);
@@ -19,4 +20,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   return entries;
 }
-

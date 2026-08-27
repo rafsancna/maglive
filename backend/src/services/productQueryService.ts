@@ -18,6 +18,7 @@ import {
   type Product,
   type ProductDocument,
 } from "../models/Product.js";
+import { listLanguages, requireLanguage } from "./languageService.js";
 
 type CollectionCountRow = Readonly<{
   _id: "draft" | "published" | "archived";
@@ -29,7 +30,10 @@ function escapedExpression(value: string): RegExp {
   return new RegExp(value.replace(/[|\\{}()[\]^$+*?.-]/g, "\\$&"), "i");
 }
 
-function productFilter(query: AdminProductListQuery): QueryFilter<Product> {
+function productFilter(
+  query: AdminProductListQuery,
+  localeCodes: readonly LocaleCode[] = LOCALE_CODES,
+): QueryFilter<Product> {
   const filter: QueryFilter<Product> = {
     status: query.status ?? { $ne: "deleting" },
   };
@@ -41,7 +45,7 @@ function productFilter(query: AdminProductListQuery): QueryFilter<Product> {
       { slug: expression },
       { model: expression },
       { series: expression },
-      ...LOCALE_CODES.map((locale) => ({
+      ...localeCodes.map((locale) => ({
         [`translations.${locale}.name`]: expression,
       })),
     ];
@@ -100,11 +104,12 @@ function translationCompleteness(
 function adminProductListItem(
   product: ProductDocument,
   requestedLocale: LocaleCode,
+  localeCodes: readonly LocaleCode[] = LOCALE_CODES,
 ): AdminProductListItem {
-  const publicationState = deriveProductPublicationState(product);
+  const publicationState = deriveProductPublicationState(product, localeCodes);
   const names: Partial<Record<LocaleCode, string>> = {};
   const completeness = {} as AdminProductListItem["translationCompleteness"];
-  for (const locale of LOCALE_CODES) {
+  for (const locale of localeCodes) {
     const name = product.translations.get(locale)?.name;
     if (name !== undefined) names[locale] = name;
     completeness[locale] = translationCompleteness(product, locale);
@@ -118,7 +123,7 @@ function adminProductListItem(
       : defaultName !== undefined
         ? DEFAULT_LOCALE
         : undefined;
-  const publishedLocales = LOCALE_CODES.filter((locale) =>
+  const publishedLocales = localeCodes.filter((locale) =>
     productLocaleSnapshotMatchesGlobal(product, locale),
   );
   if (product.status === "deleting") {
@@ -182,12 +187,13 @@ async function collectionCounts(): Promise<
 function withNameCollation<T extends { collation(value: object): T }>(
   databaseQuery: T,
   query: AdminProductListQuery,
+  languageTag = getLocaleMetadata(query.locale).languageTag,
 ): T {
   if (query.sort !== "name-asc" && query.sort !== "name-desc") {
     return databaseQuery;
   }
   return databaseQuery.collation({
-    locale: getLocaleMetadata(query.locale).languageTag,
+    locale: languageTag,
     strength: 1,
   });
 }
@@ -195,6 +201,8 @@ function withNameCollation<T extends { collation(value: object): T }>(
 async function localeStatePage(
   filter: QueryFilter<Product>,
   query: AdminProductListQuery,
+  localeCodes: readonly LocaleCode[],
+  languageTag: string,
 ): Promise<{ items: AdminProductListItem[]; total: number }> {
   const offset = (query.page - 1) * query.limit;
   const items: AdminProductListItem[] = [];
@@ -202,14 +210,15 @@ async function localeStatePage(
   const findQuery = withNameCollation(
     ProductModel.find(filter).sort(productSort(query)),
     query,
+    languageTag,
   );
   for await (const product of findQuery.cursor()) {
-    const state = deriveProductPublicationState(product).localeStates[
+    const state = deriveProductPublicationState(product, localeCodes).localeStates[
       query.locale
     ];
     if (state !== query.localeState) continue;
     if (total >= offset && items.length < query.limit) {
-      items.push(adminProductListItem(product, query.locale));
+      items.push(adminProductListItem(product, query.locale, localeCodes));
     }
     total += 1;
   }
@@ -219,7 +228,12 @@ async function localeStatePage(
 export async function listAdminProducts(
   query: AdminProductListQuery,
 ): Promise<AdminProductListDto> {
-  const filter = productFilter(query);
+  const [language, languageList] = await Promise.all([
+    requireLanguage(query.locale),
+    listLanguages(),
+  ]);
+  const localeCodes = languageList.languages.map(({ code }) => code);
+  const filter = productFilter(query, localeCodes);
   const countsPromise = collectionCounts();
   let items: AdminProductListItem[];
   let total: number;
@@ -231,17 +245,23 @@ export async function listAdminProducts(
         .skip(offset)
         .limit(query.limit),
       query,
+      language.languageTag,
     );
     const [products, matchedCount] = await Promise.all([
       findQuery,
       ProductModel.countDocuments(filter),
     ]);
     items = products.map((product) =>
-      adminProductListItem(product, query.locale),
+      adminProductListItem(product, query.locale, localeCodes),
     );
     total = matchedCount;
   } else {
-    ({ items, total } = await localeStatePage(filter, query));
+    ({ items, total } = await localeStatePage(
+      filter,
+      query,
+      localeCodes,
+      language.languageTag,
+    ));
   }
   return {
     items,

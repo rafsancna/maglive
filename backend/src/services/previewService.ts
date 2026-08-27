@@ -4,6 +4,7 @@ import type { AppConfig } from "../config/env.js";
 import { AppError } from "../errors/AppError.js";
 import { PreviewGrantModel } from "../models/PreviewGrant.js";
 import { ProductModel, toProductAdminDto } from "../models/Product.js";
+import { requireLanguage } from "./languageService.js";
 
 const TTL_MS = 5 * 60 * 1_000;
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -13,6 +14,7 @@ function sign(value: string, secret: string): string {
 }
 
 export async function issuePreviewGrant(productId: string, locale: LocaleCode, administratorId: string, config: AppConfig): Promise<{ previewUrl: string; expiresAt: string }> {
+  await requireLanguage(locale);
   const product = await ProductModel.findOne({ _id: productId, status: { $nin: ["archived", "deleting"] } });
   if (product === null || !product.slug) throw new AppError(404, "PRODUCT_NOT_FOUND", "The product was not found.");
   const token = randomBytes(32).toString("base64url");
@@ -50,6 +52,7 @@ function verifyCredential(credential: string, config: AppConfig, now = Date.now(
 
 export async function readPreviewProduct(credential: string, config: AppConfig, now = Date.now()) {
   const claims = verifyCredential(credential, config, now);
+  await requireLanguage(claims.locale);
   const product = await ProductModel.findOne({ _id: claims.productId, version: claims.version, status: { $nin: ["archived", "deleting"] } });
   if (product === null) throw new AppError(404, "PREVIEW_NOT_FOUND", "The preview is no longer available.");
   const dto = toProductAdminDto(product);

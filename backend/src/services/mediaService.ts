@@ -1,5 +1,4 @@
 import {
-  LOCALE_CODES,
   type AdminMediaDto,
   type MediaListDto,
   type MediaUsageDto,
@@ -29,6 +28,7 @@ import {
 } from "../models/Media.js";
 import { ProductModel, type ProductDocument } from "../models/Product.js";
 import type { StorageProvider } from "../storage/StorageProvider.js";
+import { assertLanguagesExist, listLanguageCodes } from "./languageService.js";
 
 type MediaListQuery = z.output<typeof mediaListQuerySchema>;
 
@@ -68,18 +68,22 @@ function mediaTranslations(
   values: UpdateMediaRequest["defaultTranslations"],
 ): Map<string, MediaTranslation> {
   return new Map(
-    Object.entries(values ?? {}).map(([locale, translation]) => [
-      locale,
-      {
-        ...(translation.title === undefined
-          ? {}
-          : { title: translation.title }),
-        ...(translation.alt === undefined ? {} : { alt: translation.alt }),
-        ...(translation.caption === undefined
-          ? {}
-          : { caption: translation.caption }),
-      },
-    ]),
+    Object.entries(values ?? {}).flatMap(([locale, translation]) =>
+      translation === undefined
+        ? []
+        : [[
+            locale,
+            {
+              ...(translation.title === undefined
+                ? {}
+                : { title: translation.title }),
+              ...(translation.alt === undefined ? {} : { alt: translation.alt }),
+              ...(translation.caption === undefined
+                ? {}
+                : { caption: translation.caption }),
+            },
+          ] as const],
+    ),
   );
 }
 
@@ -245,6 +249,7 @@ async function productRequiresVideoPoster(
   mediaId: Types.ObjectId,
   session: ClientSession,
 ): Promise<boolean> {
+  const localeCodes = await listLanguageCodes();
   const videoUsage = {
     mediaId,
     role: { $in: ["video", "backgroundVideo"] },
@@ -257,7 +262,7 @@ async function productRequiresVideoPoster(
         {
           "publishedGlobal.data.mediaUsages": { $elemMatch: videoUsage },
         },
-        ...LOCALE_CODES.map((locale) => ({
+        ...localeCodes.map((locale) => ({
           [`publishedSnapshots.${locale}.data.mediaUsages`]: {
             $elemMatch: videoUsage,
           },
@@ -272,6 +277,9 @@ export async function updateMedia(
   input: UpdateMediaRequest,
   storageProvider: StorageProvider,
 ): Promise<AdminMediaDto> {
+  if (input.defaultTranslations !== undefined) {
+    await assertLanguagesExist(Object.keys(input.defaultTranslations));
+  }
   return inTransaction(async (session) => {
     const media = await requireMedia(id, session);
     assertVersion(media, input.version);
@@ -358,8 +366,7 @@ function categoryUsages(
       path: "image.mediaId",
     });
   }
-  for (const locale of LOCALE_CODES) {
-    const translation = category.translations.get(locale);
+  for (const [locale, translation] of category.translations.entries()) {
     if (objectIdEquals(translation?.seo.openGraphMediaId, mediaId)) {
       usages.push({
         kind: "category-working-seo",
@@ -407,12 +414,11 @@ function productUsages(
         path: `mediaUsages.${index}.mediaId`,
         ...(usage.locale === undefined
           ? {}
-          : { locale: usage.locale as (typeof LOCALE_CODES)[number] }),
+          : { locale: usage.locale }),
       });
     }
   }
-  for (const locale of LOCALE_CODES) {
-    const translation = product.translations.get(locale);
+  for (const [locale, translation] of product.translations.entries()) {
     for (const [index, feature] of (translation?.features ?? []).entries()) {
       if (objectIdEquals(feature.iconMediaId, mediaId)) {
         usages.push({
@@ -478,7 +484,7 @@ function productUsages(
         path: `publishedGlobal.data.mediaUsages.${index}.mediaId`,
         ...(usage.locale === undefined
           ? {}
-          : { locale: usage.locale as (typeof LOCALE_CODES)[number] }),
+          : { locale: usage.locale }),
       });
     }
   }
@@ -489,10 +495,11 @@ async function usageDocuments(
   mediaId: Types.ObjectId,
   session?: ClientSession,
 ): Promise<MediaUsageDto[]> {
+  const localeCodes = await listLanguageCodes();
   const categoryPaths = [
     { "image.mediaId": mediaId },
     { "publishedGlobal.data.imageMediaId": mediaId },
-    ...LOCALE_CODES.flatMap((locale) => [
+    ...localeCodes.flatMap((locale) => [
       { [`translations.${locale}.seo.openGraphMediaId`]: mediaId },
       {
         [`publishedSnapshots.${locale}.data.seo.openGraphMediaId`]:
@@ -507,7 +514,7 @@ async function usageDocuments(
   const productPaths = [
     { "mediaUsages.mediaId": mediaId },
     { "publishedGlobal.data.mediaUsages.mediaId": mediaId },
-    ...LOCALE_CODES.flatMap((locale) => [
+    ...localeCodes.flatMap((locale) => [
       { [`translations.${locale}.features.iconMediaId`]: mediaId },
       { [`translations.${locale}.seo.openGraphMediaId`]: mediaId },
       {

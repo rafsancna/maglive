@@ -5,6 +5,7 @@ import {
   productNestedKeySchema,
   productSlugSchema,
   type ProductAdminDto,
+  type LocaleCode,
   type ProductMediaRole,
   type ProductStatus,
   type ProductTemplateId,
@@ -781,7 +782,10 @@ export function productLocaleSnapshotMatchesGlobal(
   );
 }
 
-export function toProductAdminDto(product: ProductDocument): ProductAdminDto {
+export function toProductAdminDto(
+  product: ProductDocument,
+  localeCodes?: readonly LocaleCode[],
+): ProductAdminDto {
   const raw = product.toObject({
     flattenMaps: true,
     flattenObjectIds: true,
@@ -792,6 +796,6 @@ export function toProductAdminDto(product: ProductDocument): ProductAdminDto {
   );
   return productAdminDtoSchema.parse({
     ...(serialized as Record<string, unknown>),
-    ...publicationStateForDto(product),
+    ...publicationStateForDto(product, localeCodes),
   });
 }

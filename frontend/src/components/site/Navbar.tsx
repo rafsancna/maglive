@@ -1,4 +1,4 @@
-import type { LocaleCode } from "@maglive/contracts";
+import type { LanguageDto, LocaleCode } from "@maglive/contracts";
 import type { Dictionary } from "@/i18n/dictionary";
 import { Container } from "@/components/ui/Container";
 import { LocaleLink } from "./LocaleLink";
@@ -16,10 +16,12 @@ const routes = [
 
 export function Navbar({
   dictionary,
-  locale
+  locale,
+  languages
 }: {
   dictionary: Dictionary;
   locale: LocaleCode;
+  languages: readonly LanguageDto[];
 }) {
   return (
     <header className="site-header">
@@ -45,6 +47,7 @@ export function Navbar({
         <LocaleSwitcher
           currentLocale={locale}
           label={dictionary.accessibility.languageSwitcher}
+          languages={languages}
         />
       </Container>
     </header>

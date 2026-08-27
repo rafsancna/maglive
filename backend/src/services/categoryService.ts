@@ -2,7 +2,6 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   DEFAULT_LOCALE,
   isLocaleCode,
-  LOCALE_CODES,
   type CategoryAdminDto,
   type CategoryListDto,
   type CreateCategoryRequest,
@@ -21,6 +20,11 @@ import mongoose, {
   type mongo,
 } from "mongoose";
 import { AppError } from "../errors/AppError.js";
+import {
+  assertLanguagesExist,
+  listLanguageCodes,
+  requireLanguage,
+} from "./languageService.js";
 import {
   CategoryModel,
   type CategoryDocument,
@@ -122,10 +126,11 @@ function toTranslations(
   values: CreateCategoryRequest["translations"],
 ): Map<string, CategoryTranslation> {
   return new Map(
-    Object.entries(values).map(([locale, translation]) => [
-      locale,
-      toTranslation(translation),
-    ]),
+    Object.entries(values).flatMap(([locale, translation]) =>
+      translation === undefined
+        ? []
+        : [[locale, toTranslation(translation)] as const],
+    ),
   );
 }
 
@@ -135,13 +140,17 @@ function toImageUsage(
   return {
     mediaId: toObjectId(value.mediaId),
     translations: new Map(
-      Object.entries(value.translations).map(([locale, translation]) => [
-        locale,
-        {
-          ...(translation.alt === undefined ? {} : { alt: translation.alt }),
-          ...(translation.title === undefined ? {} : { title: translation.title }),
-        },
-      ]),
+      Object.entries(value.translations).flatMap(([locale, translation]) =>
+        translation === undefined
+          ? []
+          : [[
+              locale,
+              {
+                ...(translation.alt === undefined ? {} : { alt: translation.alt }),
+                ...(translation.title === undefined ? {} : { title: translation.title }),
+              },
+            ] as const],
+      ),
     ),
   };
 }
@@ -204,10 +213,8 @@ function workingMediaIds(category: CategoryDocument): string[] {
   if (category.image !== undefined) {
     ids.add(category.image.mediaId.toString());
   }
-  for (const locale of LOCALE_CODES) {
-    const openGraphMediaId = category.translations
-      .get(locale)
-      ?.seo.openGraphMediaId?.toString();
+  for (const translation of category.translations.values()) {
+    const openGraphMediaId = translation.seo.openGraphMediaId?.toString();
     if (openGraphMediaId !== undefined) ids.add(openGraphMediaId);
   }
   return [...ids];
@@ -272,7 +279,10 @@ function publishedLocaleToDto(snapshot: NonNullable<CategoryDocument["publishedS
   };
 }
 
-export function toCategoryAdminDto(category: CategoryDocument): CategoryAdminDto {
+export function toCategoryAdminDto(
+  category: CategoryDocument,
+  localeCodes: readonly LocaleCode[],
+): CategoryAdminDto {
   const globalHash = hashValue(workingGlobalData(category));
   const translations = Object.fromEntries(
     [...category.translations.entries()].map(([locale, translation]) => [
@@ -329,7 +339,7 @@ export function toCategoryAdminDto(category: CategoryDocument): CategoryAdminDto
     CategoryAdminDto["localeStates"][LocaleCode]
   >;
 
-  for (const locale of LOCALE_CODES) {
+  for (const locale of localeCodes) {
     const working = workingLocaleData(category, locale);
     const snapshot = category.publishedSnapshots.get(locale);
     if (working !== undefined) {
@@ -459,22 +469,33 @@ function assertCategoryActive(category: CategoryDocument): void {
 }
 
 export async function listAdminCategories(): Promise<CategoryListDto> {
-  const categories = await CategoryModel.find({ status: { $ne: "deleting" } }).sort({
-    parentId: 1,
-    sortOrder: 1,
-    _id: 1,
-  });
-  return { categories: categories.map(toCategoryAdminDto) };
+  const [categories, localeCodes] = await Promise.all([
+    CategoryModel.find({ status: { $ne: "deleting" } }).sort({
+      parentId: 1,
+      sortOrder: 1,
+      _id: 1,
+    }),
+    listLanguageCodes(),
+  ]);
+  return { categories: categories.map((category) => toCategoryAdminDto(category, localeCodes)) };
 }
 
 export async function getAdminCategory(id: string): Promise<CategoryAdminDto> {
-  return toCategoryAdminDto(await requireCategory(id));
+  const [category, localeCodes] = await Promise.all([
+    requireCategory(id),
+    listLanguageCodes(),
+  ]);
+  return toCategoryAdminDto(category, localeCodes);
 }
 
 export async function createCategory(
   input: CreateCategoryRequest,
   actor: AdminActor,
 ): Promise<CategoryAdminDto> {
+  await assertLanguagesExist([
+    ...Object.keys(input.translations),
+    ...Object.keys(input.image?.translations ?? {}),
+  ]);
   try {
     return await inTransaction(async (session) => {
       const parentId = input.parentId === null ? null : toObjectId(input.parentId);
@@ -492,7 +513,7 @@ export async function createCategory(
       });
       await lockReadyCategoryMedia(workingMediaIds(category), session);
       await category.save({ session });
-      return toCategoryAdminDto(category);
+      return toCategoryAdminDto(category, await listLanguageCodes());
     });
   } catch (error) {
     if (duplicateKeyError(error)) {
@@ -507,6 +528,10 @@ export async function updateCategory(
   input: UpdateCategoryRequest,
   actor: AdminActor,
 ): Promise<CategoryAdminDto> {
+  await assertLanguagesExist([
+    ...Object.keys(input.translations ?? {}),
+    ...Object.keys(input.image?.translations ?? {}),
+  ]);
   try {
     return await inTransaction(async (session) => {
       const category = await requireCategory(id, session);
@@ -545,7 +570,7 @@ export async function updateCategory(
       category.updatedBy = toObjectId(actor.id);
       await lockReadyCategoryMedia(workingMediaIds(category), session);
       await category.save({ session });
-      return toCategoryAdminDto(category);
+      return toCategoryAdminDto(category, await listLanguageCodes());
     });
   } catch (error) {
     if (duplicateKeyError(error)) {
@@ -595,6 +620,7 @@ export async function publishCategory(
   input: PublishCategoryRequest,
   actor: AdminActor,
 ): Promise<CategoryAdminDto> {
+  await assertLanguagesExist(input.locales);
   return inTransaction(async (session) => {
     const category = await requireCategory(id, session);
     assertCategoryActive(category);
@@ -602,7 +628,7 @@ export async function publishCategory(
 
     const requested = new Set(input.locales);
     const live = new Set<LocaleCode>(
-      LOCALE_CODES.filter((locale) => category.publishedSnapshots.has(locale)),
+      [...category.publishedSnapshots.keys()].filter(isLocaleCode),
     );
     if (category.publishedGlobal === undefined && !requested.has(DEFAULT_LOCALE)) {
       throw new AppError(
@@ -682,7 +708,7 @@ export async function publishCategory(
     category.firstPublishedAt ??= publishedAt;
     category.updatedBy = toObjectId(actor.id);
     await category.save({ session });
-    return toCategoryAdminDto(category);
+    return toCategoryAdminDto(category, await listLanguageCodes());
   });
 }
 
@@ -691,6 +717,7 @@ export async function unpublishCategory(
   input: UnpublishCategoryRequest,
   actor: AdminActor,
 ): Promise<CategoryAdminDto> {
+  if (input.locale !== undefined) await requireLanguage(input.locale);
   return inTransaction(async (session) => {
     const category = await requireCategory(id, session);
     assertVersion(category, input.version);
@@ -741,7 +768,7 @@ export async function unpublishCategory(
     }
     category.updatedBy = toObjectId(actor.id);
     await category.save({ session });
-    return toCategoryAdminDto(category);
+    return toCategoryAdminDto(category, await listLanguageCodes());
   });
 }
 
@@ -756,7 +783,7 @@ export async function archiveCategory(
     category.status = "archived";
     category.updatedBy = toObjectId(actor.id);
     await category.save({ session });
-    return toCategoryAdminDto(category);
+    return toCategoryAdminDto(category, await listLanguageCodes());
   });
 }
 
@@ -908,8 +935,9 @@ export function toPublicCategoryDto(
   if (chain === undefined || global === undefined || localized === undefined) {
     return undefined;
   }
-  const availableLocales = LOCALE_CODES.filter(
+  const availableLocales = [...category.publishedSnapshots.keys()].filter(
     (candidate) =>
+      isLocaleCode(candidate) &&
       coherentCategoryChain(category, candidate, byId) !== undefined,
   );
   return {
@@ -972,6 +1000,7 @@ export async function loadPublicCategoryDocuments(): Promise<
 export async function getPublicCategoryTree(
   locale: LocaleCode,
 ): Promise<PublicCategoryTreeDto> {
+  await requireLanguage(locale);
   const documents = await loadPublicCategoryDocuments();
   const byId = new Map(
     documents.map((category) => [category._id.toString(), category]),
@@ -1006,6 +1035,7 @@ export async function getPublicCategory(
   slug: string,
   locale: LocaleCode,
 ): Promise<PublicCategoryDto> {
+  await requireLanguage(locale);
   const documents = await loadPublicCategoryDocuments();
   const byId = new Map(
     documents.map((category) => [category._id.toString(), category]),

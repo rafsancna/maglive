@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  LOCALE_CODES,
-  LOCALE_REGISTRY,
   type AdminMediaDto,
   type LocaleCode,
   type MediaKind,
@@ -19,6 +17,7 @@ import {
 } from "./api";
 import { MediaPicker } from "./MediaPicker";
 import { MediaPreview } from "./MediaPreview";
+import { useLanguages } from "../languages/LanguageProvider";
 
 type TranslationFields = {
   title: string;
@@ -75,6 +74,7 @@ function usageLabel(usage: MediaUsageDto): string {
 }
 
 export function MediaLibrary() {
+  const { localeCodes, languageByCode } = useLanguages();
   const [items, setItems] = useState<AdminMediaDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [kind, setKind] = useState<MediaKind | "">("");
@@ -437,9 +437,9 @@ export function MediaLibrary() {
               className="category-locale-tabs"
               role="tablist"
             >
-              {LOCALE_CODES.map((candidate) => (
+              {localeCodes.map((candidate) => (
                 <button
-                  aria-label={LOCALE_REGISTRY[candidate].label}
+                  aria-label={languageByCode[candidate]?.label ?? candidate}
                   aria-selected={locale === candidate}
                   key={candidate}
                   onClick={() => {
@@ -449,7 +449,7 @@ export function MediaLibrary() {
                   role="tab"
                   type="button"
                 >
-                  <span>{LOCALE_REGISTRY[candidate].nativeLabel}</span>
+                  <span>{languageByCode[candidate]?.nativeLabel ?? candidate.toUpperCase()}</span>
                 </button>
               ))}
             </div>

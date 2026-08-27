@@ -28,7 +28,7 @@ describe("locale contracts", () => {
     expect(isLocaleCode("en")).toBe(true);
     expect(isLocaleCode("zh")).toBe(true);
     expect(isLocaleCode("zh-Hans")).toBe(false);
-    expect(isLocaleCode("de")).toBe(false);
+    expect(isLocaleCode("de")).toBe(true);
     expect(DEFAULT_LOCALE).toBe("en");
     expect(getLocaleMetadata("zh")).toEqual(LOCALE_REGISTRY.zh);
     expect(LOCALE_REGISTRY.zh.languageTag).toBe("zh-Hans");
@@ -109,7 +109,7 @@ describe("administrator authentication contracts", () => {
 });
 
 describe("category contracts", () => {
-  it("accepts registry locales and rejects reserved, malformed, or unknown keys", () => {
+  it("accepts well-formed managed locale keys and rejects reserved or malformed input", () => {
     expect(
       createCategoryRequestSchema.parse({
         slug: "solar-modules",
@@ -130,7 +130,7 @@ describe("category contracts", () => {
     expect(
       createCategoryRequestSchema.safeParse({
         slug: "solar-modules",
-        translations: { de: { name: "Solarmodule" } }
+        translations: { DE: { name: "Solarmodule" } }
       }).success
     ).toBe(false);
   });

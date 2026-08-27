@@ -395,7 +395,7 @@ describe.sequential("Product model boundaries", () => {
       ...solarModuleInput(),
       translations: new Map([
         [
-          "de",
+          "DE",
           {
             name: "Nicht unterstützt",
             features: [],
@@ -410,7 +410,7 @@ describe.sequential("Product model boundaries", () => {
           mediaId: heroMediaId,
           role: "hero",
           order: 0,
-          locale: "de",
+          locale: "DE",
         },
       ],
     });
@@ -521,7 +521,7 @@ describe.sequential("Product model boundaries", () => {
       specifications: [
         {
           ...solarModuleInput().specifications[0],
-          translations: new Map([["de", { label: "Elektrisch" }]]),
+          translations: new Map([["DE", { label: "Elektrisch" }]]),
         },
       ],
     });

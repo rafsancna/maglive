@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
-import { DEFAULT_LOCALE, getLocaleMetadata, isLocaleCode } from "@maglive/contracts";
+import { DEFAULT_LOCALE } from "@maglive/contracts";
 import { LOCALE_REQUEST_HEADER } from "@/i18n/routing";
+import { getAvailableLanguage } from "@/i18n/languages";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,16 +18,16 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const requestHeaders = await headers();
   const requestedLocale = requestHeaders.get(LOCALE_REQUEST_HEADER);
-  const locale = requestedLocale !== null && isLocaleCode(requestedLocale)
-    ? requestedLocale
-    : DEFAULT_LOCALE;
-  const metadata = getLocaleMetadata(locale);
+  const requestedLanguage = requestedLocale === null
+    ? undefined
+    : await getAvailableLanguage(requestedLocale);
+  const metadata = requestedLanguage ?? await getAvailableLanguage(DEFAULT_LOCALE);
 
   return (
     <html
       data-scroll-behavior="smooth"
-      dir={metadata.direction}
-      lang={metadata.languageTag}
+      dir={metadata?.direction ?? "ltr"}
+      lang={metadata?.languageTag ?? DEFAULT_LOCALE}
     >
       <body>{children}</body>
     </html>

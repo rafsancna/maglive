@@ -9,6 +9,7 @@ import { cookies, draftMode } from "next/headers";
 import { getPreviewProduct } from "@/lib/preview-api";
 import { productMetadata } from "@/lib/seo";
 import { StructuredData } from "@/lib/structured-data";
+import { getAvailableLanguages } from "@/i18n/languages";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; productSlug: string }> }): Promise<import("next").Metadata> {
   const { locale: rawLocale, productSlug } = await params;
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   try {
     const visibility = await getPublicProductVisibility(productSlug, locale);
     const dto = await getPublicProduct(productSlug, locale, visibility.publicationRevision);
-    return productMetadata(dto, locale);
+    return productMetadata(dto, locale, await getAvailableLanguages());
   } catch {
     return { title: "Product" };
   }

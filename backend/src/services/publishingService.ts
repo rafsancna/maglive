@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
   DEFAULT_LOCALE,
-  LOCALE_CODES,
   type FieldError,
   type LocaleCode,
   type ProductAdminDto,
@@ -19,6 +18,7 @@ import {
   hashCanonicalValue,
 } from "../domain/productPublication.js";
 import { AppError } from "../errors/AppError.js";
+import { assertLanguagesExist, listLanguageCodes } from "./languageService.js";
 import { CategoryModel, type CategoryDocument } from "../models/Category.js";
 import { MediaModel, type MediaDocument } from "../models/Media.js";
 import {
@@ -398,6 +398,8 @@ async function analyzeProductPublication(
   input: Pick<PublishProductRequest, "locales" | "promoteShared">,
   session: ClientSession,
 ): Promise<PublicationAnalysis> {
+  await assertLanguagesExist(input.locales);
+  const localeCodes = await listLanguageCodes();
   const errors: ProductPublicationIssue[] = [];
   const warnings: ProductPublicationIssue[] = [];
   if (product.status === "archived" || product.status === "deleting") {
@@ -422,7 +424,7 @@ async function analyzeProductPublication(
     );
   }
   const live = new Set<LocaleCode>(
-    LOCALE_CODES.filter((locale) => product.publishedSnapshots.has(locale)),
+    localeCodes.filter((locale) => product.publishedSnapshots.has(locale)),
   );
   if (product.publishedGlobal === undefined && !requested.has(DEFAULT_LOCALE)) {
     errors.push(
@@ -489,7 +491,7 @@ async function analyzeProductPublication(
   }
   const effectiveLocales = [
     ...(sharedChanged ? promotionLocales : requested),
-  ].sort((left, right) => LOCALE_CODES.indexOf(left) - LOCALE_CODES.indexOf(right));
+  ].sort((left, right) => localeCodes.indexOf(left) - localeCodes.indexOf(right));
   const localeData = new Map<LocaleCode, PublishedProductLocaleDtoData>();
   for (const locale of effectiveLocales) {
     const projection = buildProductLocaleProjection(product, locale);
@@ -744,7 +746,7 @@ export async function publishProduct(
       product.updatedBy = toObjectId(actor.id);
       await product.save({ session });
       result = {
-        product: toProductAdminDto(product),
+        product: toProductAdminDto(product, await listLanguageCodes()),
         validation: analysis.report,
       };
     });

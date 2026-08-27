@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  LOCALE_CODES,
-  LOCALE_REGISTRY,
   type AdminMediaDto,
   type CategoryAdminDto,
   type LocaleCode,
@@ -17,6 +15,7 @@ import { AdminApiError } from "../auth/api";
 import { getMedia } from "../media/api";
 import { MediaPicker } from "../media/MediaPicker";
 import { MediaPreview } from "../media/MediaPreview";
+import { useLanguages } from "../languages/LanguageProvider";
 import {
   archiveCategory,
   createCategory,
@@ -146,6 +145,7 @@ function CategoryTree({
 }
 
 export function CategoryManager() {
+  const { localeCodes, languageByCode } = useLanguages();
   const [categories, setCategories] = useState<CategoryAdminDto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [locale, setLocale] = useState<LocaleCode>("en");
@@ -384,7 +384,7 @@ export function CategoryManager() {
     const sharedChanged =
       selected.publishedGlobal !== undefined &&
       selected.publishedGlobal.sourceHash !== selected.workingGlobalHash;
-    const liveLocales = LOCALE_CODES.filter(
+    const liveLocales = localeCodes.filter(
       (candidate) => selected.publishedSnapshots[candidate] !== undefined,
     );
     let locales: LocaleCode[] = [locale];
@@ -407,7 +407,7 @@ export function CategoryManager() {
           locales,
           promoteShared,
         }),
-      `${LOCALE_REGISTRY[locale].label} published.`,
+      `${languageByCode[locale]?.label ?? locale} published.`,
     );
   }
 
@@ -549,7 +549,7 @@ export function CategoryManager() {
           </div>
 
           <div aria-label="Content language" className="category-locale-tabs" role="tablist">
-            {LOCALE_CODES.map((candidate) => {
+            {localeCodes.map((candidate) => {
               const state =
                 selected?.localeStates[candidate] ??
                 (candidate === locale && fields.name !== ""
@@ -557,14 +557,14 @@ export function CategoryManager() {
                   : "incomplete");
               return (
                 <button
-                  aria-label={`${LOCALE_REGISTRY[candidate].label} ${humanizeState(state)}`}
+                  aria-label={`${languageByCode[candidate]?.label ?? candidate} ${humanizeState(state)}`}
                   aria-selected={locale === candidate}
                   key={candidate}
                   onClick={() => changeLocale(candidate)}
                   role="tab"
                   type="button"
                 >
-                  <span>{LOCALE_REGISTRY[candidate].nativeLabel}</span>
+                  <span>{languageByCode[candidate]?.nativeLabel ?? candidate.toUpperCase()}</span>
                   <small>{humanizeState(state)}</small>
                 </button>
               );
@@ -623,7 +623,7 @@ export function CategoryManager() {
             </fieldset>
 
             <fieldset disabled={busy || selected?.status === "archived"}>
-              <legend>{LOCALE_REGISTRY[locale].label} content</legend>
+              <legend>{languageByCode[locale]?.label ?? locale} content</legend>
               <div className="category-form__grid">
                 <div className="admin-field category-form__wide">
                   <label htmlFor="category-name">Display name</label>
@@ -715,7 +715,7 @@ export function CategoryManager() {
                   <div className="category-form__grid">
                     <div className="admin-field">
                       <label htmlFor="category-image-alt">
-                        Contextual alt text · {LOCALE_REGISTRY[locale].label}
+                        Contextual alt text · {languageByCode[locale]?.label ?? locale}
                       </label>
                       <input
                         id="category-image-alt"
@@ -766,7 +766,7 @@ export function CategoryManager() {
                     onClick={() => void publishCurrentLocale()}
                     type="button"
                   >
-                    Publish {LOCALE_REGISTRY[locale].label}
+                    Publish {languageByCode[locale]?.label ?? locale}
                   </button>
                   {selected.publishedSnapshots[locale] === undefined ? null : (
                     <button
@@ -779,7 +779,7 @@ export function CategoryManager() {
                               version: selected.version,
                               locale,
                             }),
-                          `${LOCALE_REGISTRY[locale].label} unpublished.`,
+                          `${languageByCode[locale]?.label ?? locale} unpublished.`,
                         )
                       }
                       type="button"

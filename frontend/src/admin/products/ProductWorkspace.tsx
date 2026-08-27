@@ -2,8 +2,6 @@
 
 import {
   DEFAULT_LOCALE,
-  LOCALE_CODES,
-  LOCALE_REGISTRY,
   type AdminProductListDto,
   type AdminProductListItem,
   type AdminProductListQuery,
@@ -31,6 +29,7 @@ import {
   unpublishProduct,
 } from "./api";
 import { parseProductListQuery } from "./query";
+import { useLanguages } from "../languages/LanguageProvider";
 
 type WorkspaceError = Readonly<{
   kind: "conflict" | "session" | "unavailable" | "validation" | "operation";
@@ -111,6 +110,7 @@ function ProductActions({
   onPublish: (locale: LocaleCode) => void;
   onUnpublish: (locale: LocaleCode) => void;
 }) {
+  const { localeCodes, languageByCode } = useLanguages();
   const englishIsLive = item.publishedLocales.includes(DEFAULT_LOCALE);
   return (
     <details className="product-actions">
@@ -125,7 +125,7 @@ function ProductActions({
         </button>
         <div className="product-actions__group">
           <strong>Publication</strong>
-          {LOCALE_CODES.map((locale) => {
+          {localeCodes.map((locale) => {
             const state = item.localeStates[locale];
             const blockedByEnglish =
               locale !== DEFAULT_LOCALE && !englishIsLive;
@@ -149,8 +149,8 @@ function ProductActions({
                 type="button"
               >
                 {item.publishedLocales.includes(locale)
-                  ? `Republish ${LOCALE_REGISTRY[locale].label}`
-                  : `Publish ${LOCALE_REGISTRY[locale].label}`}
+                  ? `Republish ${languageByCode[locale]?.label ?? locale}`
+                  : `Publish ${languageByCode[locale]?.label ?? locale}`}
               </button>
             );
           })}
@@ -169,7 +169,7 @@ function ProductActions({
               }
               type="button"
             >
-              Unpublish {LOCALE_REGISTRY[locale].label}
+              Unpublish {languageByCode[locale]?.label ?? locale}
             </button>
           ))}
         </div>
@@ -214,6 +214,7 @@ function ProductTable({
   onPublish: (item: AdminProductListItem, locale: LocaleCode) => void;
   onUnpublish: (item: AdminProductListItem, locale: LocaleCode) => void;
 }) {
+  const { localeCodes, languageByCode } = useLanguages();
   return (
     <div className="product-table-shell">
       <table className="product-table">
@@ -236,7 +237,7 @@ function ProductTable({
                   <strong>{item.name}</strong>
                   {item.nameLocale !== undefined && item.nameLocale !== locale ? (
                     <small>
-                      Showing {LOCALE_REGISTRY[item.nameLocale].label} fallback
+                      Showing {languageByCode[item.nameLocale]?.label ?? item.nameLocale} fallback
                     </small>
                   ) : null}
                   <code>{item.slug}</code>
@@ -245,7 +246,7 @@ function ProductTable({
                       "No model or series"}
                   </span>
                   <small>
-                    {LOCALE_CODES.map((candidate) =>
+                    {localeCodes.map((candidate) =>
                       item.names[candidate] === undefined
                         ? `${candidate.toUpperCase()}: missing`
                         : `${candidate.toUpperCase()}: ${item.names[candidate]}`,
@@ -267,20 +268,20 @@ function ProductTable({
               </td>
               <td data-label="Languages">
                 <div className="product-locale-states">
-                  {LOCALE_CODES.map((candidate) => (
+                  {localeCodes.map((candidate) => (
                     <span
                       className={`product-locale-state product-locale-state--${item.localeStates[candidate]}`}
                       key={candidate}
                     >
                       <b>{candidate.toUpperCase()}</b>
-                      {stateLabel(item.localeStates[candidate])}
+                      {stateLabel(item.localeStates[candidate] ?? "incomplete")}
                     </span>
                   ))}
                 </div>
               </td>
               <td data-label="Updated">
                 <time dateTime={item.updatedAt}>
-                  {new Intl.DateTimeFormat(LOCALE_REGISTRY[locale].languageTag, {
+                  {new Intl.DateTimeFormat(languageByCode[locale]?.languageTag ?? "en", {
                     dateStyle: "medium",
                     timeStyle: "short",
                   }).format(new Date(item.updatedAt))}
@@ -307,6 +308,7 @@ function ProductTable({
 
 export function ProductWorkspace() {
   const router = useRouter();
+  const { localeCodes, languageByCode } = useLanguages();
   const searchParameters = useSearchParams();
   const queryKey = searchParameters.toString();
   const parsed = useMemo(
@@ -423,14 +425,14 @@ export function ProductWorkspace() {
   function publish(item: AdminProductListItem, locale: LocaleCode): void {
     const promoteShared = item.sharedState === "changes-pending";
     const locales = promoteShared
-      ? LOCALE_CODES.filter(
+      ? localeCodes.filter(
           (candidate) =>
             candidate === locale || item.publishedLocales.includes(candidate),
         )
       : [locale];
     const message = promoteShared
-      ? `Shared Product fields changed. Republish ${locales.map((candidate) => LOCALE_REGISTRY[candidate].label).join(", ")} together?`
-      : `${item.publishedLocales.includes(locale) ? "Republish" : "Publish"} ${LOCALE_REGISTRY[locale].label} for “${item.name}”?`;
+      ? `Shared Product fields changed. Republish ${locales.map((candidate) => languageByCode[candidate]?.label ?? candidate).join(", ")} together?`
+      : `${item.publishedLocales.includes(locale) ? "Republish" : "Publish"} ${languageByCode[locale]?.label ?? locale} for “${item.name}”?`;
     if (!window.confirm(message)) return;
     void runAction(
       item,
@@ -440,14 +442,14 @@ export function ProductWorkspace() {
           locales,
           promoteShared,
         }),
-      `${LOCALE_REGISTRY[locale].label} publication completed.`,
+      `${languageByCode[locale]?.label ?? locale} publication completed.`,
     );
   }
 
   function unpublish(item: AdminProductListItem, locale: LocaleCode): void {
     if (
       !window.confirm(
-        `Unpublish ${LOCALE_REGISTRY[locale].label} for “${item.name}”? Its public URL will return 404.`,
+        `Unpublish ${languageByCode[locale]?.label ?? locale} for “${item.name}”? Its public URL will return 404.`,
       )
     ) {
       return;
@@ -455,7 +457,7 @@ export function ProductWorkspace() {
     void runAction(
       item,
       () => unpublishProduct(item.id, { version: item.version, locale }),
-      `${LOCALE_REGISTRY[locale].label} was unpublished.`,
+      `${languageByCode[locale]?.label ?? locale} was unpublished.`,
     );
   }
 
@@ -621,9 +623,9 @@ export function ProductWorkspace() {
             }
             value={query.locale}
           >
-            {LOCALE_CODES.map((locale) => (
+            {localeCodes.map((locale) => (
               <option key={locale} value={locale}>
-                {LOCALE_REGISTRY[locale].label}
+                {languageByCode[locale]?.label ?? locale}
               </option>
             ))}
           </select>

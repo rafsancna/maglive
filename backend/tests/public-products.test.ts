@@ -841,7 +841,6 @@ describe.sequential("public localized Product APIs", () => {
     for (const path of [
       "/api/v1/public/products?locale=en&limit=101",
       "/api/v1/public/products?locale=en&includeDraft=true",
-      "/api/v1/public/products?locale=de",
       "/api/v1/public/products/main-module?locale=en",
       "/api/v1/public/products/main-module?locale=en&publicationRevision=bad",
       "/api/v1/public/sitemap-entries?unknown=true",
@@ -851,6 +850,13 @@ describe.sequential("public localized Product APIs", () => {
         "VALIDATION_FAILED",
       );
     }
+
+    const unsupportedLocale = await request(app())
+      .get("/api/v1/public/products?locale=de")
+      .expect(422);
+    expect(apiErrorSchema.parse(unsupportedLocale.body).error.code).toBe(
+      "UNSUPPORTED_LOCALE",
+    );
 
     await MediaModel.deleteOne({ "storage.key": "hero.webp" });
     const visibility = apiSuccessSchema(

@@ -1,8 +1,9 @@
 import {
   DEFAULT_LOCALE,
   LOCALE_CODES,
-  LOCALE_REGISTRY,
+  getLocaleMetadata,
   isLocaleCode,
+  type LanguageDto,
   type LocaleCode
 } from "@maglive/contracts";
 
@@ -35,35 +36,55 @@ export function looksLikeUnsupportedLocale(pathname: string): boolean {
   return segment !== undefined && LOCALE_LIKE_PATTERN.test(segment) && !isLocaleCode(segment);
 }
 
-function findLocaleForLanguageTag(languageTag: string): LocaleCode | undefined {
+const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
+  const metadata = getLocaleMetadata(code);
+  return {
+    code,
+    languageTag: metadata.languageTag,
+    acceptLanguageAliases: [...metadata.acceptLanguageAliases],
+    direction: metadata.direction,
+    fallback: metadata.fallback,
+    label: metadata.label,
+    nativeLabel: metadata.nativeLabel,
+    builtIn: true,
+  };
+});
+
+function findLocaleForLanguageTag(
+  languageTag: string,
+  languages: readonly LanguageDto[],
+): LocaleCode | undefined {
   const normalizedTag = languageTag.toLowerCase();
-  const exactMatch = LOCALE_CODES.find((locale) => {
-    const metadata = LOCALE_REGISTRY[locale];
-    return [metadata.routeCode, metadata.languageTag, ...metadata.acceptLanguageAliases].some(
+  const exactMatch = languages.find((metadata) => {
+    return [metadata.code, metadata.languageTag, ...metadata.acceptLanguageAliases].some(
       (candidate) => candidate.toLowerCase() === normalizedTag
     );
   });
 
   if (exactMatch !== undefined) {
-    return exactMatch;
+    return exactMatch.code;
   }
 
   const [baseLanguage] = normalizedTag.split("-");
-  const baseMatches = LOCALE_CODES.filter((locale) => {
-    const [candidateBase] = LOCALE_REGISTRY[locale].languageTag.toLowerCase().split("-");
+  const baseMatches = languages.filter((metadata) => {
+    const [candidateBase] = metadata.languageTag.toLowerCase().split("-");
     return candidateBase === baseLanguage;
   });
 
   // A base-language fallback is safe only while it identifies one enabled locale.
   // Explicit aliases disambiguate regional/script variants once more are registered.
-  return baseMatches.length === 1 ? baseMatches[0] : undefined;
+  return baseMatches.length === 1 ? baseMatches[0]?.code : undefined;
 }
 
 export function detectLocale(
   cookieLocale: string | undefined,
-  acceptLanguage: string | null
+  acceptLanguage: string | null,
+  languages: readonly LanguageDto[] = builtInLanguages,
 ): LocaleCode {
-  if (cookieLocale !== undefined && isLocaleCode(cookieLocale)) {
+  if (
+    cookieLocale !== undefined &&
+    languages.some(({ code }) => code === cookieLocale)
+  ) {
     return cookieLocale;
   }
 
@@ -87,7 +108,7 @@ export function detectLocale(
       .sort((left, right) => right.quality - left.quality || left.index - right.index);
 
     for (const preference of preferences) {
-      const locale = findLocaleForLanguageTag(preference.tag);
+      const locale = findLocaleForLanguageTag(preference.tag, languages);
       if (locale !== undefined) {
         return locale;
       }

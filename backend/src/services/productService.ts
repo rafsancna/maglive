@@ -24,6 +24,11 @@ import {
   lockProductCategoryAssignment,
   lockProductWorkingMediaReferences,
 } from "./productReferenceService.js";
+import {
+  assertLanguagesExist,
+  listLanguageCodes,
+  requireLanguage,
+} from "./languageService.js";
 
 type AdminActor = Readonly<{ id: string }>;
 
@@ -148,14 +153,39 @@ function workingData(product: ProductDocument): ProductWorkingData {
   };
 }
 
+function inputLocaleCodes(
+  input: {
+    translations?: CreateProductRequest["translations"] | undefined;
+    specifications?: CreateProductRequest["specifications"] | undefined;
+    mediaUsages?: CreateProductRequest["mediaUsages"] | undefined;
+  },
+): string[] {
+  return [
+    ...Object.keys(input.translations ?? {}),
+    ...(input.specifications ?? []).flatMap((group) => [
+      ...Object.keys(group.translations),
+      ...group.items.flatMap((item) => Object.keys(item.translations)),
+    ]),
+    ...(input.mediaUsages ?? []).flatMap((usage) => [
+      ...(usage.locale === undefined ? [] : [usage.locale]),
+      ...Object.keys(usage.translations),
+    ]),
+  ];
+}
+
 export async function getAdminProduct(id: string): Promise<ProductAdminDto> {
-  return toProductAdminDto(await requireProduct(id));
+  const [product, localeCodes] = await Promise.all([
+    requireProduct(id),
+    listLanguageCodes(),
+  ]);
+  return toProductAdminDto(product, localeCodes);
 }
 
 export async function createProduct(
   input: CreateProductRequest,
   actor: AdminActor,
 ): Promise<ProductAdminDto> {
+  await assertLanguagesExist(inputLocaleCodes(input));
   try {
     return await inTransaction(async (session) => {
       const product = new ProductModel({
@@ -168,7 +198,7 @@ export async function createProduct(
       await lockProductCategoryAssignment(product.categoryId, undefined, session);
       await lockProductWorkingMediaReferences(product, session);
       await product.save({ session });
-      return toProductAdminDto(product);
+      return toProductAdminDto(product, await listLanguageCodes());
     });
   } catch (error) {
     if (duplicateKeyError(error)) {
@@ -187,6 +217,7 @@ export async function updateProduct(
   input: UpdateProductRequest,
   actor: AdminActor,
 ): Promise<ProductAdminDto> {
+  await assertLanguagesExist(inputLocaleCodes(input));
   try {
     return await inTransaction(async (session) => {
       const product = await requireProduct(id, session);
@@ -213,7 +244,7 @@ export async function updateProduct(
       await lockProductWorkingMediaReferences(product, session);
       product.updatedBy = toObjectId(actor.id);
       await product.save({ session });
-      return toProductAdminDto(product);
+      return toProductAdminDto(product, await listLanguageCodes());
     });
   } catch (error) {
     if (duplicateKeyError(error)) {
@@ -291,7 +322,7 @@ export async function duplicateProduct(
       );
       await lockProductWorkingMediaReferences(duplicate, session);
       await duplicate.save({ session });
-      return toProductAdminDto(duplicate);
+      return toProductAdminDto(duplicate, await listLanguageCodes());
     });
   } catch (error) {
     if (duplicateKeyError(error)) {
@@ -310,6 +341,7 @@ export async function unpublishProduct(
   input: UnpublishProductRequest,
   actor: AdminActor,
 ): Promise<ProductAdminDto> {
+  if (input.locale !== undefined) await requireLanguage(input.locale);
   return inTransaction(async (session) => {
     const product = await requireProduct(id, session);
     assertVersion(product, input.version);
@@ -351,7 +383,7 @@ export async function unpublishProduct(
     }
     product.updatedBy = toObjectId(actor.id);
     await product.save({ session });
-    return toProductAdminDto(product);
+    return toProductAdminDto(product, await listLanguageCodes());
   });
 }
 
@@ -366,7 +398,7 @@ export async function archiveProduct(
     product.status = "archived";
     product.updatedBy = toObjectId(actor.id);
     await product.save({ session });
-    return toProductAdminDto(product);
+    return toProductAdminDto(product, await listLanguageCodes());
   });
 }
 

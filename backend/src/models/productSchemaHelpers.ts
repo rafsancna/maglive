@@ -1,6 +1,4 @@
-import { LOCALE_CODES, PRODUCT_LIMITS } from "@maglive/contracts";
-
-const localeCodes = new Set<string>(LOCALE_CODES);
+import { localeCodeSchema, PRODUCT_LIMITS } from "@maglive/contracts";
 
 export const strictSubdocumentOptions = Object.freeze({
   _id: false,
@@ -15,11 +13,11 @@ export function hasOnlySupportedLocaleKeys(value: unknown): boolean {
       : typeof value === "object"
         ? Object.keys(value)
         : [];
-  return keys.every((key) => localeCodes.has(key));
+  return keys.every((key) => localeCodeSchema.safeParse(key).success);
 }
 
 export function isSupportedLocaleValue(value: unknown): boolean {
-  return value === undefined || (typeof value === "string" && localeCodes.has(value));
+  return value === undefined || localeCodeSchema.safeParse(value).success;
 }
 
 export function hasUniqueNestedKeys(value: unknown): boolean {
