@@ -268,6 +268,54 @@ describe("Product workspace", () => {
     });
   });
 
+  it("makes global draft totals actionable and distinguishes incomplete language content", async () => {
+    const user = userEvent.setup();
+    render(<ProductWorkspace />);
+    const draftName = await screen.findByText("Residential inverter");
+    const draftRow = draftName.closest("tr");
+    expect(draftRow).not.toBeNull();
+    expect(within(draftRow as HTMLElement).getByText("draft")).toBeInTheDocument();
+    expect(within(draftRow as HTMLElement).getByText("needs content")).toBeInTheDocument();
+
+    const totals = screen.getByLabelText("Product totals");
+    const draftFilter = within(totals).getByRole("button", { name: "Draft products: 11" });
+    await user.click(draftFilter);
+    expect(navigation.push).toHaveBeenLastCalledWith(
+      expect.stringContaining("status=draft"),
+      { scroll: false },
+    );
+
+    await user.click(within(totals).getByRole("button", { name: "Featured products: 4" }));
+    expect(navigation.push).toHaveBeenLastCalledWith(
+      expect.stringContaining("featured=true"),
+      { scroll: false },
+    );
+  });
+
+  it("opens Product actions outside the table without changing the row layout", async () => {
+    const user = userEvent.setup();
+    render(<ProductWorkspace />);
+    const productName = await screen.findByText("630W TOPCon module");
+    const row = productName.closest("tr");
+    expect(row).not.toBeNull();
+    const trigger = within(row as HTMLElement).getByRole("button", { name: "Actions" });
+
+    await user.click(trigger);
+
+    const popover = screen.getByRole("group", {
+      name: "Actions for 630W TOPCon module",
+    });
+    expect(popover.parentElement).toBe(document.body);
+    expect((row as HTMLElement).contains(popover)).toBe(false);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("group", { name: "Actions for 630W TOPCon module" }),
+    ).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it("runs lifecycle actions with confirmation and refreshes only Product data", async () => {
     const user = userEvent.setup();
     render(<ProductWorkspace />);
@@ -276,10 +324,12 @@ describe("Product workspace", () => {
 
     let publishedRow = screen.getByText("630W TOPCon module").closest("tr");
     expect(publishedRow).not.toBeNull();
-    const keyboardMenu = within(publishedRow as HTMLElement).getByText("Actions");
+    const keyboardMenu = within(publishedRow as HTMLElement).getByRole("button", { name: "Actions" });
     keyboardMenu.focus();
     await user.keyboard("{Enter}");
-    const publishedActions = within(publishedRow as HTMLElement);
+    const publishedActions = within(
+      screen.getByRole("group", { name: "Actions for 630W TOPCon module" }),
+    );
     expect(publishedActions.getByRole("link", { name: "Edit Product" }))
       .toHaveAttribute("href", `/admin/products/${publishedProduct.id}`);
     expect(
@@ -302,10 +352,10 @@ describe("Product workspace", () => {
     );
     publishedRow = (await screen.findByText("630W TOPCon module")).closest("tr");
     expect(publishedRow).not.toBeNull();
-    const unpublishMenu = within(publishedRow as HTMLElement).getByText("Actions");
+    const unpublishMenu = within(publishedRow as HTMLElement).getByRole("button", { name: "Actions" });
     unpublishMenu.focus();
     await user.keyboard("{Enter}");
-    const unpublishButton = within(publishedRow as HTMLElement).getByRole(
+    const unpublishButton = screen.getByRole(
       "button",
       { name: "Unpublish English" },
     );
@@ -319,10 +369,10 @@ describe("Product workspace", () => {
     });
     publishedRow = (await screen.findByText("630W TOPCon module")).closest("tr");
     expect(publishedRow).not.toBeNull();
-    const archiveMenu = within(publishedRow as HTMLElement).getByText("Actions");
+    const archiveMenu = within(publishedRow as HTMLElement).getByRole("button", { name: "Actions" });
     archiveMenu.focus();
     await user.keyboard("{Enter}");
-    const archiveButton = within(publishedRow as HTMLElement).getByRole(
+    const archiveButton = screen.getByRole(
       "button",
       { name: "Archive Product" },
     );
@@ -337,10 +387,10 @@ describe("Product workspace", () => {
 
     let draftRow = (await screen.findByText("Residential inverter")).closest("tr");
     expect(draftRow).not.toBeNull();
-    const duplicateMenu = within(draftRow as HTMLElement).getByText("Actions");
+    const duplicateMenu = within(draftRow as HTMLElement).getByRole("button", { name: "Actions" });
     duplicateMenu.focus();
     await user.keyboard("{Enter}");
-    const duplicateButton = within(draftRow as HTMLElement).getByRole(
+    const duplicateButton = screen.getByRole(
       "button",
       { name: "Duplicate as draft" },
     );
@@ -354,10 +404,10 @@ describe("Product workspace", () => {
     });
     draftRow = (await screen.findByText("Residential inverter")).closest("tr");
     expect(draftRow).not.toBeNull();
-    const deleteMenu = within(draftRow as HTMLElement).getByText("Actions");
+    const deleteMenu = within(draftRow as HTMLElement).getByRole("button", { name: "Actions" });
     deleteMenu.focus();
     await user.keyboard("{Enter}");
-    const deleteButton = within(draftRow as HTMLElement).getByRole(
+    const deleteButton = screen.getByRole(
       "button",
       { name: "Permanently delete draft" },
     );
@@ -418,9 +468,9 @@ describe("Product workspace", () => {
     const row = screen.getByText("630W TOPCon module").closest("tr");
     expect(row).not.toBeNull();
     const rowQueries = within(row as HTMLElement);
-    await user.click(rowQueries.getByText("Actions"));
+    await user.click(rowQueries.getByRole("button", { name: "Actions" }));
     await user.click(
-      rowQueries.getByRole("button", { name: "Archive Product" }),
+      screen.getByRole("button", { name: "Archive Product" }),
     );
     await waitFor(() => {
       expect(productApi.archiveProduct).toHaveBeenCalledWith(
@@ -429,8 +479,9 @@ describe("Product workspace", () => {
       );
     });
     expect(await screen.findByText("Product changed")).toBeInTheDocument();
+    await user.click(rowQueries.getByRole("button", { name: "Actions" }));
     await user.click(
-      rowQueries.getByRole("button", { name: "Publish Simplified Chinese" }),
+      screen.getByRole("button", { name: "Publish Simplified Chinese" }),
     );
     expect(await screen.findByText("Publication blocked")).toBeInTheDocument();
     expect(

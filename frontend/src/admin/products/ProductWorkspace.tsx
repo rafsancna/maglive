@@ -11,12 +11,15 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  type CSSProperties,
   type FormEvent,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { AdminApiError } from "../auth/api";
 import { listCategories } from "../categories/api";
 import {
@@ -78,7 +81,16 @@ function workspaceError(reason: unknown): WorkspaceError {
 }
 
 function stateLabel(value: string): string {
-  return value.replaceAll("-", " ");
+  switch (value) {
+    case "incomplete":
+      return "needs content";
+    case "draft":
+      return "ready to publish";
+    case "changes-pending":
+      return "changes pending";
+    default:
+      return value;
+  }
 }
 
 function categoryName(
@@ -112,84 +124,237 @@ function ProductActions({
 }) {
   const { localeCodes, languageByCode } = useLanguages();
   const englishIsLive = item.publishedLocales.includes(DEFAULT_LOCALE);
-  return (
-    <details className="product-actions">
-      <summary>Actions</summary>
-      <div>
-        <Link href={`/admin/products/${item.id}`}>Edit Product</Link>
-        <button disabled type="button" title="Draft Preview is added in Phase 8">
-          Preview unavailable
-        </button>
-        <button disabled={busy} onClick={onDuplicate} type="button">
-          Duplicate as draft
-        </button>
-        <div className="product-actions__group">
-          <strong>Publication</strong>
-          {localeCodes.map((locale) => {
-            const state = item.localeStates[locale];
-            const blockedByEnglish =
-              locale !== DEFAULT_LOCALE && !englishIsLive;
-            return (
-              <button
-                disabled={
-                  busy ||
-                  item.status === "archived" ||
-                  state === "incomplete" ||
-                  blockedByEnglish
-                }
-                key={`publish-${locale}`}
-                onClick={() => onPublish(locale)}
-                title={
-                  blockedByEnglish
-                    ? "Publish English before additional languages"
-                    : state === "incomplete"
-                      ? "Required translation content is incomplete"
-                      : undefined
-                }
-                type="button"
-              >
-                {item.publishedLocales.includes(locale)
-                  ? `Republish ${languageByCode[locale]?.label ?? locale}`
-                  : `Publish ${languageByCode[locale]?.label ?? locale}`}
-              </button>
-            );
-          })}
-          {item.publishedLocales.map((locale) => (
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({
+    left: 0,
+    top: 0,
+    visibility: "hidden",
+  });
+  const panelId = `product-actions-${item.id}`;
+
+  useEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    if (trigger === null) return;
+
+    function positionPanel(): void {
+      const currentTrigger = triggerRef.current;
+      if (currentTrigger === null) return;
+      const rect = currentTrigger.getBoundingClientRect();
+      const viewportPadding = 12;
+      const gap = 8;
+      const width = Math.min(544, window.innerWidth - viewportPadding * 2);
+      const panelHeight = panelRef.current?.offsetHeight ?? 320;
+      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const availableAbove = rect.top - viewportPadding;
+      const placeAbove =
+        availableBelow < Math.min(panelHeight, 320) &&
+        availableAbove > availableBelow;
+      const top = placeAbove
+        ? Math.max(viewportPadding, rect.top - panelHeight - gap)
+        : Math.min(
+            rect.bottom + gap,
+            Math.max(
+              viewportPadding,
+              window.innerHeight - panelHeight - viewportPadding,
+            ),
+          );
+      const left = Math.min(
+        window.innerWidth - width - viewportPadding,
+        Math.max(viewportPadding, rect.right - width),
+      );
+      setPanelStyle({
+        left,
+        top,
+        width,
+        maxHeight: window.innerHeight - viewportPadding * 2,
+        visibility: "visible",
+      });
+    }
+
+    function closeFromOutside(event: PointerEvent): void {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (
+        triggerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    }
+
+    function closeFromKeyboard(event: KeyboardEvent): void {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+
+    positionPanel();
+    const animationFrame = window.requestAnimationFrame(positionPanel);
+    document.addEventListener("pointerdown", closeFromOutside);
+    document.addEventListener("keydown", closeFromKeyboard);
+    window.addEventListener("resize", positionPanel);
+    window.addEventListener("scroll", positionPanel, true);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      document.removeEventListener("pointerdown", closeFromOutside);
+      document.removeEventListener("keydown", closeFromKeyboard);
+      window.removeEventListener("resize", positionPanel);
+      window.removeEventListener("scroll", positionPanel, true);
+    };
+  }, [open]);
+
+  function runAndClose(action: () => void): void {
+    setOpen(false);
+    action();
+    triggerRef.current?.focus();
+  }
+
+  const actionPanel = open && typeof document !== "undefined"
+    ? createPortal(
+        <div
+          aria-label={`Actions for ${item.name}`}
+          className="product-actions-popover"
+          id={panelId}
+          ref={panelRef}
+          role="group"
+          style={panelStyle}
+        >
+          <header className="product-actions-popover__header">
+            <div>
+              <span>Product actions</span>
+              <strong>{item.name}</strong>
+            </div>
             <button
-              disabled={
-                busy ||
-                (locale === DEFAULT_LOCALE && item.publishedLocales.length > 1)
-              }
-              key={`unpublish-${locale}`}
-              onClick={() => onUnpublish(locale)}
-              title={
-                locale === DEFAULT_LOCALE && item.publishedLocales.length > 1
-                  ? "Unpublish additional languages before English"
-                  : undefined
-              }
+              aria-label="Close product actions"
+              onClick={() => {
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
               type="button"
             >
-              Unpublish {languageByCode[locale]?.label ?? locale}
+              Close
             </button>
-          ))}
-        </div>
-        {item.status === "archived" ? null : (
-          <button disabled={busy} onClick={onArchive} type="button">
-            Archive Product
-          </button>
-        )}
-        {item.canDeletePermanently ? (
-          <button
-            className="product-actions__danger"
-            disabled={busy}
-            onClick={onDelete}
-            type="button"
-          >
-            Permanently delete draft
-          </button>
-        ) : null}
-      </div>
-    </details>
+          </header>
+          <div className="product-actions-popover__quick">
+            <Link
+              href={`/admin/products/${item.id}`}
+              onClick={() => setOpen(false)}
+            >
+              Edit Product
+            </Link>
+            <button
+              disabled
+              title="Draft Preview is added in Phase 8"
+              type="button"
+            >
+              Preview unavailable
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => runAndClose(onDuplicate)}
+              type="button"
+            >
+              Duplicate as draft
+            </button>
+          </div>
+          <section className="product-actions-popover__group">
+            <strong>Publication</strong>
+            <div className="product-actions-popover__grid">
+              {localeCodes.map((locale) => {
+                const state = item.localeStates[locale];
+                const blockedByEnglish = locale !== DEFAULT_LOCALE && !englishIsLive;
+                return (
+                  <button
+                    disabled={
+                      busy ||
+                      item.status === "archived" ||
+                      state === "incomplete" ||
+                      blockedByEnglish
+                    }
+                    key={`publish-${locale}`}
+                    onClick={() => runAndClose(() => onPublish(locale))}
+                    title={
+                      blockedByEnglish
+                        ? "Publish English before additional languages"
+                        : state === "incomplete"
+                          ? "Required translation content is incomplete"
+                          : undefined
+                    }
+                    type="button"
+                  >
+                    {item.publishedLocales.includes(locale)
+                      ? `Republish ${languageByCode[locale]?.label ?? locale}`
+                      : `Publish ${languageByCode[locale]?.label ?? locale}`}
+                  </button>
+                );
+              })}
+              {item.publishedLocales.map((locale) => (
+                <button
+                  disabled={
+                    busy ||
+                    (locale === DEFAULT_LOCALE &&
+                      item.publishedLocales.length > 1)
+                  }
+                  key={`unpublish-${locale}`}
+                  onClick={() => runAndClose(() => onUnpublish(locale))}
+                  title={
+                    locale === DEFAULT_LOCALE &&
+                    item.publishedLocales.length > 1
+                      ? "Unpublish additional languages before English"
+                      : undefined
+                  }
+                  type="button"
+                >
+                  Unpublish {languageByCode[locale]?.label ?? locale}
+                </button>
+              ))}
+            </div>
+          </section>
+          <footer className="product-actions-popover__footer">
+            {item.status === "archived" ? null : (
+              <button
+                disabled={busy}
+                onClick={() => runAndClose(onArchive)}
+                type="button"
+              >
+                Archive Product
+              </button>
+            )}
+            {item.canDeletePermanently ? (
+              <button
+                className="product-actions__danger"
+                disabled={busy}
+                onClick={() => runAndClose(onDelete)}
+                type="button"
+              >
+                Permanently delete draft
+              </button>
+            ) : null}
+          </footer>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <div className="product-actions">
+      <button
+        aria-controls={panelId}
+        aria-expanded={open}
+        className="product-actions__trigger"
+        onClick={() => setOpen((current) => !current)}
+        ref={triggerRef}
+        type="button"
+      >
+        <span>Actions</span>
+        <span aria-hidden="true">{open ? "−" : "+"}</span>
+      </button>
+      {actionPanel}
+    </div>
   );
 }
 
@@ -234,7 +399,7 @@ function ProductTable({
             <tr key={item.id}>
               <td data-label="Product">
                 <div className="product-identity">
-                  <strong>{item.name}</strong>
+                  <Link className="product-identity__name" href={`/admin/products/${item.id}`}>{item.name}</Link>
                   {item.nameLocale !== undefined && item.nameLocale !== locale ? (
                     <small>
                       Showing {languageByCode[item.nameLocale]?.label ?? item.nameLocale} fallback
@@ -536,16 +701,29 @@ export function ProductWorkspace() {
       {data === null ? null : (
         <div aria-label="Product totals" className="product-counts">
           {([
-            ["All", data.collectionCounts.all],
-            ["Draft", data.collectionCounts.draft],
-            ["Published", data.collectionCounts.published],
-            ["Archived", data.collectionCounts.archived],
-            ["Featured", data.collectionCounts.featured],
-          ] as const).map(([label, count]) => (
-            <div key={label}>
+            ["All", data.collectionCounts.all, query.status === undefined && query.featured === undefined],
+            ["Draft", data.collectionCounts.draft, query.status === "draft"],
+            ["Published", data.collectionCounts.published, query.status === "published"],
+            ["Archived", data.collectionCounts.archived, query.status === "archived"],
+            ["Featured", data.collectionCounts.featured, query.featured === true],
+          ] as const).map(([label, count, active]) => (
+            <button
+              aria-label={`${label} products: ${count}`}
+              aria-pressed={active}
+              key={label}
+              onClick={() => navigate((next) => {
+                delete next.status;
+                delete next.featured;
+                if (label === "Draft" || label === "Published" || label === "Archived") {
+                  next.status = label.toLowerCase() as "draft" | "published" | "archived";
+                }
+                if (label === "Featured") next.featured = true;
+              })}
+              type="button"
+            >
               <span>{label}</span>
               <strong>{count}</strong>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -646,8 +824,8 @@ export function ProductWorkspace() {
             value={query.localeState ?? ""}
           >
             <option value="">All language states</option>
-            <option value="incomplete">Incomplete</option>
-            <option value="draft">Draft</option>
+            <option value="incomplete">Needs content</option>
+            <option value="draft">Ready to publish</option>
             <option value="published">Published</option>
             <option value="changes-pending">Changes pending</option>
           </select>
