@@ -7,7 +7,7 @@ import { Container } from "@/components/ui/Container";
 import { LocaleLink } from "./LocaleLink";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { MegaMenu, type MenuKey } from "./mega-menu/MegaMenu";
-import { megaMenuMockData } from "@/data/navigation/megaMenuMockData";
+import type { NavigationMockData } from "@/types/navigation";
 import { localized } from "@/types/navigation";
 
 const primaryItems = [
@@ -27,10 +27,12 @@ export function Navbar({
   dictionary,
   locale,
   languages,
+  navigationData,
 }: {
   dictionary: Dictionary;
   locale: LocaleCode;
   languages: readonly LanguageDto[];
+  navigationData: NavigationMockData;
 }) {
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -139,27 +141,27 @@ export function Navbar({
         </div>
       </Container>
 
-      {openMenu ? <MegaMenu active={openMenu} data={megaMenuMockData} dictionary={dictionary} locale={locale} menuId={menuId} /> : null}
+      {openMenu ? <MegaMenu active={openMenu} data={navigationData} dictionary={dictionary} locale={locale} menuId={menuId} /> : null}
 
       <div className={`mobile-menu ${mobileOpen ? "is-open" : ""}`} id="maglive-mobile-menu" aria-hidden={!mobileOpen}>
         <div className="mobile-menu__scroll">
           <div className="mobile-menu__intro"><span>MAGLIVE / NAVIGATION</span><p>{locale === "zh" ? "从清晰的入口开始探索。" : "Start with a clearer way in."}</p></div>
-          {primaryItems.map((item: PrimaryItem) => item.menu ? (
+          {primaryItems.map((item: PrimaryItem) => item.key === "contact" ? null : item.menu ? (
             <div className="mobile-menu__section" key={item.key}>
               <button aria-expanded={mobileSection === item.key} className="mobile-menu__section-trigger" onClick={() => setMobileSection(mobileSection === item.key ? null : item.key as MenuKey)} type="button"><span>{dictionary.navigation[item.key]}</span><span aria-hidden="true">{mobileSection === item.key ? "−" : "+"}</span></button>
               <div className={`mobile-menu__section-body ${mobileSection === item.key ? "is-open" : ""}`}>
                 {item.key === "products" ? <>
-                  {megaMenuMockData.productCategories.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />)}
-                  {megaMenuMockData.featuredProducts.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} meta={localized(link.tag, locale)} locale={locale} onClick={closeMobile} />)}
+                  {navigationData.productCategories.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />)}
+                  {navigationData.featuredProducts.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} meta={localized(link.tag, locale)} locale={locale} onClick={closeMobile} />)}
                 </> : null}
                 {item.key === "solutions" ? <>
-                  {megaMenuMockData.solutionCategories.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />)}
-                  <MobileLink href={megaMenuMockData.featuredSolution.href} label={localized(megaMenuMockData.featuredSolution.label, locale)} meta={localized(megaMenuMockData.featuredSolution.kicker, locale)} locale={locale} onClick={closeMobile} />
+                  {navigationData.solutionCategories.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />)}
+                  <MobileLink href={navigationData.featuredSolution.href} label={localized(navigationData.featuredSolution.label, locale)} meta={localized(navigationData.featuredSolution.kicker, locale)} locale={locale} onClick={closeMobile} />
                 </> : null}
-                {item.key === "cases" ? megaMenuMockData.cases.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} meta={localized(link.location, locale)} locale={locale} onClick={closeMobile} />) : null}
-                {item.key === "news" ? megaMenuMockData.news.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} meta={localized(link.date, locale)} locale={locale} onClick={closeMobile} />) : null}
-                {item.key === "documents" ? megaMenuMockData.documents.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />) : null}
-                {item.key === "services" ? megaMenuMockData.services.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />) : null}
+                {item.key === "cases" ? navigationData.cases.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} meta={localized(link.location, locale)} locale={locale} onClick={closeMobile} />) : null}
+                {item.key === "news" ? navigationData.news.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} meta={localized(link.date, locale)} locale={locale} onClick={closeMobile} />) : null}
+                {item.key === "documents" ? navigationData.documents.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />) : null}
+                {item.key === "services" ? navigationData.services.map((link) => <MobileLink key={localized(link.label, locale)} href={link.href} label={localized(link.label, locale)} locale={locale} onClick={closeMobile} />) : null}
                 <MobileLink href={item.href} label={`${dictionary.menu.viewAll} ${dictionary.navigation[item.key]}`} locale={locale} onClick={closeMobile} />
               </div>
             </div>

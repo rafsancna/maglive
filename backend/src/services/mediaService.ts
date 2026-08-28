@@ -27,6 +27,7 @@ import {
   type MediaDocument,
   type MediaTranslation,
 } from "../models/Media.js";
+import { NavigationConfigModel } from "../models/NavigationConfig.js";
 import { ProductModel, type ProductDocument } from "../models/Product.js";
 import type { StorageProvider } from "../storage/StorageProvider.js";
 import { assertLanguagesExist, listLanguageCodes } from "./languageService.js";
@@ -529,6 +530,40 @@ function productUsages(
   return usages;
 }
 
+async function navigationUsages(
+  mediaId: Types.ObjectId,
+  session?: ClientSession,
+): Promise<MediaUsageDto[]> {
+  const query = NavigationConfigModel.findOne({ key: "primary" });
+  if (session !== undefined) query.session(session);
+  const config = await query;
+  if (config === null) return [];
+  const usages: MediaUsageDto[] = [];
+  const visit = (value: unknown, path: string): void => {
+    if (Array.isArray(value)) {
+      value.forEach((child, index) => visit(child, `${path}.${index}`));
+      return;
+    }
+    if (typeof value !== "object" || value === null) return;
+    for (const [key, child] of Object.entries(value)) {
+      if (key === "mediaId" && child !== undefined && String(child) === mediaId.toString()) {
+        usages.push({
+          kind: "navigation-image",
+          ownerType: "other",
+          ownerId: config._id.toString(),
+          ownerLabel: "Navbar and mega menu",
+          placement: "Navigation image",
+          path: `${path}.${key}`,
+        });
+      } else {
+        visit(child, `${path}.${key}`);
+      }
+    }
+  };
+  visit(config.data, "data");
+  return usages;
+}
+
 async function usageDocuments(
   mediaId: Types.ObjectId,
   session?: ClientSession,
@@ -579,10 +614,11 @@ async function usageDocuments(
     productQuery.session(session);
     posterQuery.session(session);
   }
-  const [categories, products, posterOwners] = await Promise.all([
+  const [categories, products, posterOwners, navigation] = await Promise.all([
     categoryQuery,
     productQuery,
     posterQuery,
+    navigationUsages(mediaId, session),
   ]);
   const usages = categories.flatMap((category) =>
     categoryUsages(category, mediaId),
@@ -598,6 +634,7 @@ async function usageDocuments(
       path: "posterMediaId",
     })),
   );
+  usages.push(...navigation);
   return usages.sort(
     (left, right) =>
       left.kind.localeCompare(right.kind) ||

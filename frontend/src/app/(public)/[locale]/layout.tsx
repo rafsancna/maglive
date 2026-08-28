@@ -5,6 +5,7 @@ import { SkipLink } from "@/components/ui/SkipLink";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { requireLocale } from "@/i18n/page-locale";
 import { getAvailableLanguages } from "@/i18n/languages";
+import { getNavigationData } from "@/lib/navigation.service";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<import("next").Metadata> {
   const locale = await requireLocale(params);
@@ -20,15 +21,16 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const locale = await requireLocale(params);
-  const [dictionary, languages] = await Promise.all([
+  const [dictionary, languages, navigationData] = await Promise.all([
     getDictionary(locale),
     getAvailableLanguages(),
+    getNavigationData(),
   ]);
 
   return (
     <div className="site-shell">
       <SkipLink label={dictionary.accessibility.skipToContent} />
-      <Navbar dictionary={dictionary} locale={locale} languages={languages} />
+      <Navbar dictionary={dictionary} locale={locale} languages={languages} navigationData={navigationData} />
       <main id="main-content">{children}</main>
       <Footer dictionary={dictionary} locale={locale} />
     </div>

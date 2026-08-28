@@ -20,6 +20,10 @@ import {
   createAdminLanguagesRouter,
   createPublicLanguagesRouter,
 } from "./languages.js";
+import {
+  createAdminNavigationRouter,
+  createPublicNavigationRouter,
+} from "./navigation.js";
 
 export function createV1Router(
   getDatabaseHealth: () => DatabaseHealth,
@@ -51,11 +55,16 @@ export function createV1Router(
     createAdminProductsRouter(config, now ?? Date.now)
   );
   router.use(
+    "/admin/navigation",
+    createAdminNavigationRouter(config, now ?? Date.now),
+  );
+  router.use(
     "/admin/seo",
     createAdminSeoRouter(config, now ?? Date.now),
   );
   router.use("/public/categories", createPublicCategoriesRouter());
   router.use("/public/languages", createPublicLanguagesRouter());
+  router.use("/public/navigation", createPublicNavigationRouter());
   router.use("/public/products", createPublicProductsRouter(storageProvider));
   router.use("/preview", createPreviewRouter(config, now ?? Date.now));
   router.use(

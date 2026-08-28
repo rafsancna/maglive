@@ -4,6 +4,7 @@ const modules = [
   ["Products", "Phase 5–7", "Author, preview, and publish multilingual technical products."],
   ["Categories", "Phase 3", "Organize the two-level public product taxonomy."],
   ["Media", "Phase 4", "Upload and safely reuse product images, videos, and documents."],
+  ["Navigation", "Content control", "Manage navbar labels, menu links, hover cards, ordering, visibility, and imagery."],
   ["Languages", "Localization", "Enable languages for public routes and multilingual editorial workflows."],
   ["SEO", "Optimization", "Review localized SEO scores, rendered audits, and search provider status."],
 ] as const;

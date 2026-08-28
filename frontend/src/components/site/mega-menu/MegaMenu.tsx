@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useState, type FocusEventHandler, type MouseEventHandler, type ReactNode } from "react";
 import type { LocaleCode } from "@maglive/contracts";
 import type { Dictionary } from "@/i18n/dictionary";
 import { LocaleLink } from "@/components/site/LocaleLink";
-import { localized, type NavigationMockData, type NavigationLink } from "@/types/navigation";
+import { localized, type NavigationMockData, type NavigationLink, type FeaturedProduct } from "@/types/navigation";
 
 export type MenuKey = "products" | "solutions" | "cases" | "news" | "documents" | "services";
 
@@ -21,9 +21,9 @@ function Arrow() {
   return <span aria-hidden="true" className="mega-menu__arrow">↗</span>;
 }
 
-function MenuLink({ item, locale, className = "", prefix }: { item: NavigationLink; locale: LocaleCode; className?: string; prefix?: ReactNode }) {
+function MenuLink({ item, locale, className = "", prefix, onMouseEnter, onFocus }: { item: NavigationLink; locale: LocaleCode; className?: string; prefix?: ReactNode; onMouseEnter?: MouseEventHandler<HTMLAnchorElement>; onFocus?: FocusEventHandler<HTMLAnchorElement> }) {
   return (
-    <LocaleLink className={`mega-menu__link ${className}`.trim()} href={item.href} locale={locale}>
+    <LocaleLink className={`mega-menu__link ${className}`.trim()} href={item.href} locale={locale} {...(onFocus === undefined ? {} : { onFocus })} {...(onMouseEnter === undefined ? {} : { onMouseEnter })}>
       {prefix}
       <span>
         <strong>{localized(item.label, locale)}</strong>
@@ -74,6 +74,9 @@ function MenuHeading({ eyebrow, title, description }: { eyebrow: string; title: 
 }
 
 function ProductsMenu({ data, dictionary, locale }: Omit<MegaMenuProps, "active" | "menuId">) {
+  const [activeCategoryId, setActiveCategoryId] = useState(data.productCategories[0]?.id ?? data.productCategories[0]?.accent ?? null);
+  const activeCategory = data.productCategories.find((item) => (item.id ?? item.accent) === activeCategoryId) ?? data.productCategories[0];
+  const activeProducts: readonly FeaturedProduct[] = activeCategory?.products?.length ? activeCategory.products : data.featuredProducts;
   return (
     <div className="mega-menu__layout mega-menu__layout--products">
       <MenuHeading eyebrow="01 / CATALOG" title={dictionary.navigation.products} description={locale === "zh" ? "从组件到系统，找到适配项目的技术组合。" : "From modules to complete systems, find the right technical fit."} />
@@ -82,7 +85,7 @@ function ProductsMenu({ data, dictionary, locale }: Omit<MegaMenuProps, "active"
           <div className="mega-menu__section-label" id="products-category-title">{locale === "zh" ? "产品类别" : "Product categories"}</div>
           <div className="mega-menu__category-list">
             {data.productCategories.map((item) => (
-              <LocaleLink className="mega-menu__category" href={item.href} key={item.accent} locale={locale}>
+              <LocaleLink aria-current={(item.id ?? item.accent) === activeCategoryId ? "true" : undefined} className={`mega-menu__category ${(item.id ?? item.accent) === activeCategoryId ? "is-active" : ""}`} href={item.href} key={item.id ?? item.accent} locale={locale} onFocus={() => setActiveCategoryId(item.id ?? item.accent)} onMouseEnter={() => setActiveCategoryId(item.id ?? item.accent)}>
                 <span className="mega-menu__category-index">{item.accent}</span>
                 <span><strong>{localized(item.label, locale)}</strong><small>{localized(item.description, locale)}</small></span>
                 <Arrow />
@@ -92,9 +95,9 @@ function ProductsMenu({ data, dictionary, locale }: Omit<MegaMenuProps, "active"
           <LocaleLink className="mega-menu__all-link" href="/products" locale={locale}>{dictionary.menu.viewAll} {dictionary.navigation.products}<Arrow /></LocaleLink>
         </section>
         <section className="mega-menu__feature-panel" aria-labelledby="products-feature-title">
-          <div className="mega-menu__section-label" id="products-feature-title">{dictionary.menu.featured}</div>
+          <div className="mega-menu__section-label" id="products-feature-title">{dictionary.menu.featured}{activeCategory ? ` / ${localized(activeCategory.label, locale)}` : ""}</div>
           <div className="mega-menu__feature-grid">
-            {data.featuredProducts.map((item) => (
+            {activeProducts.map((item) => (
               <LocaleLink className="mega-menu__product-card" href={item.href} key={localized(item.label, locale)} locale={locale}>
                 <span className="mega-menu__product-image"><Image alt={localized(item.image.alt, locale)} height={item.image.height} loading="lazy" sizes="(max-width: 64rem) 45vw, 18rem" src={item.image.src} width={item.image.width} /></span>
                 <span className="mega-menu__product-copy"><small>{localized(item.tag, locale)}</small><strong>{localized(item.label, locale)}</strong><span>{localized(item.description, locale)}</span><Arrow /></span>
@@ -108,18 +111,21 @@ function ProductsMenu({ data, dictionary, locale }: Omit<MegaMenuProps, "active"
 }
 
 function SolutionsMenu({ data, dictionary, locale }: Omit<MegaMenuProps, "active" | "menuId">) {
+  const [activeSolutionId, setActiveSolutionId] = useState(data.solutionCategories[0]?.id ?? null);
+  const activeSolution = data.solutionCategories.find((item) => item.id === activeSolutionId) ?? data.solutionCategories[0];
+  const activeFeature = activeSolution?.feature ?? data.featuredSolution;
   return (
     <div className="mega-menu__layout mega-menu__layout--solutions">
       <MenuHeading eyebrow="02 / SYSTEMS" title={dictionary.navigation.solutions} description={locale === "zh" ? "以系统视角，为每种能源场景设计清晰路径。" : "A systems view that makes every energy scenario easier to navigate."} />
       <div className="mega-menu__solutions-grid">
         <section className="mega-menu__solution-list" aria-labelledby="solutions-list-title">
           <div className="mega-menu__section-label" id="solutions-list-title">{locale === "zh" ? "应用场景" : "Applications"}</div>
-          {data.solutionCategories.map((item, index) => <MenuLink item={item} key={localized(item.label, locale)} locale={locale} className={`mega-menu__solution-link mega-menu__solution-link--${index + 1}`} />)}
+          {data.solutionCategories.map((item, index) => <MenuLink item={item} key={localized(item.label, locale)} locale={locale} className={`mega-menu__solution-link mega-menu__solution-link--${index + 1} ${item.id === activeSolutionId ? "is-active" : ""}`} onFocus={() => setActiveSolutionId(item.id ?? null)} onMouseEnter={() => setActiveSolutionId(item.id ?? null)} prefix={<span className="mega-menu__solution-index">0{index + 1}</span>} />)}
         </section>
-        <LocaleLink className="mega-menu__solution-feature" href={data.featuredSolution.href} locale={locale}>
-          <Image alt={localized(data.featuredSolution.image.alt, locale)} fill loading="lazy" sizes="(max-width: 64rem) 100vw, 42rem" src={data.featuredSolution.image.src} />
+        <LocaleLink className="mega-menu__solution-feature" href={activeFeature.href} locale={locale}>
+          <Image alt={localized(activeFeature.image.alt, locale)} fill loading="lazy" sizes="(max-width: 64rem) 100vw, 42rem" src={activeFeature.image.src} />
           <span className="mega-menu__solution-overlay" />
-          <span className="mega-menu__solution-copy"><small>{localized(data.featuredSolution.kicker, locale)}</small><strong>{localized(data.featuredSolution.label, locale)}</strong><span>{localized(data.featuredSolution.description, locale)}</span><span className="mega-menu__feature-action">{dictionary.menu.explore} <Arrow /></span></span>
+          <span className="mega-menu__solution-copy"><small>{localized(activeFeature.kicker, locale)}</small><strong>{localized(activeFeature.label, locale)}</strong><span>{localized(activeFeature.description, locale)}</span><span className="mega-menu__feature-action">{dictionary.menu.explore} <Arrow /></span></span>
         </LocaleLink>
       </div>
     </div>

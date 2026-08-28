@@ -7,18 +7,24 @@ export type NavigationImage = Readonly<{
   alt: LocalizedText;
   width: number;
   height: number;
+  mediaId?: string;
 }>;
 
 export type NavigationLink = Readonly<{
+  id?: string;
   label: LocalizedText;
   description?: LocalizedText;
   href: string;
   meta?: LocalizedText;
+  visible?: boolean;
+  order?: number;
+  feature?: FeaturedSolution;
 }>;
 
 export type ProductCategory = Omit<NavigationLink, "description"> & Readonly<{
   description: LocalizedText;
   accent: string;
+  products?: readonly FeaturedProduct[];
 }>;
 
 export type FeaturedProduct = Omit<NavigationLink, "description"> & Readonly<{
