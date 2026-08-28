@@ -13,9 +13,26 @@
     "about": "About",
     "products": "Products",
     "projects": "Projects",
+    "solutions": "Solutions",
+    "cases": "Cases",
     "news": "News",
     "downloads": "Downloads",
+    "documents": "Documents",
+    "services": "Services",
     "contact": "Contact"
+  },
+  "menu": {
+    "featured": "Featured",
+    "viewAll": "View all",
+    "explore": "Explore",
+    "readMore": "Read more",
+    "latest": "Latest",
+    "allCases": "View all cases",
+    "allNews": "View all news",
+    "viewDocuments": "View all documents",
+    "viewServices": "Explore services",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu"
   },
   "states": {
     "loading": "Loading",

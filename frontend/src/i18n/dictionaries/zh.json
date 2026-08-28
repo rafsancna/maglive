@@ -13,9 +13,26 @@
     "about": "关于我们",
     "products": "产品中心",
     "projects": "项目案例",
+    "solutions": "解决方案",
+    "cases": "案例",
     "news": "新闻资讯",
     "downloads": "资料下载",
+    "documents": "技术文档",
+    "services": "服务支持",
     "contact": "联系我们"
+  },
+  "menu": {
+    "featured": "精选内容",
+    "viewAll": "查看全部",
+    "explore": "探索",
+    "readMore": "阅读更多",
+    "latest": "最新动态",
+    "allCases": "查看全部案例",
+    "allNews": "查看全部新闻",
+    "viewDocuments": "查看全部文档",
+    "viewServices": "探索服务",
+    "openMenu": "打开导航菜单",
+    "closeMenu": "关闭导航菜单"
   },
   "states": {
     "loading": "正在加载",
