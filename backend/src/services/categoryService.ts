@@ -111,6 +111,9 @@ function toTranslation(
     name: value.name,
     ...(value.description === undefined ? {} : { description: value.description }),
     seo: {
+      ...(value.seo.focusKeyphrase === undefined
+        ? {}
+        : { focusKeyphrase: value.seo.focusKeyphrase }),
       ...(value.seo.title === undefined ? {} : { title: value.seo.title }),
       ...(value.seo.description === undefined
         ? {}
@@ -118,6 +121,16 @@ function toTranslation(
       ...(value.seo.openGraphMediaId === undefined
         ? {}
         : { openGraphMediaId: toObjectId(value.seo.openGraphMediaId) }),
+      ...(value.seo.openGraphTitle === undefined
+        ? {}
+        : { openGraphTitle: value.seo.openGraphTitle }),
+      ...(value.seo.openGraphDescription === undefined
+        ? {}
+        : { openGraphDescription: value.seo.openGraphDescription }),
+      ...(value.seo.canonicalUrlOverride === undefined
+        ? {}
+        : { canonicalUrlOverride: value.seo.canonicalUrlOverride }),
+      ...(value.seo.robots === undefined ? {} : { robots: value.seo.robots }),
     },
   };
 }
@@ -190,10 +203,25 @@ function workingLocaleData(
       : { description: translation.description }),
     seo: {
       title: translation.seo.title ?? translation.name.slice(0, 70),
+      ...(translation.seo.focusKeyphrase === undefined
+        ? {}
+        : { focusKeyphrase: translation.seo.focusKeyphrase }),
       ...(description === undefined ? {} : { description }),
       ...(translation.seo.openGraphMediaId === undefined
         ? {}
         : { openGraphMediaId: translation.seo.openGraphMediaId }),
+      ...(translation.seo.openGraphTitle === undefined
+        ? {}
+        : { openGraphTitle: translation.seo.openGraphTitle }),
+      ...(translation.seo.openGraphDescription === undefined
+        ? {}
+        : { openGraphDescription: translation.seo.openGraphDescription }),
+      ...(translation.seo.canonicalUrlOverride === undefined
+        ? {}
+        : { canonicalUrlOverride: translation.seo.canonicalUrlOverride }),
+      ...(translation.seo.robots === undefined
+        ? {}
+        : { robots: translation.seo.robots }),
     },
     ...(imageTranslation?.alt === undefined
       ? {}
@@ -254,6 +282,9 @@ function publishedLocaleToDto(snapshot: NonNullable<CategoryDocument["publishedS
         ? {}
         : { description: snapshot.data.description }),
       seo: {
+        ...(snapshot.data.seo.focusKeyphrase === undefined
+          ? {}
+          : { focusKeyphrase: snapshot.data.seo.focusKeyphrase }),
         title: snapshot.data.seo.title,
         ...(snapshot.data.seo.description === undefined
           ? {}
@@ -264,6 +295,18 @@ function publishedLocaleToDto(snapshot: NonNullable<CategoryDocument["publishedS
               openGraphMediaId:
                 snapshot.data.seo.openGraphMediaId.toString(),
             }),
+        ...(snapshot.data.seo.openGraphTitle === undefined
+          ? {}
+          : { openGraphTitle: snapshot.data.seo.openGraphTitle }),
+        ...(snapshot.data.seo.openGraphDescription === undefined
+          ? {}
+          : { openGraphDescription: snapshot.data.seo.openGraphDescription }),
+        ...(snapshot.data.seo.canonicalUrlOverride === undefined
+          ? {}
+          : { canonicalUrlOverride: snapshot.data.seo.canonicalUrlOverride }),
+        ...(snapshot.data.seo.robots === undefined
+          ? {}
+          : { robots: snapshot.data.seo.robots }),
       },
       ...(snapshot.data.image === undefined
         ? {}
@@ -293,6 +336,9 @@ export function toCategoryAdminDto(
           ? {}
           : { description: translation.description }),
         seo: {
+          ...(translation.seo.focusKeyphrase === undefined
+            ? {}
+            : { focusKeyphrase: translation.seo.focusKeyphrase }),
           ...(translation.seo.title === undefined
             ? {}
             : { title: translation.seo.title }),
@@ -305,6 +351,18 @@ export function toCategoryAdminDto(
                 openGraphMediaId:
                   translation.seo.openGraphMediaId.toString(),
               }),
+          ...(translation.seo.openGraphTitle === undefined
+            ? {}
+            : { openGraphTitle: translation.seo.openGraphTitle }),
+          ...(translation.seo.openGraphDescription === undefined
+            ? {}
+            : { openGraphDescription: translation.seo.openGraphDescription }),
+          ...(translation.seo.canonicalUrlOverride === undefined
+            ? {}
+            : { canonicalUrlOverride: translation.seo.canonicalUrlOverride }),
+          ...(translation.seo.robots === undefined
+            ? {}
+            : { robots: translation.seo.robots }),
         },
       },
     ]),
@@ -979,6 +1037,9 @@ export function toPublicCategoryDto(
     sortOrder: global.data.sortOrder,
     seo: {
       title: localized.data.seo.title,
+      ...(localized.data.seo.focusKeyphrase === undefined
+        ? {}
+        : { focusKeyphrase: localized.data.seo.focusKeyphrase }),
       ...(localized.data.seo.description === undefined
         ? {}
         : { description: localized.data.seo.description }),
@@ -988,6 +1049,18 @@ export function toPublicCategoryDto(
             openGraphMediaId:
               localized.data.seo.openGraphMediaId.toString(),
           }),
+      ...(localized.data.seo.openGraphTitle === undefined
+        ? {}
+        : { openGraphTitle: localized.data.seo.openGraphTitle }),
+      ...(localized.data.seo.openGraphDescription === undefined
+        ? {}
+        : { openGraphDescription: localized.data.seo.openGraphDescription }),
+      ...(localized.data.seo.canonicalUrlOverride === undefined
+        ? {}
+        : { canonicalUrlOverride: localized.data.seo.canonicalUrlOverride }),
+      ...(localized.data.seo.robots === undefined
+        ? {}
+        : { robots: localized.data.seo.robots }),
     },
     ...(global.data.imageMediaId === undefined ||
     localized.data.image === undefined

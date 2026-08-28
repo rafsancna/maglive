@@ -28,6 +28,10 @@ import { MediaPreview } from "../media/MediaPreview";
 import { createProduct, createPreviewGrant, getProduct, updateProduct } from "./api";
 import { archiveProduct, publishProduct, unpublishProduct } from "./api";
 import { useLanguages } from "../languages/LanguageProvider";
+import { SeoEditor, type SeoEditorValue } from "../seo/SeoEditor";
+import { calculateSeoScore, getLatestSeoAudit, runSeoAudit } from "../seo/api";
+import { SeoAuditPanel } from "../seo/SeoAuditPanel";
+import type { SeoAudit, SeoDocumentInput, SeoScore, SeoScoreResponse } from "@maglive/contracts";
 
 type EditorProps = Readonly<{ productId?: string }>;
 
@@ -147,6 +151,10 @@ function normalizedPayload(
     if (translation.warrantyInformation === "") delete translation.warrantyInformation;
     if (translation.seo.title?.trim() === "") delete translation.seo.title;
     if (translation.seo.description?.trim() === "") delete translation.seo.description;
+    if (translation.seo.focusKeyphrase?.trim() === "") delete translation.seo.focusKeyphrase;
+    if (translation.seo.canonicalUrlOverride?.trim() === "") delete translation.seo.canonicalUrlOverride;
+    if (translation.seo.openGraphTitle?.trim() === "") delete translation.seo.openGraphTitle;
+    if (translation.seo.openGraphDescription?.trim() === "") delete translation.seo.openGraphDescription;
   }
   return copy;
 }
@@ -236,6 +244,10 @@ export function ProductEditor({ productId }: EditorProps) {
   const [mediaById, setMediaById] = useState<
     Record<string, AdminMediaDto | null>
   >({});
+  const [seoScore, setSeoScore] = useState<SeoScore>();
+  const [seoScoreLoading, setSeoScoreLoading] = useState(false);
+  const [seoEngines, setSeoEngines] = useState<SeoScoreResponse["engines"]>();
+  const [seoAudit, setSeoAudit] = useState<SeoAudit>();
 
   useEffect(() => {
     let active = true;
@@ -279,7 +291,13 @@ export function ProductEditor({ productId }: EditorProps) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  const mediaIdKey = [...new Set(state.mediaUsages.map(({ mediaId }) => mediaId))]
+  const mediaIdKey = [...new Set([
+    ...state.mediaUsages.map(({ mediaId }) => mediaId),
+    ...localeCodes.flatMap((candidate) => {
+      const id = state.translations[candidate]?.seo.openGraphMediaId;
+      return id === undefined ? [] : [id];
+    }),
+  ])]
     .sort()
     .join(",");
 
@@ -303,6 +321,74 @@ export function ProductEditor({ productId }: EditorProps) {
   }, [mediaIdKey]);
 
   const translation = state.translations[locale] ?? emptyTranslation();
+  const scoreInput = useMemo<SeoDocumentInput>(() => {
+    const categorySlug = categories.find((category) => category.id === state.categoryId)?.slug ?? "category";
+    const markdownHeadings = (translation.longDescriptionMarkdown ?? "")
+      .match(/^#{1,6}\s+.+$/gm)
+      ?.map((heading) => `h${heading.match(/^#{1,6}/)?.[0].length ?? 2}`) ?? [];
+    const canonicalUrl = new URL(
+      `/${locale}/products/${categorySlug}/${state.slug || "draft"}`,
+      process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    ).toString();
+    const publishedLocales = loaded === null ? [] : localeCodes.filter((candidate) => loaded.publishedSnapshots[candidate] !== undefined);
+    return {
+      contentType: "product",
+      locale,
+      languageTag: languageByCode[locale]?.languageTag,
+      title: translation.seo.title ?? translation.name,
+      description: translation.seo.description ?? translation.shortDescription ?? "",
+      focusKeyphrase: translation.seo.focusKeyphrase ?? "",
+      slug: state.slug,
+      content: translation.longDescriptionMarkdown ?? "",
+      headings: ["h1", ...markdownHeadings],
+      images: state.mediaUsages.filter((usage) => usage.role !== "openGraph").map((usage) => ({ alt: usage.translations[locale]?.alt })),
+      internalLinks: ((translation.longDescriptionMarkdown ?? "").match(/\]\(/g) ?? []).length,
+      canonicalUrl: translation.seo.canonicalUrlOverride ?? canonicalUrl,
+      robots: translation.seo.robots ?? { index: true, follow: true },
+      availableLocales: [...localeCodes],
+      publishedLocales: [...publishedLocales],
+      hreflangLocales: [...publishedLocales],
+      expectedSchema: "Product",
+      hasStructuredData: true,
+    };
+  }, [categories, languageByCode, loaded, locale, localeCodes, state.categoryId, state.mediaUsages, state.slug, translation.longDescriptionMarkdown, translation.name, translation.seo.canonicalUrlOverride, translation.seo.description, translation.seo.focusKeyphrase, translation.seo.robots, translation.seo.title, translation.shortDescription]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setSeoScoreLoading(true);
+      void calculateSeoScore(scoreInput)
+        .then((result) => {
+          if (active) setSeoScore(result.score);
+          if (active) setSeoEngines(result.engines);
+        })
+        .catch(() => {
+          if (active) setSeoScore(undefined);
+        })
+        .finally(() => {
+          if (active) setSeoScoreLoading(false);
+        });
+    }, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [scoreInput]);
+
+  useEffect(() => {
+    if (loaded === null) return;
+    let active = true;
+    void getLatestSeoAudit({ contentType: "product", entityId: loaded.id, locale })
+      .then((audit) => {
+        if (active) setSeoAudit(audit);
+      })
+      .catch(() => {
+        if (active) setSeoAudit(undefined);
+      });
+    return () => {
+      active = false;
+    };
+  }, [loaded, locale]);
   const categoryOptions = useMemo(
     () => categories.filter((category) => category.status === "active" && !categories.some((candidate) => candidate.parentId === category.id)),
     [categories],
@@ -441,8 +527,32 @@ export function ProductEditor({ productId }: EditorProps) {
     } catch (reason) { setError(errorMessage(reason)); } finally { setSaving(false); }
   }
 
+  async function auditCurrent(): Promise<void> {
+    if (loaded === null || dirty) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const audit = await runSeoAudit({ contentType: "product", entityId: loaded.id, locale });
+      setSeoAudit(audit);
+      setNotice(`Rendered page audit completed with a score of ${audit.score}.`);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function assignMedia(media: AdminMediaDto): void {
     if (mediaPickerRole === null) return;
+    if (mediaPickerRole === "openGraph") {
+      mutate((draft) => {
+        const current = draft.translations[locale] ?? emptyTranslation();
+        draft.translations[locale] = { ...current, seo: { ...current.seo, openGraphMediaId: media.id } };
+      });
+      setMediaById((current) => ({ ...current, [media.id]: media }));
+      setMediaPickerRole(null);
+      return;
+    }
     mutate((draft) => {
       const existing = draft.mediaUsages.find((usage) => usage.role === mediaPickerRole && usage.locale === undefined);
       if (existing) existing.mediaId = media.id;
@@ -453,6 +563,13 @@ export function ProductEditor({ productId }: EditorProps) {
   }
 
   function removeMedia(role: ProductMediaRole): void {
+    if (role === "openGraph") {
+      mutate((draft) => {
+        const current = draft.translations[locale] ?? emptyTranslation();
+        draft.translations[locale] = { ...current, seo: { ...current.seo, openGraphMediaId: undefined } };
+      });
+      return;
+    }
     mutate((draft) => {
       draft.mediaUsages = draft.mediaUsages.filter(
         (usage) => !(usage.role === role && usage.locale === undefined),
@@ -485,7 +602,9 @@ export function ProductEditor({ productId }: EditorProps) {
   const localeState = loaded?.localeStates[locale] ?? "draft";
   const selectedMediaId = mediaPickerRole === null
     ? undefined
-    : state.mediaUsages.find((usage) => usage.role === mediaPickerRole && usage.locale === undefined)?.mediaId;
+    : mediaPickerRole === "openGraph"
+      ? translation.seo.openGraphMediaId
+      : state.mediaUsages.find((usage) => usage.role === mediaPickerRole && usage.locale === undefined)?.mediaId;
   const activeMediaField = PRODUCT_MEDIA_FIELDS.find(
     ({ role }) => role === mediaPickerRole,
   );
@@ -677,9 +796,18 @@ export function ProductEditor({ productId }: EditorProps) {
         {activeSection === "seo" ? (
         <fieldset className="product-editor__panel" id="product-seo">
           <legend>Localized SEO</legend>
+          <SeoEditor
+            score={seoScore}
+            scoreLoading={seoScoreLoading}
+            engines={seoEngines}
+            value={translation.seo}
+            fieldError={(field) => fieldErrorFor(fieldErrors, `translations.${locale}.seo.${field}`)}
+            onChange={(next: SeoEditorValue) => mutate((draft) => {
+              const current = draft.translations[locale] ?? emptyTranslation();
+              draft.translations[locale] = { ...current, seo: next as ProductTranslation["seo"] };
+            })}
+          />
           <div className="product-editor__grid">
-            <label className="admin-field product-editor__wide"><span>SEO title</span><input aria-invalid={fieldErrorFor(fieldErrors, `translations.${locale}.seo.title`) !== undefined} value={translation.seo.title ?? ""} onChange={(e) => mutate((draft) => { const current = draft.translations[locale] ?? emptyTranslation(); draft.translations[locale] = { ...current, seo: { ...current.seo, title: e.target.value } }; })} />{fieldErrorFor(fieldErrors, `translations.${locale}.seo.title`) ? <em>{fieldErrorFor(fieldErrors, `translations.${locale}.seo.title`)}</em> : null}</label>
-            <label className="admin-field product-editor__wide"><span>SEO description</span><textarea aria-invalid={fieldErrorFor(fieldErrors, `translations.${locale}.seo.description`) !== undefined} rows={3} value={translation.seo.description ?? ""} onChange={(e) => mutate((draft) => { const current = draft.translations[locale] ?? emptyTranslation(); draft.translations[locale] = { ...current, seo: { ...current.seo, description: e.target.value } }; })} />{fieldErrorFor(fieldErrors, `translations.${locale}.seo.description`) ? <em>{fieldErrorFor(fieldErrors, `translations.${locale}.seo.description`)}</em> : null}</label>
             <label className="admin-field"><span>Page template</span><select aria-invalid={fieldErrorFor(fieldErrors, "pageTemplate") !== undefined} value={state.pageTemplate} onChange={(e) => mutate((draft) => { draft.pageTemplate = e.target.value as EditorState["pageTemplate"]; })}><option value="standard">Standard</option><option value="topcon-premium">Topcon Premium</option></select><small>Templates are code-owned and validated by the API.</small>{fieldErrorFor(fieldErrors, "pageTemplate") ? <em>{fieldErrorFor(fieldErrors, "pageTemplate")}</em> : null}</label>
           </div>
         </fieldset>
@@ -691,6 +819,8 @@ export function ProductEditor({ productId }: EditorProps) {
           <p className="product-editor__muted">Publication controls require a successful Save Draft and complete validation. English must publish before other locales.</p>
           <div className="product-editor__publication-state"><span>{languageByCode[locale]?.nativeLabel ?? locale.toUpperCase()}</span><strong>{localeState}</strong></div>
           <button className="admin-button" disabled={loaded === null || dirty || saving} onClick={() => void previewCurrent()} type="button">Preview Saved Draft</button>
+          <button className="admin-button" disabled={loaded === null || dirty || saving || loaded?.publishedSnapshots[locale] === undefined} onClick={() => void auditCurrent()} type="button">Run SEO Audit</button>
+          <SeoAuditPanel audit={seoAudit} />
           <div className="product-editor__publish-actions">
             <button className="admin-button admin-button--primary" disabled={loaded === null || dirty || saving || localeState === "incomplete"} onClick={() => void publishCurrent()} type="button">{loaded?.publishedSnapshots[locale] ? "Republish" : "Publish"} {languageByCode[locale]?.label ?? locale}</button>
             <button className="admin-button" disabled={loaded === null || dirty || saving || loaded?.publishedSnapshots[locale] === undefined} onClick={() => void unpublishCurrent()} type="button">Unpublish {languageByCode[locale]?.label ?? locale}</button>

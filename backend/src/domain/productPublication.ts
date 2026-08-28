@@ -376,6 +376,9 @@ export function buildProductLocaleProjection(
       : { warrantyInformation: translation.warrantyInformation }),
     seo: {
       title: seoTitle,
+      ...(translation.seo.focusKeyphrase === undefined
+        ? {}
+        : { focusKeyphrase: translation.seo.focusKeyphrase }),
       ...(seoDescription === undefined ? {} : { description: seoDescription }),
       keywords: [...(translation.seo.keywords ?? [])],
       ...(translation.seo.openGraphTitle === undefined
@@ -387,6 +390,12 @@ export function buildProductLocaleProjection(
       ...(translation.seo.openGraphMediaId === undefined
         ? {}
         : { openGraphMediaId: translation.seo.openGraphMediaId.toString() }),
+      ...(translation.seo.canonicalUrlOverride === undefined
+        ? {}
+        : { canonicalUrlOverride: translation.seo.canonicalUrlOverride }),
+      ...(translation.seo.robots === undefined
+        ? {}
+        : { robots: translation.seo.robots }),
     },
     specifications,
     mediaUsages: [...product.mediaUsages]

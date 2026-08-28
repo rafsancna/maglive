@@ -15,6 +15,7 @@ import {
   createPublicSitemapEntriesRouter
 } from "./publicProducts.js";
 import { createPreviewRouter } from "./preview.js";
+import { createAdminSeoRouter } from "./seo.js";
 import {
   createAdminLanguagesRouter,
   createPublicLanguagesRouter,
@@ -48,6 +49,10 @@ export function createV1Router(
   router.use(
     "/admin/products",
     createAdminProductsRouter(config, now ?? Date.now)
+  );
+  router.use(
+    "/admin/seo",
+    createAdminSeoRouter(config, now ?? Date.now),
   );
   router.use("/public/categories", createPublicCategoriesRouter());
   router.use("/public/languages", createPublicLanguagesRouter());

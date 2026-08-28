@@ -5,6 +5,8 @@ import {
   type AdminMediaDto,
   type CategoryAdminDto,
   type LocaleCode,
+  type SeoAudit,
+  type SeoScoreResponse,
 } from "@maglive/contracts";
 import {
   useEffect,
@@ -27,6 +29,10 @@ import {
   unpublishCategory,
   updateCategory,
 } from "./api";
+import { SeoEditor, type SeoEditorValue } from "../seo/SeoEditor";
+import { calculateSeoScore, getLatestSeoAudit, runSeoAudit } from "../seo/api";
+import { SeoAuditPanel } from "../seo/SeoAuditPanel";
+import type { SeoDocumentInput, SeoScore } from "@maglive/contracts";
 
 type EditorFields = {
   slug: string;
@@ -36,6 +42,13 @@ type EditorFields = {
   description: string;
   seoTitle: string;
   seoDescription: string;
+  seoFocusKeyphrase: string;
+  seoCanonicalUrlOverride: string;
+  seoOpenGraphTitle: string;
+  seoOpenGraphDescription: string;
+  seoOpenGraphMediaId: string;
+  seoIndex: boolean;
+  seoFollow: boolean;
   imageMediaId: string;
   imageAlt: string;
   imageTitle: string;
@@ -49,6 +62,13 @@ const emptyFields: EditorFields = {
   description: "",
   seoTitle: "",
   seoDescription: "",
+  seoFocusKeyphrase: "",
+  seoCanonicalUrlOverride: "",
+  seoOpenGraphTitle: "",
+  seoOpenGraphDescription: "",
+  seoOpenGraphMediaId: "",
+  seoIndex: true,
+  seoFollow: true,
   imageMediaId: "",
   imageAlt: "",
   imageTitle: "",
@@ -67,6 +87,13 @@ function fieldsFor(
     description: translation?.description ?? "",
     seoTitle: translation?.seo.title ?? "",
     seoDescription: translation?.seo.description ?? "",
+    seoFocusKeyphrase: translation?.seo.focusKeyphrase ?? "",
+    seoCanonicalUrlOverride: translation?.seo.canonicalUrlOverride ?? "",
+    seoOpenGraphTitle: translation?.seo.openGraphTitle ?? "",
+    seoOpenGraphDescription: translation?.seo.openGraphDescription ?? "",
+    seoOpenGraphMediaId: translation?.seo.openGraphMediaId ?? "",
+    seoIndex: translation?.seo.robots?.index ?? true,
+    seoFollow: translation?.seo.robots?.follow ?? true,
     imageMediaId: category.image?.mediaId ?? "",
     imageAlt: category.image?.translations[locale]?.alt ?? "",
     imageTitle: category.image?.translations[locale]?.title ?? "",
@@ -158,6 +185,10 @@ export function CategoryManager() {
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<AdminMediaDto | null>(null);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [seoScore, setSeoScore] = useState<SeoScore>();
+  const [seoScoreLoading, setSeoScoreLoading] = useState(false);
+  const [seoEngines, setSeoEngines] = useState<SeoScoreResponse["engines"]>();
+  const [seoAudit, setSeoAudit] = useState<SeoAudit>();
 
   const selected = useMemo(
     () => categories.find((category) => category.id === selectedId),
@@ -182,6 +213,72 @@ export function CategoryManager() {
   const siblingIndex = siblings.findIndex(
     (category) => category.id === selectedId,
   );
+
+  const seoValue = useMemo<SeoEditorValue>(() => ({
+    focusKeyphrase: fields.seoFocusKeyphrase || undefined,
+    title: fields.seoTitle || undefined,
+    description: fields.seoDescription || undefined,
+    canonicalUrlOverride: fields.seoCanonicalUrlOverride || undefined,
+    openGraphTitle: fields.seoOpenGraphTitle || undefined,
+    openGraphDescription: fields.seoOpenGraphDescription || undefined,
+    openGraphMediaId: fields.seoOpenGraphMediaId || undefined,
+    robots: { index: fields.seoIndex, follow: fields.seoFollow },
+  }), [fields.seoCanonicalUrlOverride, fields.seoDescription, fields.seoFollow, fields.seoFocusKeyphrase, fields.seoIndex, fields.seoOpenGraphDescription, fields.seoOpenGraphMediaId, fields.seoOpenGraphTitle, fields.seoTitle]);
+
+  const scoreInput = useMemo<SeoDocumentInput>(() => ({
+    contentType: "category",
+    locale,
+    languageTag: languageByCode[locale]?.languageTag,
+    title: fields.seoTitle || fields.name,
+    description: fields.seoDescription || fields.description,
+    focusKeyphrase: fields.seoFocusKeyphrase,
+    slug: fields.slug,
+    content: fields.description,
+    headings: ["h1"],
+    images: fields.imageMediaId === "" ? [] : [{ alt: fields.imageAlt }],
+    internalLinks: 1,
+    canonicalUrl: fields.seoCanonicalUrlOverride || new URL(`/${locale}/products/category/${fields.slug || "draft"}`, process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").toString(),
+    robots: { index: fields.seoIndex, follow: fields.seoFollow },
+    availableLocales: [...localeCodes],
+    publishedLocales: selected === undefined ? [] : localeCodes.filter((candidate) => selected.publishedSnapshots[candidate] !== undefined),
+    hreflangLocales: selected === undefined ? [] : localeCodes.filter((candidate) => selected.publishedSnapshots[candidate] !== undefined),
+    expectedSchema: "CollectionPage",
+    hasStructuredData: false,
+  }), [fields, languageByCode, locale, localeCodes, selected]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setSeoScoreLoading(true);
+      void calculateSeoScore(scoreInput).then((result) => {
+        if (active) setSeoScore(result.score);
+        if (active) setSeoEngines(result.engines);
+      }).catch(() => {
+        if (active) setSeoScore(undefined);
+      }).finally(() => {
+        if (active) setSeoScoreLoading(false);
+      });
+    }, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [scoreInput]);
+
+  useEffect(() => {
+    if (selected === undefined) return;
+    let active = true;
+    void getLatestSeoAudit({ contentType: "category", entityId: selected.id, locale })
+      .then((audit) => {
+        if (active) setSeoAudit(audit);
+      })
+      .catch(() => {
+        if (active) setSeoAudit(undefined);
+      });
+    return () => {
+      active = false;
+    };
+  }, [locale, selected]);
 
   useEffect(() => {
     function warnOnUnload(event: BeforeUnloadEvent) {
@@ -310,12 +407,20 @@ export function CategoryManager() {
           ? {}
           : { description: fields.description.trim() }),
         seo: {
+          ...(fields.seoFocusKeyphrase.trim() === "" ? {} : { focusKeyphrase: fields.seoFocusKeyphrase.trim() }),
           ...(fields.seoTitle.trim() === ""
             ? {}
             : { title: fields.seoTitle.trim() }),
           ...(fields.seoDescription.trim() === ""
             ? {}
             : { description: fields.seoDescription.trim() }),
+          ...(fields.seoCanonicalUrlOverride.trim() === "" ? {} : { canonicalUrlOverride: fields.seoCanonicalUrlOverride.trim() }),
+          ...(fields.seoOpenGraphTitle.trim() === "" ? {} : { openGraphTitle: fields.seoOpenGraphTitle.trim() }),
+          ...(fields.seoOpenGraphDescription.trim() === "" ? {} : { openGraphDescription: fields.seoOpenGraphDescription.trim() }),
+          ...(fields.seoOpenGraphMediaId.trim() === "" ? {} : { openGraphMediaId: fields.seoOpenGraphMediaId.trim() }),
+          ...(fields.seoIndex === false || fields.seoFollow === false
+            ? { robots: { index: fields.seoIndex, follow: fields.seoFollow } }
+            : {}),
         },
       };
       if (selected === undefined) {
@@ -370,6 +475,21 @@ export function CategoryManager() {
         });
         replaceCategory(updated, "Category draft saved.");
       }
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function auditCurrent(): Promise<void> {
+    if (selected === undefined || dirty || selected.publishedSnapshots[locale] === undefined) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const audit = await runSeoAudit({ contentType: "category", entityId: selected.id, locale });
+      setSeoAudit(audit);
+      setNotice(`Rendered page audit completed with a score of ${audit.score}.`);
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -659,32 +779,24 @@ export function CategoryManager() {
                     value={fields.description}
                   />
                 </div>
-                <div className="admin-field">
-                  <label htmlFor="category-seo-title">SEO title</label>
-                  <input
-                    id="category-seo-title"
-                    maxLength={70}
-                    onChange={(event) =>
-                      updateField("seoTitle", event.target.value)
-                    }
-                    placeholder="Defaults to display name"
-                    value={fields.seoTitle}
-                  />
-                </div>
-                <div className="admin-field">
-                  <label htmlFor="category-seo-description">
-                    SEO description
-                  </label>
-                  <textarea
-                    id="category-seo-description"
-                    maxLength={320}
-                    onChange={(event) =>
-                      updateField("seoDescription", event.target.value)
-                    }
-                    rows={3}
-                    value={fields.seoDescription}
-                  />
-                </div>
+                <SeoEditor
+                  score={seoScore}
+                  scoreLoading={seoScoreLoading}
+                  engines={seoEngines}
+                  value={seoValue}
+                  fieldError={(field) => field === "title" ? undefined : undefined}
+                  onChange={(next: SeoEditorValue) => {
+                    updateField("seoFocusKeyphrase", next.focusKeyphrase ?? "");
+                    updateField("seoTitle", next.title ?? "");
+                    updateField("seoDescription", next.description ?? "");
+                    updateField("seoCanonicalUrlOverride", next.canonicalUrlOverride ?? "");
+                    updateField("seoOpenGraphTitle", next.openGraphTitle ?? "");
+                    updateField("seoOpenGraphDescription", next.openGraphDescription ?? "");
+                    updateField("seoOpenGraphMediaId", next.openGraphMediaId ?? "");
+                    updateField("seoIndex", next.robots?.index ?? true);
+                    updateField("seoFollow", next.robots?.follow ?? true);
+                  }}
+                />
               </div>
             </fieldset>
 
@@ -769,6 +881,14 @@ export function CategoryManager() {
                 <>
                   <button
                     className="admin-button admin-button--quiet"
+                    disabled={busy || dirty || selected.publishedSnapshots[locale] === undefined}
+                    onClick={() => void auditCurrent()}
+                    type="button"
+                  >
+                    Run SEO Audit
+                  </button>
+                  <button
+                    className="admin-button admin-button--quiet"
                     disabled={
                       busy ||
                       dirty ||
@@ -806,6 +926,7 @@ export function CategoryManager() {
 
           {selected === undefined ? null : (
             <div className="category-utilities">
+              <SeoAuditPanel audit={seoAudit} />
               <div>
                 <strong>Sibling order</strong>
                 <button

@@ -35,6 +35,13 @@ import { listAdminProducts } from "../../services/productQueryService.js";
 import { publishProduct } from "../../services/publishingService.js";
 import { parseRequestValue } from "../validation.js";
 import { emitRevalidation } from "../../services/revalidationService.js";
+import { enqueuePublishedEntity, processPendingSubmissions } from "../../services/urlSubmissionService.js";
+
+function scheduleSearchNotification(id: string, config: AppConfig): void {
+  void enqueuePublishedEntity("product", id, config)
+    .then(() => processPendingSubmissions(config))
+    .catch(() => undefined);
+}
 
 const idParamsSchema = z.object({ id: objectIdStringSchema });
 
@@ -102,6 +109,7 @@ export function createAdminProductsRouter(
         await createProduct(input, admin),
       );
       void emitRevalidation(config, { kind: "product", operation: "update", tags: [`product:${data.id}`, "products", "sitemap"] });
+      scheduleSearchNotification(data.id, config);
       response.status(201).json({ data });
     } catch (error) {
       next(error);
@@ -131,6 +139,7 @@ export function createAdminProductsRouter(
         await updateProduct(id, input, admin),
       );
       void emitRevalidation(config, { kind: "product", operation: "update", tags: [`product:${data.id}`, "products", "sitemap"] });
+      scheduleSearchNotification(data.id, config);
       response.json({ data });
     } catch (error) {
       next(error);
@@ -156,7 +165,8 @@ export function createAdminProductsRouter(
         const data = productAdminDtoSchema.parse(
           await duplicateProduct(id, input, admin),
         );
-        void emitRevalidation(config, { kind: "product", operation: "update", tags: [`product:${data.id}`, "products", "sitemap"] });
+      void emitRevalidation(config, { kind: "product", operation: "update", tags: [`product:${data.id}`, "products", "sitemap"] });
+      scheduleSearchNotification(data.id, config);
         response.status(201).json({ data });
       } catch (error) {
         next(error);
@@ -184,6 +194,7 @@ export function createAdminProductsRouter(
           await publishProduct(id, input, admin),
         );
         void emitRevalidation(config, { kind: "product", operation: "publish", tags: [`product:${data.product.id}`, "products", "sitemap"] });
+        scheduleSearchNotification(data.product.id, config);
         response.json({ data });
       } catch (error) {
         next(error);

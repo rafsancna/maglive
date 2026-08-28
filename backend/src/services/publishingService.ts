@@ -602,6 +602,9 @@ function storedLocaleData(
       : { warrantyInformation: data.warrantyInformation }),
     seo: {
       title: data.seo.title,
+      ...(data.seo.focusKeyphrase === undefined
+        ? {}
+        : { focusKeyphrase: data.seo.focusKeyphrase }),
       ...(data.seo.description === undefined
         ? {}
         : { description: data.seo.description }),
@@ -615,6 +618,10 @@ function storedLocaleData(
       ...(data.seo.openGraphMediaId === undefined
         ? {}
         : { openGraphMediaId: toObjectId(data.seo.openGraphMediaId) }),
+      ...(data.seo.canonicalUrlOverride === undefined
+        ? {}
+        : { canonicalUrlOverride: data.seo.canonicalUrlOverride }),
+      ...(data.seo.robots === undefined ? {} : { robots: data.seo.robots }),
     },
     specifications: data.specifications.map((group) => ({
       key: group.key,

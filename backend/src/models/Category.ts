@@ -6,9 +6,14 @@ import mongoose, {
 } from "mongoose";
 
 export type CategorySeo = {
+  focusKeyphrase?: string;
   title?: string;
   description?: string;
   openGraphMediaId?: Types.ObjectId;
+  openGraphTitle?: string;
+  openGraphDescription?: string;
+  canonicalUrlOverride?: string;
+  robots?: { index: boolean; follow: boolean };
 };
 
 export type CategoryTranslation = {
@@ -38,9 +43,14 @@ export type PublishedCategoryLocaleData = {
   name: string;
   description?: string;
   seo: {
+    focusKeyphrase?: string;
     title: string;
     description?: string;
     openGraphMediaId?: Types.ObjectId;
+    openGraphTitle?: string;
+    openGraphDescription?: string;
+    canonicalUrlOverride?: string;
+    robots?: { index: boolean; follow: boolean };
   };
   image?: {
     alt: string;
@@ -87,9 +97,22 @@ export type CategoryDocument = HydratedDocument<Category>;
 
 const seoSchema = new Schema<CategorySeo>(
   {
+    focusKeyphrase: { type: String, trim: true, maxlength: 160 },
     title: { type: String, trim: true, maxlength: 70 },
     description: { type: String, trim: true, maxlength: 320 },
     openGraphMediaId: { type: Schema.Types.ObjectId },
+    openGraphTitle: { type: String, trim: true, maxlength: 70 },
+    openGraphDescription: { type: String, trim: true, maxlength: 320 },
+    canonicalUrlOverride: { type: String, trim: true, maxlength: 2_048 },
+    robots: {
+      type: new Schema(
+        {
+          index: { type: Boolean, required: true },
+          follow: { type: Boolean, required: true },
+        },
+        { _id: false },
+      ),
+    },
   },
   { _id: false },
 );
@@ -144,6 +167,19 @@ const publishedLocaleDataSchema = new Schema<PublishedCategoryLocaleData>(
           title: { type: String, required: true },
           description: String,
           openGraphMediaId: Schema.Types.ObjectId,
+          openGraphTitle: { type: String, maxlength: 70 },
+          openGraphDescription: { type: String, maxlength: 320 },
+          focusKeyphrase: { type: String, maxlength: 160 },
+          canonicalUrlOverride: { type: String, maxlength: 2_048 },
+          robots: {
+            type: new Schema(
+              {
+                index: { type: Boolean, required: true },
+                follow: { type: Boolean, required: true },
+              },
+              { _id: false },
+            ),
+          },
         },
         { _id: false },
       ),

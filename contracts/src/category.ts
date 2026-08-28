@@ -26,10 +26,15 @@ export function createCategorySlugBase(categoryName: string): string {
 }
 
 export const categorySeoInputSchema = z.object({
+  focusKeyphrase: z.string().trim().min(1).max(160).optional(),
   title: z.string().trim().min(1).max(70).optional(),
   description: z.string().trim().min(1).max(320).optional(),
   openGraphMediaId: objectIdStringSchema.optional(),
-});
+  openGraphTitle: z.string().trim().min(1).max(70).optional(),
+  openGraphDescription: z.string().trim().min(1).max(320).optional(),
+  canonicalUrlOverride: z.string().trim().url().max(2_048).optional(),
+  robots: z.object({ index: z.boolean(), follow: z.boolean() }).strict().optional(),
+}).strict();
 
 export const categoryTranslationInputSchema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -67,9 +72,14 @@ export const publishedCategoryLocaleDataSchema = z.object({
   name: z.string().min(1).max(160),
   description: z.string().max(2_000).optional(),
   seo: z.object({
+    focusKeyphrase: z.string().min(1).max(160).optional(),
     title: z.string().min(1).max(70),
     description: z.string().max(320).optional(),
     openGraphMediaId: objectIdStringSchema.optional(),
+    openGraphTitle: z.string().min(1).max(70).optional(),
+    openGraphDescription: z.string().max(320).optional(),
+    canonicalUrlOverride: z.string().url().max(2_048).optional(),
+    robots: z.object({ index: z.boolean(), follow: z.boolean() }).strict().optional(),
   }),
   image: z
     .object({
@@ -136,10 +146,15 @@ export const categoryListDtoSchema = z.object({
 });
 
 export const publicCategorySeoSchema = z.object({
+  focusKeyphrase: z.string().max(160).optional(),
   title: z.string(),
   description: z.string().optional(),
   openGraphMediaId: objectIdStringSchema.optional(),
-});
+  openGraphTitle: z.string().max(70).optional(),
+  openGraphDescription: z.string().max(320).optional(),
+  canonicalUrlOverride: z.string().url().max(2_048).optional(),
+  robots: z.object({ index: z.boolean(), follow: z.boolean() }).strict().optional(),
+}).strict();
 
 export const publicCategoryDtoSchema = z.object({
   id: objectIdStringSchema,

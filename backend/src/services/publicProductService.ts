@@ -819,6 +819,9 @@ export async function getPublicProductDetail(
     ...(warrantyInformation === undefined ? {} : { warrantyInformation }),
     seo: {
       title: context.localized.data.seo.title,
+      ...(context.localized.data.seo.focusKeyphrase === undefined
+        ? {}
+        : { focusKeyphrase: context.localized.data.seo.focusKeyphrase }),
       ...(seoDescription === undefined ? {} : { description: seoDescription }),
       keywords: [...context.localized.data.seo.keywords],
       ...(openGraphTitle === undefined ? {} : { openGraphTitle }),
@@ -833,6 +836,15 @@ export async function getPublicProductDetail(
               storageProvider,
             ),
           }),
+      ...(context.localized.data.seo.canonicalUrlOverride === undefined
+        ? {}
+        : {
+            canonicalUrlOverride:
+              context.localized.data.seo.canonicalUrlOverride,
+          }),
+      ...(context.localized.data.seo.robots === undefined
+        ? {}
+        : { robots: context.localized.data.seo.robots }),
     },
     specifications: composeSpecifications(context),
     media,
@@ -862,7 +874,8 @@ export async function listPublicSitemapEntries(
     const locales = [...category.publishedSnapshots.keys()].filter(
       (locale) =>
         isLocaleCode(locale) &&
-        coherentCategoryChain(category, locale, catalog.byId) !== undefined,
+        coherentCategoryChain(category, locale, catalog.byId) !== undefined &&
+        category.publishedSnapshots.get(locale)?.data.seo.robots?.index !== false,
     );
     const slug = category.publishedGlobal?.data.slug;
     if (slug === undefined) continue;
@@ -882,7 +895,9 @@ export async function listPublicSitemapEntries(
     publishedGlobal: { $exists: true },
   });
   for (const product of products) {
-    const locales = availableLocales(product, catalog);
+    const locales = availableLocales(product, catalog).filter(
+      (locale) => product.publishedSnapshots.get(locale)?.data.seo.robots?.index !== false,
+    );
     const slug = product.publishedGlobal?.data.slug;
     if (slug === undefined) continue;
     for (const locale of locales) {

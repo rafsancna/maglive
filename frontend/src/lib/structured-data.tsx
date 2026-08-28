@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { LocaleCode, PublicProductDetailDto } from "@maglive/contracts";
+import type { LocaleCode, PublicCategoryDto, PublicProductDetailDto } from "@maglive/contracts";
 import { siteUrl, localizedPath } from "./seo";
 import { productPath } from "./product-path";
 
@@ -21,6 +21,28 @@ export function breadcrumbJsonLd(product: PublicProductDetailDto, locale: Locale
   return { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.url })) };
 }
 
+export function categoryJsonLd(category: PublicCategoryDto, locale: LocaleCode) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: category.name,
+    ...(category.description === undefined ? {} : { description: category.description }),
+    url: localizedPath(locale, `/products/category/${category.slug}`),
+  };
+}
+
+export function categoryBreadcrumbJsonLd(category: PublicCategoryDto, locale: LocaleCode) {
+  const items = [
+    { name: "Products", url: localizedPath(locale, "/products") },
+    ...category.breadcrumbs.map((item) => ({ name: item.name, url: localizedPath(locale, `/products/category/${item.slug}`) })),
+  ];
+  return { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: item.url })) };
+}
+
 export function StructuredData({ product, locale }: { product: PublicProductDetailDto; locale: LocaleCode }): ReactNode {
   return <><JsonLd value={organizationJsonLd()} /><JsonLd value={breadcrumbJsonLd(product, locale)} /><JsonLd value={productJsonLd(product, locale)} /></>;
+}
+
+export function CategoryStructuredData({ category, locale }: { category: PublicCategoryDto; locale: LocaleCode }): ReactNode {
+  return <><JsonLd value={organizationJsonLd()} /><JsonLd value={categoryBreadcrumbJsonLd(category, locale)} /><JsonLd value={categoryJsonLd(category, locale)} /></>;
 }

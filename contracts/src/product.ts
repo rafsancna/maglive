@@ -128,6 +128,7 @@ const productTextItemListSchema = z
   .superRefine(requireUniqueKeys);
 
 export const productSeoSchema = z.object({
+  focusKeyphrase: z.string().trim().min(1).max(160).optional(),
   title: z.string().trim().min(1).max(PRODUCT_LIMITS.seoTitle).optional(),
   description: z
     .string()
@@ -152,6 +153,11 @@ export const productSeoSchema = z.object({
     .max(PRODUCT_LIMITS.seoDescription)
     .optional(),
   openGraphMediaId: objectIdStringSchema.optional(),
+  canonicalUrlOverride: z.string().trim().url().max(2_048).optional(),
+  robots: z
+    .object({ index: z.boolean(), follow: z.boolean() })
+    .strict()
+    .optional(),
 }).strict();
 
 export const productTranslationSchema = z.object({
@@ -385,6 +391,7 @@ export const publishedProductLocaleDataSchema = z.object({
     .max(PRODUCT_LIMITS.warrantyInformation)
     .optional(),
   seo: z.object({
+    focusKeyphrase: z.string().min(1).max(160).optional(),
     title: z.string().min(1).max(PRODUCT_LIMITS.seoTitle),
     description: z.string().max(PRODUCT_LIMITS.seoDescription).optional(),
     keywords: z
@@ -400,6 +407,8 @@ export const publishedProductLocaleDataSchema = z.object({
       .max(PRODUCT_LIMITS.seoDescription)
       .optional(),
     openGraphMediaId: objectIdStringSchema.optional(),
+    canonicalUrlOverride: z.string().url().max(2_048).optional(),
+    robots: z.object({ index: z.boolean(), follow: z.boolean() }).strict().optional(),
   }),
   specifications: z
     .array(publishedProductLocaleSpecificationSchema)
@@ -862,6 +871,7 @@ export const publicProductFeatureSchema = productFeatureSchema
 
 export const publicProductSeoDtoSchema = z
   .object({
+    focusKeyphrase: z.string().max(160).optional(),
     title: z.string().min(1).max(PRODUCT_LIMITS.seoTitle),
     description: z.string().max(PRODUCT_LIMITS.seoDescription).optional(),
     keywords: z.array(z.string().min(1).max(PRODUCT_LIMITS.seoKeyword)),
@@ -871,6 +881,8 @@ export const publicProductSeoDtoSchema = z
       .max(PRODUCT_LIMITS.seoDescription)
       .optional(),
     openGraphMedia: publicMediaDtoSchema.optional(),
+    canonicalUrlOverride: z.string().url().max(2_048).optional(),
+    robots: z.object({ index: z.boolean(), follow: z.boolean() }).strict().optional(),
   })
   .strict();
 

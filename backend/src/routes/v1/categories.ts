@@ -36,6 +36,13 @@ import {
   updateCategory,
 } from "../../services/categoryService.js";
 import { parseRequestValue } from "../validation.js";
+import { enqueuePublishedEntity, processPendingSubmissions } from "../../services/urlSubmissionService.js";
+
+function scheduleSearchNotification(id: string, config: AppConfig): void {
+  void enqueuePublishedEntity("category", id, config)
+    .then(() => processPendingSubmissions(config))
+    .catch(() => undefined);
+}
 
 const idParamsSchema = z.object({ id: objectIdStringSchema });
 const slugParamsSchema = z.object({ slug: categorySlugSchema });
@@ -86,6 +93,7 @@ export function createAdminCategoriesRouter(
         await createCategory(input, admin),
       );
       response.status(201).json({ data });
+      scheduleSearchNotification(data.id, config);
     } catch (error) {
       next(error);
     }
@@ -131,6 +139,7 @@ export function createAdminCategoriesRouter(
         await updateCategory(id, input, admin),
       );
       response.json({ data });
+      scheduleSearchNotification(data.id, config);
     } catch (error) {
       next(error);
     }
@@ -171,6 +180,7 @@ export function createAdminCategoriesRouter(
           await publishCategory(id, input, admin),
         );
         response.json({ data });
+        scheduleSearchNotification(data.id, config);
       } catch (error) {
         next(error);
       }

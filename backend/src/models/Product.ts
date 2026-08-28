@@ -40,12 +40,15 @@ export type ProductTextItem = {
 };
 
 export type ProductSeo = {
+  focusKeyphrase?: string;
   title?: string;
   description?: string;
   keywords?: string[];
   openGraphTitle?: string;
   openGraphDescription?: string;
   openGraphMediaId?: Types.ObjectId;
+  canonicalUrlOverride?: string;
+  robots?: { index: boolean; follow: boolean };
 };
 
 export type ProductTranslation = {
@@ -162,12 +165,15 @@ export type PublishedProductLocaleData = {
   applications: ProductTextItem[];
   warrantyInformation?: string;
   seo: {
+    focusKeyphrase?: string;
     title: string;
     description?: string;
     keywords: string[];
     openGraphTitle?: string;
     openGraphDescription?: string;
     openGraphMediaId?: Types.ObjectId;
+    canonicalUrlOverride?: string;
+    robots?: { index: boolean; follow: boolean };
   };
   specifications: PublishedProductLocaleSpecification[];
   mediaUsages: PublishedProductLocaleMediaUsage[];
@@ -266,6 +272,7 @@ const productTextItemSchema = new Schema<ProductTextItem>(
 
 const productSeoSchema = new Schema<ProductSeo>(
   {
+    focusKeyphrase: { type: String, trim: true, maxlength: 160 },
     title: { type: String, trim: true, maxlength: PRODUCT_LIMITS.seoTitle },
     description: {
       type: String,
@@ -294,6 +301,16 @@ const productSeoSchema = new Schema<ProductSeo>(
       maxlength: PRODUCT_LIMITS.seoDescription,
     },
     openGraphMediaId: Schema.Types.ObjectId,
+    canonicalUrlOverride: { type: String, trim: true, maxlength: 2_048 },
+    robots: {
+      type: new Schema(
+        {
+          index: { type: Boolean, required: true },
+          follow: { type: Boolean, required: true },
+        },
+        { _id: false },
+      ),
+    },
   },
   strictSubdocumentOptions,
 );
@@ -587,6 +604,7 @@ const publishedLocaleMediaUsageSchema =
 
 const publishedLocaleSeoSchema = new Schema<PublishedProductLocaleData["seo"]>(
   {
+    focusKeyphrase: { type: String, maxlength: 160 },
     title: {
       type: String,
       required: true,
@@ -604,6 +622,16 @@ const publishedLocaleSeoSchema = new Schema<PublishedProductLocaleData["seo"]>(
       maxlength: PRODUCT_LIMITS.seoDescription,
     },
     openGraphMediaId: Schema.Types.ObjectId,
+    canonicalUrlOverride: { type: String, maxlength: 2_048 },
+    robots: {
+      type: new Schema(
+        {
+          index: { type: Boolean, required: true },
+          follow: { type: Boolean, required: true },
+        },
+        { _id: false },
+      ),
+    },
   },
   strictSubdocumentOptions,
 );

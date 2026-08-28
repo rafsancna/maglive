@@ -52,7 +52,16 @@ const environmentSchema = z.object({
   SESSION_IDLE_TIMEOUT_MINUTES: z.coerce.number().int().min(1).max(1_440).default(30),
   SESSION_ABSOLUTE_TIMEOUT_HOURS: z.coerce.number().int().min(1).max(168).default(8),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100).default(5),
-  ADMIN_MUTATION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1_000).default(120)
+  ADMIN_MUTATION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1_000).default(120),
+  GOOGLE_SEARCH_CONSOLE_SITE: z.url().optional(),
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().email().optional(),
+  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().optional(),
+  BING_WEBMASTER_API_KEY: z.string().min(1).optional(),
+  BAIDU_SITE: z.url().optional(),
+  BAIDU_TOKEN: z.string().min(1).optional(),
+  YANDEX_OAUTH_TOKEN: z.string().min(1).optional(),
+  INDEXNOW_KEY: z.string().regex(/^[a-f0-9-]{8,128}$/i).optional(),
+  INDEXNOW_KEY_LOCATION: z.url().optional()
 }).superRefine((value, context) => {
   if (value.SESSION_ABSOLUTE_TIMEOUT_HOURS * 60 < value.SESSION_IDLE_TIMEOUT_MINUTES) {
     context.addIssue({
@@ -84,6 +93,15 @@ export type AppConfig = Readonly<{
   sessionAbsoluteTimeoutMs: number;
   loginRateLimitMax: number;
   adminMutationRateLimitMax: number;
+  googleSearchConsoleSite?: string;
+  googleServiceAccountEmail?: string;
+  googleServiceAccountPrivateKey?: string;
+  bingWebmasterApiKey?: string;
+  baiduSite?: string;
+  baiduToken?: string;
+  yandexOauthToken?: string;
+  indexNowKey?: string;
+  indexNowKeyLocation?: string;
 }>;
 
 export class ConfigurationError extends Error {
@@ -121,6 +139,15 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     sessionIdleTimeoutMs: result.data.SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1_000,
     sessionAbsoluteTimeoutMs: result.data.SESSION_ABSOLUTE_TIMEOUT_HOURS * 60 * 60 * 1_000,
     loginRateLimitMax: result.data.LOGIN_RATE_LIMIT_MAX,
-    adminMutationRateLimitMax: result.data.ADMIN_MUTATION_RATE_LIMIT_MAX
+    adminMutationRateLimitMax: result.data.ADMIN_MUTATION_RATE_LIMIT_MAX,
+    ...(result.data.GOOGLE_SEARCH_CONSOLE_SITE === undefined ? {} : { googleSearchConsoleSite: result.data.GOOGLE_SEARCH_CONSOLE_SITE }),
+    ...(result.data.GOOGLE_SERVICE_ACCOUNT_EMAIL === undefined ? {} : { googleServiceAccountEmail: result.data.GOOGLE_SERVICE_ACCOUNT_EMAIL }),
+    ...(result.data.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY === undefined ? {} : { googleServiceAccountPrivateKey: result.data.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }),
+    ...(result.data.BING_WEBMASTER_API_KEY === undefined ? {} : { bingWebmasterApiKey: result.data.BING_WEBMASTER_API_KEY }),
+    ...(result.data.BAIDU_SITE === undefined ? {} : { baiduSite: result.data.BAIDU_SITE }),
+    ...(result.data.BAIDU_TOKEN === undefined ? {} : { baiduToken: result.data.BAIDU_TOKEN }),
+    ...(result.data.YANDEX_OAUTH_TOKEN === undefined ? {} : { yandexOauthToken: result.data.YANDEX_OAUTH_TOKEN }),
+    ...(result.data.INDEXNOW_KEY === undefined ? {} : { indexNowKey: result.data.INDEXNOW_KEY }),
+    ...(result.data.INDEXNOW_KEY_LOCATION === undefined ? {} : { indexNowKeyLocation: result.data.INDEXNOW_KEY_LOCATION }),
   };
 }
