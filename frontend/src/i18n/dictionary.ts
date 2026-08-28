@@ -3,9 +3,27 @@ export type NavigationCopy = Readonly<{
   about: string;
   products: string;
   projects: string;
+  solutions: string;
+  cases: string;
   news: string;
   downloads: string;
+  documents: string;
+  services: string;
   contact: string;
+}>;
+
+export type MenuCopy = Readonly<{
+  featured: string;
+  viewAll: string;
+  explore: string;
+  readMore: string;
+  latest: string;
+  allCases: string;
+  allNews: string;
+  viewDocuments: string;
+  viewServices: string;
+  openMenu: string;
+  closeMenu: string;
 }>;
 
 export type PageCopy = Readonly<{
@@ -27,6 +45,7 @@ export type Dictionary = Readonly<{
     languageSwitcher: string;
   };
   navigation: NavigationCopy;
+  menu: MenuCopy;
   states: {
     loading: string;
     notFoundTitle: string;

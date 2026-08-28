@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
         hostname: mediaOrigin.hostname,
         port: mediaOrigin.port,
         pathname: "/uploads/**"
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**"
       }
     ]
   }
