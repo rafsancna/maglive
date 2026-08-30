@@ -1,4 +1,4 @@
-import type { LanguageDto, NavigationAdminDto } from "@maglive/contracts";
+import { updateNavigationRequestSchema, type LanguageDto, type NavigationAdminDto } from "@maglive/contracts";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -93,10 +93,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(languageApi.getLanguages).mockResolvedValue({ languages: [...languages] });
   vi.mocked(navigationApi.getNavigation).mockResolvedValue(navigation);
-  vi.mocked(navigationApi.updateNavigation).mockImplementation(async (input) => ({
-    ...input,
-    version: input.version + 1,
-  }));
+  vi.mocked(navigationApi.updateNavigation).mockImplementation(async (input) => {
+    const parsed = updateNavigationRequestSchema.parse(input);
+    return { ...parsed, version: parsed.version + 1 };
+  });
 });
 
 describe("navigation manager", () => {
@@ -186,6 +186,72 @@ describe("navigation manager", () => {
       expect(saved?.primaryItems[1]).toMatchObject({
         label: { en: "Careers", zh: "新菜单项", fr: "Carrières" },
         href: "/careers",
+      });
+    });
+  });
+
+  it("adds and removes a valid hover product inside a product category", async () => {
+    const user = userEvent.setup();
+    render(
+      <LanguageProvider>
+        <NavigationManager />
+      </LanguageProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /Products/ }));
+    await user.click(screen.getAllByRole("button", { name: "+ Add product" })[0]!);
+    expect(screen.getByDisplayValue("New product")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save navigation" }));
+
+    await waitFor(() => {
+      const saved = vi.mocked(navigationApi.updateNavigation).mock.calls[0]?.[0];
+      expect(saved?.productCategories[0]?.products).toHaveLength(1);
+      expect(() => updateNavigationRequestSchema.parse(saved)).not.toThrow();
+    });
+
+    await user.click(screen.getAllByRole("button", { name: "Remove" })[1]!);
+    expect(screen.queryByDisplayValue("New product")).not.toBeInTheDocument();
+  });
+
+  it("creates schema-valid records from every navigation add action", async () => {
+    const user = userEvent.setup();
+    render(
+      <LanguageProvider>
+        <NavigationManager />
+      </LanguageProvider>,
+    );
+
+    await screen.findByRole("heading", { name: "Navbar items" });
+    await user.click(screen.getByRole("button", { name: "+ Add navbar item" }));
+
+    await user.click(screen.getByRole("button", { name: /Products/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add category" }));
+
+    await user.click(screen.getByRole("button", { name: /Solutions/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add solution" }));
+    await user.click(screen.getByRole("button", { name: "+ Add feature" }));
+
+    await user.click(screen.getByRole("button", { name: /Cases/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add case" }));
+    await user.click(screen.getByRole("button", { name: /News/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add news item" }));
+    await user.click(screen.getByRole("button", { name: /Documents/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add document" }));
+    await user.click(screen.getByRole("button", { name: /Services/ }));
+    await user.click(screen.getByRole("button", { name: "+ Add service" }));
+    await user.click(screen.getByRole("button", { name: "Save navigation" }));
+
+    await waitFor(() => {
+      const saved = vi.mocked(navigationApi.updateNavigation).mock.calls[0]?.[0];
+      expect(() => updateNavigationRequestSchema.parse(saved)).not.toThrow();
+      expect(saved).toMatchObject({
+        primaryItems: expect.arrayContaining([expect.objectContaining({ label: expect.objectContaining({ en: "New menu item" }) })]),
+        productCategories: expect.arrayContaining([expect.objectContaining({ label: expect.objectContaining({ en: "New category" }) })]),
+        solutionCategories: expect.arrayContaining([expect.objectContaining({ feature: expect.objectContaining({ label: expect.objectContaining({ en: "New product" }) }) })]),
+        cases: [expect.objectContaining({ label: expect.objectContaining({ en: "New product" }) })],
+        news: [expect.objectContaining({ label: expect.objectContaining({ en: "New product" }) })],
+        documents: [expect.objectContaining({ label: expect.objectContaining({ en: "New link" }) })],
+        services: [expect.objectContaining({ label: expect.objectContaining({ en: "New link" }) })],
       });
     });
   });
