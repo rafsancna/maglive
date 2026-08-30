@@ -1,4 +1,4 @@
-import { safeAdminDtoSchema } from "@maglive/contracts";
+import { logoutDtoSchema, safeAdminDtoSchema } from "@maglive/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ADMIN_SESSION_EXPIRED_EVENT,
@@ -7,7 +7,9 @@ import {
   getCurrentCsrfToken,
   loginAdministrator,
   logoutAdministrator,
-  requestAdminData
+  requestAdminData,
+  requestAdminMutation,
+  setCurrentCsrfToken,
 } from "@/admin/auth/api";
 
 const admin = {
@@ -74,5 +76,34 @@ describe("administrator API client", () => {
     ).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
     window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, countExpiry);
     expect(expiryEvents).toBe(1);
+  });
+
+  it("refreshes a stale CSRF token and retries a mutation once", async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        error: {
+          code: "CSRF_INVALID",
+          message: "The request could not be verified.",
+          requestId: "8a595af7-52c0-4fd0-8028-5f5a4a309509",
+        },
+      }, 403))
+      .mockResolvedValueOnce(jsonResponse({ data: { csrfToken: "refreshed-csrf-token-value-00000001" } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { loggedOut: true } }));
+    vi.stubGlobal("fetch", fetchMock);
+    setCurrentCsrfToken("stale-csrf-token-value-00000000001");
+
+    await expect(
+      requestAdminMutation("/admin/example", logoutDtoSchema, "POST", { value: true }),
+    ).resolves.toEqual({ loggedOut: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get("X-CSRF-Token")).toBe(
+      "stale-csrf-token-value-00000000001",
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("/admin/auth/csrf");
+    expect(new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get("X-CSRF-Token")).toBe(
+      "refreshed-csrf-token-value-00000001",
+    );
   });
 });
