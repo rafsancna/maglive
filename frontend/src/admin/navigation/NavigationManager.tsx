@@ -7,6 +7,7 @@ import type {
   NavigationData,
   NavigationLink,
   NavigationNews,
+  NavigationPrimaryItem,
   NavigationProduct,
   NavigationProductCategory,
   NavigationSolutionCategory,
@@ -14,13 +15,16 @@ import type {
 } from "@maglive/contracts";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AdminApiError } from "../auth/api";
+import { useLanguages } from "../languages/LanguageProvider";
 import { MediaPicker } from "../media/MediaPicker";
 import { getNavigation, updateNavigation } from "./api";
 
-type Tab = "products" | "solutions" | "cases" | "news" | "documents" | "services";
+type MenuTab = "products" | "solutions" | "cases" | "news" | "documents" | "services";
+type Tab = "navbar" | MenuTab;
 type LocalizedField = "label" | "description" | "tag" | "alt" | "location" | "capacity" | "date" | "category";
 
 const tabs: readonly { key: Tab; label: string; marker: string }[] = [
+  { key: "navbar", label: "Navbar items", marker: "00" },
   { key: "products", label: "Products", marker: "01" },
   { key: "solutions", label: "Solutions", marker: "02" },
   { key: "cases", label: "Cases", marker: "03" },
@@ -33,6 +37,10 @@ function errorMessage(error: unknown): string {
   if (!(error instanceof AdminApiError)) return "The navigation operation failed unexpectedly.";
   if (error.code === "VERSION_CONFLICT") return "The navigation changed elsewhere. Refresh and retry.";
   if (error.code === "API_UNAVAILABLE") return "The CMS API is unavailable. Your edits are still in this browser.";
+  if (error.code === "VALIDATION_FAILED" && error.details[0] !== undefined) {
+    const detail = error.details[0];
+    return `Navigation could not be saved: ${detail.path.replace(/^body\.?/, "")} — ${detail.message}`;
+  }
   return error.message;
 }
 
@@ -41,7 +49,10 @@ function localizedValue(value: Readonly<Record<string, string>> | undefined, loc
 }
 
 function setLocalized<T extends Readonly<Record<string, string>>>(value: T | undefined, locale: LocaleCode, next: string): T {
-  return { ...(value ?? {}), [locale]: next } as T;
+  const localized = { ...(value ?? {}) };
+  if (next.trim() === "") delete localized[locale];
+  else localized[locale] = next;
+  return localized as T;
 }
 
 function newProduct(id: string): NavigationProduct {
@@ -56,6 +67,10 @@ function newLink(id: string): NavigationLink {
   return { id, label: { en: "New link", zh: "新链接" }, description: { en: "Link description", zh: "链接描述" }, href: "/", visible: true, order: 0 };
 }
 
+function newPrimaryItem(id: string, order: number): NavigationPrimaryItem {
+  return { id, label: { en: "New menu item", zh: "新菜单项" }, href: "/", visible: true, order };
+}
+
 function updateItemField<T extends NavigationLink>(item: T, field: LocalizedField, locale: LocaleCode, value: string): T {
   if (field === "label" || field === "description" || field === "tag" || field === "alt" || field === "location" || field === "capacity" || field === "date" || field === "category") {
     return { ...item, [field]: setLocalized(item[field as keyof T] as Readonly<Record<string, string>> | undefined, locale, value) } as T;
@@ -64,7 +79,12 @@ function updateItemField<T extends NavigationLink>(item: T, field: LocalizedFiel
 }
 
 function TextPair({ label, value, onChange }: { label: string; value: Readonly<Record<string, string>> | undefined; onChange: (locale: LocaleCode, value: string) => void }) {
-  return <div className="admin-navigation__localized"><span>{label}</span><label><small>EN</small><input value={localizedValue(value, "en")} onChange={(event) => onChange("en", event.target.value)} /></label><label><small>中文</small><input value={localizedValue(value, "zh")} onChange={(event) => onChange("zh", event.target.value)} /></label></div>;
+  const { localeCodes, languageByCode } = useLanguages();
+  return <div className="admin-navigation__localized"><span>{label}</span>{localeCodes.map((locale) => {
+    const language = languageByCode[locale];
+    const languageLabel = language?.label ?? locale.toUpperCase();
+    return <label key={locale}><small title={language?.nativeLabel ?? languageLabel}>{locale.toUpperCase()}</small><input aria-label={`${label} — ${languageLabel}`} dir={language?.direction ?? "ltr"} value={localizedValue(value, locale)} onChange={(event) => onChange(locale, event.target.value)} /></label>;
+  })}</div>;
 }
 
 function ImageFields({ item, onChange }: { item: NavigationProduct; onChange: (next: NavigationProduct) => void }) {
@@ -86,9 +106,16 @@ function SectionHeader({ title, description, onAdd, addLabel }: { title: string;
   return <header className="admin-navigation__section-header"><div><span className="admin-kicker">Menu content</span><h2>{title}</h2><p>{description}</p></div>{onAdd && addLabel ? <button className="admin-button admin-button--primary" onClick={onAdd} type="button">+ {addLabel}</button> : null}</header>;
 }
 
+function tabCount(data: NavigationAdminDto, tab: Tab): number {
+  if (tab === "navbar") return data.primaryItems.length;
+  if (tab === "products") return data.productCategories.length;
+  if (tab === "solutions") return data.solutionCategories.length;
+  return data[tab].length;
+}
+
 export function NavigationManager() {
   const [data, setData] = useState<NavigationAdminDto | null>(null);
-  const [tab, setTab] = useState<Tab>("products");
+  const [tab, setTab] = useState<Tab>("navbar");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -101,7 +128,7 @@ export function NavigationManager() {
     return () => { active = false; };
   }, []);
 
-  const itemCount = useMemo(() => data === null ? 0 : data.productCategories.length + data.featuredProducts.length + data.solutionCategories.length + data.cases.length + data.news.length + data.documents.length + data.services.length, [data]);
+  const itemCount = useMemo(() => data === null ? 0 : data.primaryItems.length + data.productCategories.length + data.featuredProducts.length + data.solutionCategories.length + data.cases.length + data.news.length + data.documents.length + data.services.length, [data]);
 
   function change(next: NavigationAdminDto): void { setData(next); setDirty(true); setNotice(null); setError(null); }
 
@@ -112,6 +139,8 @@ export function NavigationManager() {
   }
 
   function updateCategory(id: string, next: NavigationProductCategory): void { if (data === null) return; change({ ...data, productCategories: data.productCategories.map((item) => item.id === id ? next : item) }); }
+  function updatePrimaryItem(id: string, next: NavigationPrimaryItem): void { if (data === null) return; change({ ...data, primaryItems: data.primaryItems.map((item) => item.id === id ? next : item) }); }
+  function removePrimaryItem(id: string): void { if (data === null) return; change({ ...data, primaryItems: data.primaryItems.filter((item) => item.id !== id) }); }
   function updateCategoryProduct(categoryId: string, productId: string, next: NavigationProduct): void { if (data === null) return; updateCategory(categoryId, { ...data.productCategories.find((item) => item.id === categoryId)!, products: data.productCategories.find((item) => item.id === categoryId)!.products.map((item) => item.id === productId ? next : item) }); }
   function updateSolution(id: string, next: NavigationSolutionCategory): void { if (data === null) return; change({ ...data, solutionCategories: data.solutionCategories.map((item) => item.id === id ? next : item) }); }
   function updateProduct(id: string, next: NavigationProduct): void { if (data === null) return; change({ ...data, featuredProducts: data.featuredProducts.map((item) => item.id === id ? next : item) }); }
@@ -121,7 +150,11 @@ export function NavigationManager() {
   if (loading) return <section className="admin-route"><div className="admin-navigation__loading">Loading navigation settings…</div></section>;
   if (data === null) return <section className="admin-route"><div className="admin-alert" role="alert">{error ?? "Navigation settings could not be loaded."}</div></section>;
 
-  return <section className="admin-route admin-navigation"><header className="admin-route__heading"><span className="admin-kicker">Navigation control</span><h1>Navbar &amp; mega menu</h1><p>Manage the content, links, order, visibility, and imagery used by the public navigation. The layout and interaction remain code-owned.</p></header><div className="admin-navigation__toolbar"><div><strong>{itemCount}</strong><span>managed menu records</span>{dirty ? <em>Unsaved changes</em> : null}</div><button className="admin-button admin-button--primary" disabled={busy || !dirty} onClick={() => void save()} type="button">{busy ? "Saving…" : "Save navigation"}</button></div>{error ? <div className="admin-alert" role="alert">{error}</div> : null}{notice ? <div className="admin-alert admin-alert--success" role="status">{notice}</div> : null}<nav aria-label="Navigation settings" className="admin-navigation__tabs">{tabs.map((item) => <button aria-current={tab === item.key ? "page" : undefined} className={tab === item.key ? "is-active" : ""} key={item.key} onClick={() => setTab(item.key)} type="button"><span>{item.marker}</span>{item.label}<small>{item.key === "products" ? data.productCategories.length : item.key === "solutions" ? data.solutionCategories.length : data[item.key].length}</small></button>)}</nav>{tab === "products" ? <ProductsEditor data={data} onChange={change} onCategoryChange={updateCategory} onCategoryProductChange={updateCategoryProduct} onProductChange={updateProduct} /> : null}{tab === "solutions" ? <SolutionsEditor data={data} onChange={change} onSolutionChange={updateSolution} /> : null}{tab === "cases" ? <SimpleListEditor items={data.cases} title="Cases" description="Projects shown in the visual Cases menu." onAdd={() => change({ ...data, cases: [...data.cases, { ...newProduct(`case-${Date.now()}`), location: { en: "Project location", zh: "项目地点" }, capacity: { en: "0 MWp", zh: "0 MWp" } }] })} onChange={(id, next) => updateList("cases", id, next as NavigationCase)} onRemove={(id) => removeList("cases", id)} showImage /> : null}{tab === "news" ? <SimpleListEditor items={data.news} title="News" description="Latest articles shown in the News menu." onAdd={() => change({ ...data, news: [...data.news, { ...newProduct(`news-${Date.now()}`), date: { en: "01 Jan 2025", zh: "2025年1月1日" }, category: { en: "Company", zh: "公司" } }] })} onChange={(id, next) => updateList("news", id, next as NavigationNews)} onRemove={(id) => removeList("news", id)} showImage /> : null}{tab === "documents" ? <SimpleListEditor items={data.documents} title="Documents" description="Download and resource links shown in the Documents menu." onAdd={() => change({ ...data, documents: [...data.documents, newLink(`document-${Date.now()}`)] })} onChange={(id, next) => updateList("documents", id, next)} onRemove={(id) => removeList("documents", id)} /> : null}{tab === "services" ? <SimpleListEditor items={data.services} title="Services" description="Support and service links shown in the Services menu." onAdd={() => change({ ...data, services: [...data.services, newLink(`service-${Date.now()}`)] })} onChange={(id, next) => updateList("services", id, next)} onRemove={(id) => removeList("services", id)} /> : null}</section>;
+  return <section className="admin-route admin-navigation"><header className="admin-route__heading"><span className="admin-kicker">Navigation control</span><h1>Navbar &amp; mega menu</h1><p>Manage the content, links, order, visibility, and imagery used by the public navigation. The layout and interaction remain code-owned.</p></header><div className="admin-navigation__toolbar"><div><strong>{itemCount}</strong><span>managed menu records</span>{dirty ? <em>Unsaved changes</em> : null}</div><button className="admin-button admin-button--primary" disabled={busy || !dirty} onClick={() => void save()} type="button">{busy ? "Saving…" : "Save navigation"}</button></div>{error ? <div className="admin-alert" role="alert">{error}</div> : null}{notice ? <div className="admin-alert admin-alert--success" role="status">{notice}</div> : null}<nav aria-label="Navigation settings" className="admin-navigation__tabs">{tabs.map((item) => <button aria-current={tab === item.key ? "page" : undefined} className={tab === item.key ? "is-active" : ""} key={item.key} onClick={() => setTab(item.key)} type="button"><span>{item.marker}</span>{item.label}<small>{tabCount(data, item.key)}</small></button>)}</nav>{tab === "navbar" ? <PrimaryItemsEditor data={data} onChange={change} onItemChange={updatePrimaryItem} onRemove={removePrimaryItem} /> : null}{tab === "products" ? <ProductsEditor data={data} onChange={change} onCategoryChange={updateCategory} onCategoryProductChange={updateCategoryProduct} onProductChange={updateProduct} /> : null}{tab === "solutions" ? <SolutionsEditor data={data} onChange={change} onSolutionChange={updateSolution} /> : null}{tab === "cases" ? <SimpleListEditor items={data.cases} title="Cases" description="Projects shown in the visual Cases menu." onAdd={() => change({ ...data, cases: [...data.cases, { ...newProduct(`case-${Date.now()}`), location: { en: "Project location", zh: "项目地点" }, capacity: { en: "0 MWp", zh: "0 MWp" } }] })} onChange={(id, next) => updateList("cases", id, next as NavigationCase)} onRemove={(id) => removeList("cases", id)} showImage /> : null}{tab === "news" ? <SimpleListEditor items={data.news} title="News" description="Latest articles shown in the News menu." onAdd={() => change({ ...data, news: [...data.news, { ...newProduct(`news-${Date.now()}`), date: { en: "01 Jan 2025", zh: "2025年1月1日" }, category: { en: "Company", zh: "公司" } }] })} onChange={(id, next) => updateList("news", id, next as NavigationNews)} onRemove={(id) => removeList("news", id)} showImage /> : null}{tab === "documents" ? <SimpleListEditor items={data.documents} title="Documents" description="Download and resource links shown in the Documents menu." onAdd={() => change({ ...data, documents: [...data.documents, newLink(`document-${Date.now()}`)] })} onChange={(id, next) => updateList("documents", id, next)} onRemove={(id) => removeList("documents", id)} /> : null}{tab === "services" ? <SimpleListEditor items={data.services} title="Services" description="Support and service links shown in the Services menu." onAdd={() => change({ ...data, services: [...data.services, newLink(`service-${Date.now()}`)] })} onChange={(id, next) => updateList("services", id, next)} onRemove={(id) => removeList("services", id)} /> : null}</section>;
+}
+
+function PrimaryItemsEditor({ data, onChange, onItemChange, onRemove }: { data: NavigationAdminDto; onChange: (next: NavigationAdminDto) => void; onItemChange: (id: string, next: NavigationPrimaryItem) => void; onRemove: (id: string) => void }) {
+  return <div className="admin-navigation__content"><SectionHeader title="Navbar items" description="Top-level links shown in the public desktop and mobile navbar. Attach an existing mega-menu panel or leave it as a direct link." onAdd={() => onChange({ ...data, primaryItems: [...data.primaryItems, newPrimaryItem(`menu-item-${Date.now()}`, data.primaryItems.length)] })} addLabel="Add navbar item" /><div className="admin-navigation__cards">{data.primaryItems.map((item) => <article className="admin-navigation__card" key={item.id}><EntryFields item={item} onChange={(next) => onItemChange(item.id, next as NavigationPrimaryItem)} onRemove={() => onRemove(item.id)} extra={<label className="admin-field"><span>Mega-menu panel</span><select aria-label={`Mega-menu panel — ${item.id}`} value={item.menu ?? ""} onChange={(event) => onItemChange(item.id, { ...item, menu: event.target.value === "" ? undefined : event.target.value as MenuTab })}><option value="">None — direct link</option>{tabs.filter((tab): tab is { key: MenuTab; label: string; marker: string } => tab.key !== "navbar").map((tab) => <option key={tab.key} value={tab.key}>{tab.label}</option>)}</select></label>} /></article>)}</div></div>;
 }
 
 function ProductsEditor({ data, onChange, onCategoryChange, onCategoryProductChange, onProductChange }: { data: NavigationAdminDto; onChange: (next: NavigationAdminDto) => void; onCategoryChange: (id: string, next: NavigationProductCategory) => void; onCategoryProductChange: (categoryId: string, productId: string, next: NavigationProduct) => void; onProductChange: (id: string, next: NavigationProduct) => void }) {

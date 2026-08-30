@@ -21,6 +21,15 @@ export type NavigationLink = Readonly<{
   feature?: FeaturedSolution;
 }>;
 
+export type PrimaryNavigationItem = Readonly<{
+  id: string;
+  label: LocalizedText;
+  href: string;
+  menu?: "products" | "solutions" | "cases" | "news" | "documents" | "services";
+  visible?: boolean;
+  order?: number;
+}>;
+
 export type ProductCategory = Omit<NavigationLink, "description"> & Readonly<{
   description: LocalizedText;
   accent: string;
@@ -54,6 +63,7 @@ export type NewsItem = Omit<NavigationLink, "description"> & Readonly<{
 }>;
 
 export type NavigationMockData = Readonly<{
+  primaryItems: readonly PrimaryNavigationItem[];
   productCategories: readonly ProductCategory[];
   featuredProducts: readonly FeaturedProduct[];
   solutionCategories: readonly NavigationLink[];

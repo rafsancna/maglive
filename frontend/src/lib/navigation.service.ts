@@ -12,6 +12,7 @@ function fromApi(data: NavigationData): NavigationMockData {
   const solutionCategories = visible(data.solutionCategories).map((category) => ({ ...category, feature: category.feature === undefined ? undefined : { ...product(category.feature), kicker: category.feature.tag ?? { en: "System thinking", zh: "系统化思维" } } }));
   return {
     ...data,
+    primaryItems: visible(data.primaryItems),
     productCategories,
     featuredProducts,
     solutionCategories,

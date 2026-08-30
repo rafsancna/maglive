@@ -26,6 +26,16 @@ const solutionFeature = (id: string, en: string, zh: string, enDescription: stri
 });
 
 export const megaMenuMockData: NavigationMockData = {
+  primaryItems: [
+    { id: "products", label: { en: "Products", zh: "产品" }, href: "/products", menu: "products", order: 0 },
+    { id: "solutions", label: { en: "Solutions", zh: "解决方案" }, href: "/projects", menu: "solutions", order: 1 },
+    { id: "cases", label: { en: "Cases", zh: "案例" }, href: "/projects", menu: "cases", order: 2 },
+    { id: "news", label: { en: "News", zh: "新闻" }, href: "/news", menu: "news", order: 3 },
+    { id: "documents", label: { en: "Documents", zh: "文档" }, href: "/downloads", menu: "documents", order: 4 },
+    { id: "services", label: { en: "Services", zh: "服务" }, href: "/contact", menu: "services", order: 5 },
+    { id: "about", label: { en: "About", zh: "关于我们" }, href: "/about", order: 6 },
+    { id: "contact", label: { en: "Contact", zh: "联系我们" }, href: "/contact", order: 7 },
+  ],
   productCategories: [
     {
       label: { en: "Solar modules", zh: "太阳能组件" },

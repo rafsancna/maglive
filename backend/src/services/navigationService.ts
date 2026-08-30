@@ -1,4 +1,5 @@
 import {
+  DEFAULT_NAVIGATION_PRIMARY_ITEMS,
   navigationDataSchema,
   type NavigationAdminDto,
   type NavigationData,
@@ -19,6 +20,7 @@ const image = (src: string, en: string, zh: string) => ({
 });
 
 export const defaultNavigationData: NavigationData = navigationDataSchema.parse({
+  primaryItems: DEFAULT_NAVIGATION_PRIMARY_ITEMS,
   productCategories: [
     { id: "solar-modules", accent: "01", label: text("Solar modules", "太阳能组件"), description: text("High-output modules engineered for long-term yield", "为长期发电量而设计的高功率组件"), href: "/products", products: [{ id: "astra-630", label: text("Astra 630", "Astra 630"), description: text("630 W n-type module for utility-scale efficiency.", "面向大型电站效率的630 W n型组件。"), href: "/products", tag: text("New generation", "新一代产品"), image: image("https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1200&q=80", "Solar modules in a field", "光伏电站组件") }] },
     { id: "inverters", accent: "02", label: text("Inverters", "逆变器"), description: text("Grid-ready conversion for every project scale", "适配各种项目规模的并网转换方案"), href: "/products", products: [{ id: "gridcore-x", label: text("GridCore X", "GridCore X"), description: text("High-density conversion for demanding sites.", "适用于高要求场景的高密度转换。"), href: "/products", tag: text("Flagship", "旗舰系列"), image: image("https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1200&q=80", "Wind turbines and energy infrastructure", "风机与能源基础设施") }] },
@@ -55,6 +57,7 @@ function publicData(data: NavigationData): NavigationData {
     items.filter((item) => item.visible !== false).sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
   return navigationDataSchema.parse({
     ...data,
+    primaryItems: visible(data.primaryItems),
     productCategories: visible(data.productCategories).map((category) => ({ ...category, products: visible(category.products) })),
     featuredProducts: visible(data.featuredProducts),
     solutionCategories: visible(data.solutionCategories),
