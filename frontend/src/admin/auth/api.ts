@@ -117,8 +117,7 @@ export async function requestAdminMutation<TSchema extends z.ZodType>(
   method: "POST" | "PUT" | "PATCH" | "DELETE",
   body?: unknown
 ): Promise<z.infer<TSchema>> {
-  const csrfToken = await getMutationCsrfToken();
-  return requestAdminData(path, schema, {
+  const send = (csrfToken: string) => requestAdminData(path, schema, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -126,6 +125,13 @@ export async function requestAdminMutation<TSchema extends z.ZodType>(
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) })
   });
+  try {
+    return await send(await getMutationCsrfToken());
+  } catch (reason) {
+    if (!(reason instanceof AdminApiError) || reason.code !== "CSRF_INVALID") throw reason;
+    clearCurrentCsrfToken();
+    return send(await fetchCsrfToken());
+  }
 }
 
 export async function fetchCsrfToken(): Promise<string> {

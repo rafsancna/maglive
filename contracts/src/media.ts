@@ -82,6 +82,7 @@ export const updateMediaRequestSchema = z
 export type UpdateMediaRequest = z.infer<typeof updateMediaRequestSchema>;
 
 export const mediaUsageKindSchema = z.enum([
+  "navigation-image",
   "category-working-image",
   "category-working-seo",
   "category-published-image",

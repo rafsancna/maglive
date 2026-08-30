@@ -1,6 +1,7 @@
 import { Container } from "@/components/ui/Container";
 import { Heading } from "@/components/ui/Heading";
 import { LocaleLink } from "@/components/site/LocaleLink";
+import { HeroSlider } from "@/components/home/hero/HeroSlider";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { requireLocale, type LocalizedPageProps } from "@/i18n/page-locale";
 
@@ -10,37 +11,7 @@ export default async function HomePage({ params }: LocalizedPageProps) {
 
   return (
     <>
-      <section className="hero">
-        <div className="hero__glow" aria-hidden="true" />
-        <Container className="hero__grid">
-          <div className="hero__copy">
-            <p className="eyebrow">{dictionary.home.eyebrow}</p>
-            <Heading as="h1" size="display">
-              {dictionary.home.title}
-            </Heading>
-            <p className="lede">{dictionary.home.intro}</p>
-            <div className="button-row">
-              <LocaleLink className="button button--primary" href="/products" locale={locale}>
-                {dictionary.home.primaryAction}
-              </LocaleLink>
-              <LocaleLink className="button button--secondary" href="/contact" locale={locale}>
-                {dictionary.home.secondaryAction}
-              </LocaleLink>
-            </div>
-          </div>
-          <div className="hero__visual" aria-hidden="true">
-            <div className="energy-orbit energy-orbit--outer" />
-            <div className="energy-orbit energy-orbit--inner" />
-            <div className="energy-core">
-              <span>630</span>
-              <small>W / SYSTEM READY</small>
-            </div>
-            <div className="energy-label energy-label--one">SOLAR</div>
-            <div className="energy-label energy-label--two">STORAGE</div>
-            <div className="energy-label energy-label--three">CONTROL</div>
-          </div>
-        </Container>
-      </section>
+      <HeroSlider accessibilityTitle={dictionary.home.title} locale={locale} />
 
       <section className="principles">
         <Container>

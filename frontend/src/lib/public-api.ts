@@ -4,6 +4,7 @@ import {
   publicProductDetailDtoSchema,
   publicProductListDtoSchema,
   publicProductVisibilityDtoSchema,
+  navigationDataSchema,
   publicSitemapEntriesDtoSchema,
   languageListDtoSchema,
   type PublicCategoryDto,
@@ -14,6 +15,7 @@ import {
   type PublicProductVisibilityDto,
   type PublicSitemapEntriesDto,
   type LanguageListDto,
+  type NavigationData,
 } from "@maglive/contracts";
 import type { z } from "zod";
 
@@ -99,4 +101,8 @@ export function getSitemapEntries(page: number, limit = 100): Promise<PublicSite
 
 export function getPublicLanguages(): Promise<LanguageListDto> {
   return request("/public/languages", languageListDtoSchema);
+}
+
+export function getPublicNavigation(): Promise<NavigationData> {
+  return request("/public/navigation", navigationDataSchema);
 }

@@ -17,6 +17,7 @@ import {
   loginRequestSchema,
   adminMediaDtoSchema,
   mediaListQuerySchema,
+  navigationDataSchema,
   updateMediaRequestSchema,
   objectIdStringSchema,
   paginationQuerySchema,
@@ -84,6 +85,50 @@ describe("transport contracts", () => {
       }
     });
     expect(error.error.code).toBe("VALIDATION_FAILED");
+  });
+});
+
+describe("navigation contracts", () => {
+  it("upgrades stored navigation created before managed primary items", () => {
+    const parsed = navigationDataSchema.parse({
+      productCategories: [],
+      featuredProducts: [],
+      solutionCategories: [],
+      featuredSolution: {
+        id: "solution-fallback",
+        label: { en: "Energy solutions" },
+        href: "/projects",
+      },
+      cases: [],
+      news: [],
+      documents: [],
+      services: [],
+    });
+
+    expect(parsed.primaryItems.map(({ id }) => id)).toEqual([
+      "products",
+      "solutions",
+      "cases",
+      "news",
+      "documents",
+      "services",
+      "about",
+      "contact",
+    ]);
+  });
+
+  it("accepts translated custom top-level links", () => {
+    const parsed = navigationDataSchema.shape.primaryItems.parse([
+      {
+        id: "careers",
+        label: { en: "Careers", fr: "Carrières" },
+        href: "/careers",
+        visible: true,
+        order: 8,
+      },
+    ]);
+
+    expect(parsed[0]?.label.fr).toBe("Carrières");
   });
 });
 
