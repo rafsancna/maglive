@@ -97,6 +97,7 @@ function ImageFields({ item, onChange }: { item: NavigationProduct; onChange: (n
   const image = item.image;
   const [pickerOpen, setPickerOpen] = useState(false);
   function selectMedia(media: AdminMediaDto): void {
+    if (media.url === undefined) return;
     onChange({ ...item, image: { src: media.url, alt: image?.alt ?? item.label, width: media.width ?? image?.width ?? 1200, height: media.height ?? image?.height ?? 800, mediaId: media.id } });
     setPickerOpen(false);
   }

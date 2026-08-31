@@ -72,7 +72,7 @@ export class LocalStorageProvider implements StorageProvider {
       String(now.getUTCDate()).padStart(2, "0"),
     ];
     const key = [
-      kindDirectory[input.kind],
+      input.visibility === "private" ? ".staging" : kindDirectory[input.kind],
       ...datePath,
       `${randomUUID()}.${input.extension}`,
     ].join("/");
@@ -113,8 +113,19 @@ export class LocalStorageProvider implements StorageProvider {
     }
   }
 
+  async materialize(key: string) {
+    const target = this.resolveKey(key);
+    if (!(await this.exists(key))) {
+      throw new AppError(404, "STORED_MEDIA_NOT_FOUND", "The stored media object is missing.");
+    }
+    return { path: target, cleanup: async () => undefined };
+  }
+
   getPublicUrl(key: string): string {
     this.resolveKey(key);
+    if (key.startsWith(".")) {
+      throw new AppError(400, "PRIVATE_STORAGE_KEY", "Private media does not have a public URL.");
+    }
     const encodedKey = key
       .split("/")
       .map((segment) => encodeURIComponent(segment))

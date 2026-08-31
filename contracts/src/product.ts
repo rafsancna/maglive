@@ -7,7 +7,7 @@ import {
 } from "./api.js";
 import { categorySlugSchema } from "./category.js";
 import { DEFAULT_LOCALE, localeCodeSchema } from "./locale.js";
-import { publicMediaDtoSchema } from "./media.js";
+import { mediaVariantDtoSchema, publicMediaDtoSchema } from "./media.js";
 import {
   legacyTemplateIdSchema,
   productTemplateIdSchema,
@@ -804,7 +804,7 @@ export const publicProductMediaUsageDtoSchema = publicMediaDtoSchema
     order: productOrderSchema,
     locale: localeCodeSchema.optional(),
     durationSeconds: z.number().nonnegative().optional(),
-    poster: publicMediaDtoSchema.optional(),
+    poster: z.union([publicMediaDtoSchema, mediaVariantDtoSchema]).optional(),
     alt: z.string().min(1).max(PRODUCT_LIMITS.mediaText).optional(),
     title: z.string().min(1).max(PRODUCT_LIMITS.mediaText).optional(),
     caption: z.string().min(1).max(PRODUCT_LIMITS.mediaCaption).optional(),

@@ -7,6 +7,7 @@ import { loadConfig } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { createMongoSessionStore } from "./config/session.js";
 import { createGracefulShutdown } from "./runtime/gracefulShutdown.js";
+import { BullMediaJobQueue } from "./media/mediaQueue.js";
 
 async function listen(app: ReturnType<typeof createApp>, port: number): Promise<Server> {
   return new Promise((resolve, reject) => {
@@ -19,13 +20,17 @@ async function bootstrap(): Promise<void> {
   const config = loadConfig(process.env);
   await connectDatabase(config.mongoUri);
   const sessionStore = createMongoSessionStore(config);
-  const app = createApp({ config, sessionStore });
+  const mediaQueue = new BullMediaJobQueue(config);
+  const app = createApp({ config, sessionStore, mediaQueue });
   const server = await listen(app, config.port);
   logger.info({ port: config.port }, "Maglive API is ready");
 
   const shutdown = createGracefulShutdown({
     server,
-    disconnect: disconnectDatabase,
+    disconnect: async () => {
+      await mediaQueue.close();
+      await disconnectDatabase();
+    },
     logger
   });
 

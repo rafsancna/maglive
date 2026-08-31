@@ -9,11 +9,43 @@ export const mediaKindSchema = z.enum(["image", "video", "document"]);
 export type MediaKind = z.infer<typeof mediaKindSchema>;
 
 export const mediaStatusSchema = z.enum([
+  "queued",
   "processing",
   "ready",
   "failed",
   "deleting",
 ]);
+
+export const mediaProcessingStageSchema = z.enum([
+  "queued",
+  "analyzing",
+  "optimizing-image",
+  "creating-480",
+  "creating-768",
+  "creating-1280",
+  "creating-1920",
+  "creating-2560",
+  "creating-720p",
+  "creating-1080p",
+  "creating-1440p",
+  "creating-source",
+  "generating-poster",
+  "finalizing",
+  "ready",
+  "failed",
+]);
+export type MediaProcessingStage = z.infer<typeof mediaProcessingStageSchema>;
+
+export const mediaVariantDtoSchema = z.object({
+  label: z.string().min(1).max(40),
+  url: z.url(),
+  mimeType: z.string().min(1).max(160),
+  sizeBytes: z.number().int().nonnegative(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  codec: z.string().min(1).max(80).optional(),
+});
+export type MediaVariantDto = z.infer<typeof mediaVariantDtoSchema>;
 
 export const mediaTranslationSchema = z.object({
   title: z.string().trim().min(1).max(240).optional(),
@@ -33,10 +65,11 @@ export const publicMediaDtoSchema = z.object({
   mimeType: z.string().min(1).max(160),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
+  variants: z.array(mediaVariantDtoSchema).optional(),
 });
 export type PublicMediaDto = z.infer<typeof publicMediaDtoSchema>;
 
-export const adminMediaDtoSchema = publicMediaDtoSchema.extend({
+export const adminMediaDtoSchema = publicMediaDtoSchema.partial({ url: true }).extend({
   originalName: z.string().min(1).max(255),
   sizeBytes: z.number().int().nonnegative(),
   checksum: z.string().regex(/^[a-f0-9]{64}$/),
@@ -44,12 +77,21 @@ export const adminMediaDtoSchema = publicMediaDtoSchema.extend({
   posterMediaId: objectIdStringSchema.optional(),
   defaultTranslations: mediaTranslationsSchema,
   status: mediaStatusSchema,
+  progress: z.number().int().min(0).max(100).optional(),
+  processingStage: mediaProcessingStageSchema.optional(),
+  originalSizeBytes: z.number().int().nonnegative().optional(),
+  optimizedSizeBytes: z.number().int().nonnegative().optional(),
+  processingError: z.string().min(1).max(2_000).optional(),
+  processingAttempts: z.number().int().nonnegative().optional(),
+  generatedPoster: mediaVariantDtoSchema.optional(),
   uploadedBy: objectIdStringSchema,
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
   version: z.number().int().min(0),
 });
 export type AdminMediaDto = z.infer<typeof adminMediaDtoSchema>;
+
+export const retryMediaDtoSchema = z.object({ queued: z.literal(true) });
 
 export const mediaListQuerySchema = paginationQuerySchema.extend({
   search: z.string().trim().max(120).optional(),

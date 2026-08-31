@@ -185,12 +185,16 @@ The sitemap feed sorts the complete modest-catalog set by canonical localized pa
 
 The protected media workspace is available at `/admin/media`. It supports immutable uploads, filename search, type filtering, localized reusable metadata, image/video/PDF previews, video posters, usage inspection, retry/cancellation feedback, and reference-aware deletion. The same picker is used by the Category editor.
 
-Approved local uploads are JPEG, PNG, WebP, MP4, WebM, and PDF. SVG is intentionally disabled. Express streams one file into a controlled temporary directory, enforces configured limits, verifies the claimed type against its signature, derives the final extension, computes a SHA-256 checksum, and persists only metadata in MongoDB. Files are stored through `StorageProvider` beneath `backend/uploads/` using immutable UUID/date/type keys; never address files by their original names.
+Approved local uploads are JPEG, PNG, WebP, MP4, WebM, and PDF. SVG is intentionally disabled. Express streams one file into a controlled temporary directory, enforces configured limits, matches the filename extension and claimed type against its signature, derives the final extension, computes a SHA-256 checksum, and persists only metadata in MongoDB. Files are stored through `StorageProvider` beneath `backend/uploads/` using immutable UUID/date/type keys; never address files by their original names.
+
+Image and video originals are staged below the non-public `.staging` storage prefix and submitted to BullMQ. Run Redis and provide FFmpeg/FFprobe through `FFMPEG_PATH` and `FFPROBE_PATH`; `npm run dev` starts the API, frontend, and media worker together. Production runs the API with `npm start -w @maglive/backend` and the independently scalable worker with `npm run start:worker -w @maglive/backend`. Sharp creates non-upscaled AVIF/WebP image variants, while FFmpeg creates bounded H.264 MP4 renditions with `faststart` and an optimized poster. MongoDB stores every processing stage so the SSE admin progress stream survives refreshes and reconnects.
 
 Protected endpoints:
 
 - `GET/POST /api/v1/admin/media`
 - `GET/PATCH/DELETE /api/v1/admin/media/:id`
+- `GET /api/v1/admin/media/:id/events`
+- `POST /api/v1/admin/media/:id/retry`
 - `GET /api/v1/admin/media/:id/usages`
 
 Deletion first enters a transaction-protected `deleting` state so new Category, Product, and poster references fail. It then verifies every working/live Category and Product usage plus Media poster relationships, deletes the stored object, and transactionally removes the Media record. A storage failure leaves a retryable record rather than reporting false success.

@@ -3,8 +3,9 @@
 import type { AdminMediaDto, MediaKind } from "@maglive/contracts";
 import { useEffect, useRef, useState } from "react";
 import { AdminApiError } from "../auth/api";
-import { listMedia, uploadMedia } from "./api";
+import { listMedia, uploadMedia, watchMediaProcessing } from "./api";
 import { MediaPreview } from "./MediaPreview";
+import { mediaStageLabel } from "./processing";
 
 const MEDIA_KIND_COPY: Record<
   MediaKind,
@@ -48,12 +49,14 @@ export function MediaPicker({
   kind,
   selectedId,
   title = "Choose media",
+  audioPolicy = "keep",
   onSelect,
   onClose,
 }: {
   kind?: MediaKind;
   selectedId?: string;
   title?: string;
+  audioPolicy?: "keep" | "remove";
   onSelect: (media: AdminMediaDto) => void;
   onClose: () => void;
 }) {
@@ -63,6 +66,7 @@ export function MediaPicker({
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [processing, setProcessing] = useState<AdminMediaDto | null>(null);
   const uploadAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -105,11 +109,21 @@ export function MediaPicker({
     setUploadProgress(0);
     setError(null);
     try {
-      const uploaded = await uploadMedia(
+      let uploaded = await uploadMedia(
         file,
         setUploadProgress,
         controller.signal,
+        audioPolicy,
       );
+      setUploadProgress(100);
+      if (uploaded.status === "queued" || uploaded.status === "processing") {
+        setProcessing(uploaded);
+        uploaded = await watchMediaProcessing(uploaded.id, setProcessing, controller.signal);
+      }
+      if (uploaded.status === "failed") {
+        setError(uploaded.processingError ?? "Media optimization failed.");
+        return;
+      }
       if (kind !== undefined && uploaded.kind !== kind) {
         setError(
           `${uploaded.originalName} was uploaded to ${MEDIA_KIND_COPY[uploaded.kind].label}, but this field requires a ${MEDIA_KIND_COPY[kind].singular}.`,
@@ -121,6 +135,7 @@ export function MediaPicker({
       setError(mediaError(reason));
     } finally {
       uploadAbort.current = null;
+      setProcessing(null);
       setUploading(false);
     }
   }
@@ -157,7 +172,7 @@ export function MediaPicker({
           </div>
           <div className="media-picker__header-actions">
             <label className="admin-button admin-button--primary media-upload-button">
-              <span>{uploading ? `Uploading ${uploadProgress}%` : "Upload new"}</span>
+              <span>{uploading ? `${processing === null ? "Uploading" : "Optimizing"} ${processing?.progress ?? uploadProgress}%` : "Upload new"}</span>
               <input
                 accept={acceptedFiles}
                 aria-label={`Upload new ${kind === undefined ? "media" : MEDIA_KIND_COPY[kind].singular}`}
@@ -185,14 +200,14 @@ export function MediaPicker({
         {uploading ? (
           <div className="media-picker__upload" role="status">
             <div>
-              <strong>Uploading and validating asset</strong>
-              <span>{uploadProgress}%</span>
+              <strong>{processing === null ? "Uploading and validating asset" : mediaStageLabel(processing)}</strong>
+              <span>{processing?.progress ?? uploadProgress}%</span>
             </div>
-            <progress max="100" value={uploadProgress}>
-              {uploadProgress}%
+            <progress max="100" value={processing?.progress ?? uploadProgress}>
+              {processing?.progress ?? uploadProgress}%
             </progress>
             <button onClick={() => uploadAbort.current?.abort()} type="button">
-              Cancel
+              {processing === null ? "Cancel upload" : "Stop watching"}
             </button>
           </div>
         ) : null}

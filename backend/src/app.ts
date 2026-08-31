@@ -15,12 +15,14 @@ import { createV1Router } from "./routes/v1/index.js";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
 import { createLocalMediaMiddleware } from "./storage/localMediaMiddleware.js";
 import type { StorageProvider } from "./storage/StorageProvider.js";
+import type { MediaJobQueue } from "./media/mediaQueue.js";
 
 export type AppDependencies = Readonly<{
   config: AppConfig;
   databaseHealth?: () => DatabaseHealth;
   sessionStore?: Store;
   storageProvider?: StorageProvider;
+  mediaQueue?: MediaJobQueue;
   now?: () => number;
 }>;
 
@@ -32,6 +34,7 @@ export function createApp({
     config.uploadRoot,
     config.publicMediaBaseUrl
   ),
+  mediaQueue,
   now
 }: AppDependencies): Express {
   const app = express();
@@ -96,7 +99,7 @@ export function createApp({
 
   app.use(
     "/api/v1",
-    createV1Router(databaseHealth, config, now, storageProvider)
+    createV1Router(databaseHealth, config, now, storageProvider, mediaQueue)
   );
   app.use(notFound);
   app.use(errorHandler);

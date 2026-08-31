@@ -30,6 +30,7 @@ import {
 import { NavigationConfigModel } from "../models/NavigationConfig.js";
 import { ProductModel, type ProductDocument } from "../models/Product.js";
 import type { StorageProvider } from "../storage/StorageProvider.js";
+import type { MediaJobQueue } from "../media/mediaQueue.js";
 import { assertLanguagesExist, listLanguageCodes } from "./languageService.js";
 
 type MediaListQuery = z.output<typeof mediaListQuerySchema>;
@@ -93,7 +94,7 @@ export function toAdminMediaDto(
   media: MediaDocument,
   storageProvider: StorageProvider,
 ): AdminMediaDto {
-  if (media.storage.provider !== storageProvider.id) {
+  if (media.storage !== undefined && media.storage.provider !== storageProvider.id) {
     throw new AppError(
       503,
       "STORAGE_PROVIDER_UNAVAILABLE",
@@ -103,7 +104,9 @@ export function toAdminMediaDto(
   return {
     id: media._id.toString(),
     kind: media.kind,
-    url: storageProvider.getPublicUrl(media.storage.key),
+    ...(media.storage === undefined
+      ? {}
+      : { url: storageProvider.getPublicUrl(media.storage.key) }),
     mimeType: media.mimeType,
     ...(media.width === undefined ? {} : { width: media.width }),
     ...(media.height === undefined ? {} : { height: media.height }),
@@ -116,8 +119,52 @@ export function toAdminMediaDto(
     ...(media.posterMediaId === undefined
       ? {}
       : { posterMediaId: media.posterMediaId.toString() }),
+    ...(media.variants.length === 0
+      ? {}
+      : {
+          variants: media.variants.map((variant) => ({
+            label: variant.label,
+            url: storageProvider.getPublicUrl(variant.storage.key),
+            mimeType: variant.mimeType,
+            sizeBytes: variant.sizeBytes,
+            ...(variant.width === undefined ? {} : { width: variant.width }),
+            ...(variant.height === undefined ? {} : { height: variant.height }),
+            ...(variant.codec === undefined ? {} : { codec: variant.codec }),
+          })),
+        }),
+    ...(media.generatedPoster === undefined
+      ? {}
+      : {
+          generatedPoster: {
+            label: media.generatedPoster.label,
+            url: storageProvider.getPublicUrl(media.generatedPoster.storage.key),
+            mimeType: media.generatedPoster.mimeType,
+            sizeBytes: media.generatedPoster.sizeBytes,
+            ...(media.generatedPoster.width === undefined
+              ? {}
+              : { width: media.generatedPoster.width }),
+            ...(media.generatedPoster.height === undefined
+              ? {}
+              : { height: media.generatedPoster.height }),
+            ...(media.generatedPoster.codec === undefined
+              ? {}
+              : { codec: media.generatedPoster.codec }),
+          },
+        }),
     defaultTranslations: Object.fromEntries(media.defaultTranslations),
     status: media.status,
+    progress: media.progress ?? (media.status === "ready" ? 100 : 0),
+    ...(media.processingStage === undefined
+      ? {}
+      : { processingStage: media.processingStage }),
+    originalSizeBytes: media.originalSizeBytes ?? media.sizeBytes,
+    ...(media.optimizedSizeBytes === undefined
+      ? {}
+      : { optimizedSizeBytes: media.optimizedSizeBytes }),
+    ...(media.processingError === undefined
+      ? {}
+      : { processingError: media.processingError }),
+    processingAttempts: media.processingAttempts ?? 0,
     uploadedBy: media.uploadedBy.toString(),
     createdAt: media.createdAt.toISOString(),
     updatedAt: media.updatedAt.toISOString(),
@@ -207,6 +254,7 @@ export async function uploadMedia(
   actor: SafeAdminDto,
   config: AppConfig,
   storageProvider: StorageProvider,
+  mediaQueue?: MediaJobQueue,
 ): Promise<AdminMediaDto> {
   const received = await receiveMediaUpload(request, config);
   let storedKey: string | undefined;
@@ -214,28 +262,53 @@ export async function uploadMedia(
     const inspected = await inspectMediaFile(
       received.temporaryPath,
       received.claimedMimeType,
+      received.originalName,
     );
     assertStoredSize(inspected, received.sizeBytes, config);
+    const requiresProcessing =
+      mediaQueue !== undefined &&
+      (inspected.kind === "image" || inspected.kind === "video");
     const stored = await storageProvider.save({
       temporaryPath: received.temporaryPath,
       kind: inspected.kind,
       extension: inspected.extension,
+      visibility: requiresProcessing ? "private" : "public",
     });
     storedKey = stored.key;
     const media = new MediaModel({
       kind: inspected.kind,
-      storage: { provider: stored.provider, key: stored.key },
+      ...(requiresProcessing
+        ? { sourceStorage: { provider: stored.provider, key: stored.key } }
+        : { storage: { provider: stored.provider, key: stored.key } }),
       originalName: received.originalName,
       mimeType: inspected.mimeType,
       sizeBytes: stored.sizeBytes,
+      originalSizeBytes: stored.sizeBytes,
       checksum: received.checksum,
       ...(inspected.width === undefined ? {} : { width: inspected.width }),
       ...(inspected.height === undefined ? {} : { height: inspected.height }),
+      audioPolicy: received.audioPolicy,
       defaultTranslations: new Map(),
-      status: "ready",
+      status: requiresProcessing ? "queued" : "ready",
+      progress: requiresProcessing ? 0 : 100,
+      processingStage: requiresProcessing ? "queued" : "ready",
       uploadedBy: toObjectId(actor.id),
     });
+    if (requiresProcessing) media.processingJobId = media.id;
     await media.save();
+    if (requiresProcessing) {
+      try {
+        await mediaQueue.enqueue(media.id, inspected.kind);
+      } catch (error) {
+        media.status = "failed";
+        media.processingStage = "failed";
+        media.processingError =
+          error instanceof Error
+            ? error.message.slice(0, 2_000)
+            : "The optimization job could not be queued.";
+        await media.save();
+      }
+    }
     return toAdminMediaDto(media, storageProvider);
   } catch (error) {
     if (storedKey !== undefined) {
@@ -245,6 +318,42 @@ export async function uploadMedia(
   } finally {
     await removeReceivedUpload(received);
   }
+}
+
+export async function retryMediaProcessing(
+  id: string,
+  mediaQueue: MediaJobQueue,
+  storageProvider: StorageProvider,
+): Promise<AdminMediaDto> {
+  const media = await MediaModel.findById(id).select("+sourceStorage");
+  if (media === null) {
+    throw new AppError(404, "MEDIA_NOT_FOUND", "The media record was not found.");
+  }
+  if (media.status !== "failed" || (media.kind !== "image" && media.kind !== "video")) {
+    throw new AppError(409, "MEDIA_RETRY_UNAVAILABLE", "Only failed image or video processing can be retried.");
+  }
+  if (
+    media.sourceStorage === undefined ||
+    media.sourceStorage.provider !== storageProvider.id ||
+    !(await storageProvider.exists(media.sourceStorage.key))
+  ) {
+    throw new AppError(409, "MEDIA_SOURCE_EXPIRED", "The private source has expired; upload the file again.");
+  }
+  media.status = "queued";
+  media.processingStage = "queued";
+  media.progress = 0;
+  media.processingJobId = media.id;
+  media.set("processingError", undefined);
+  await media.save();
+  try {
+    await mediaQueue.retry(media.id, media.kind);
+  } catch (error) {
+    media.status = "failed";
+    media.processingStage = "failed";
+    media.processingError = error instanceof Error ? error.message.slice(0, 2_000) : "The retry could not be queued.";
+    await media.save();
+  }
+  return toAdminMediaDto(media, storageProvider);
 }
 
 async function productRequiresVideoPoster(
@@ -709,8 +818,17 @@ export async function deleteMedia(
     );
   }
 
-  const media = await requireMedia(id);
-  if (media.storage.provider !== storageProvider.id) {
+  const media = await MediaModel.findById(id).select("+sourceStorage");
+  if (media === null) {
+    throw new AppError(404, "MEDIA_NOT_FOUND", "The media record was not found.");
+  }
+  const storedObjects = [
+    media.storage,
+    media.sourceStorage,
+    ...media.variants.map((variant) => variant.storage),
+    media.generatedPoster?.storage,
+  ].filter((value): value is NonNullable<typeof value> => value !== undefined);
+  if (storedObjects.some((stored) => stored.provider !== storageProvider.id)) {
     throw new AppError(
       503,
       "STORAGE_PROVIDER_UNAVAILABLE",
@@ -718,7 +836,11 @@ export async function deleteMedia(
     );
   }
   try {
-    await storageProvider.delete(media.storage.key);
+    await Promise.all(
+      [...new Set(storedObjects.map((stored) => stored.key))].map((key) =>
+        storageProvider.delete(key),
+      ),
+    );
   } catch {
     throw new AppError(
       503,

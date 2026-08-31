@@ -9,6 +9,7 @@ import {
 import { createHealthRouter } from "./health.js";
 import type { StorageProvider } from "../../storage/StorageProvider.js";
 import { createAdminMediaRouter } from "./media.js";
+import type { MediaJobQueue } from "../../media/mediaQueue.js";
 import { createAdminProductsRouter } from "./products.js";
 import {
   createPublicProductsRouter,
@@ -29,7 +30,8 @@ export function createV1Router(
   getDatabaseHealth: () => DatabaseHealth,
   config: AppConfig,
   now: (() => number) | undefined,
-  storageProvider: StorageProvider
+  storageProvider: StorageProvider,
+  mediaQueue?: MediaJobQueue,
 ): Router {
   const router = Router();
   router.use(createHealthRouter(getDatabaseHealth));
@@ -48,7 +50,7 @@ export function createV1Router(
   );
   router.use(
     "/admin/media",
-    createAdminMediaRouter(config, storageProvider, now ?? Date.now)
+    createAdminMediaRouter(config, storageProvider, mediaQueue, now ?? Date.now)
   );
   router.use(
     "/admin/products",

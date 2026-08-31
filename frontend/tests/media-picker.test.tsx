@@ -8,6 +8,7 @@ import * as mediaApi from "@/admin/media/api";
 vi.mock("@/admin/media/api", () => ({
   listMedia: vi.fn(),
   uploadMedia: vi.fn(),
+  watchMediaProcessing: vi.fn(),
 }));
 
 const uploaded: AdminMediaDto = {
@@ -99,5 +100,37 @@ describe("media picker", () => {
 
     await waitFor(() => expect(onSelect).toHaveBeenCalledWith(uploaded));
     expect(mediaApi.uploadMedia).toHaveBeenCalledOnce();
+  });
+
+  it("waits for optimization before selecting a newly uploaded asset", async () => {
+    const queued: AdminMediaDto = {
+      ...uploaded,
+      url: undefined,
+      status: "queued",
+      progress: 0,
+      processingStage: "queued",
+    };
+    vi.mocked(mediaApi.uploadMedia).mockResolvedValue(queued);
+    vi.mocked(mediaApi.watchMediaProcessing).mockImplementation(
+      async (_id, onUpdate) => {
+        onUpdate?.({ ...queued, status: "processing", progress: 64, processingStage: "creating-1280" });
+        return { ...uploaded, progress: 100, processingStage: "ready" };
+      },
+    );
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    render(<MediaPicker kind="image" onClose={vi.fn()} onSelect={onSelect} />);
+
+    await user.upload(
+      screen.getByLabelText("Upload new photo"),
+      new File(["image"], "product.png", { type: "image/png" }),
+    );
+
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ status: "ready" })));
+    expect(mediaApi.watchMediaProcessing).toHaveBeenCalledWith(
+      queued.id,
+      expect.any(Function),
+      expect.any(AbortSignal),
+    );
   });
 });

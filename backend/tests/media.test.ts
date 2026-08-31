@@ -12,6 +12,7 @@ import {
 } from "@maglive/contracts";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose from "mongoose";
+import sharp from "sharp";
 import request from "supertest";
 import {
   afterAll,
@@ -37,6 +38,8 @@ import { MediaModel } from "../src/models/Media.js";
 import { UserModel } from "../src/models/User.js";
 import { bootstrapAdministrator } from "../src/services/adminBootstrap.js";
 import { LocalStorageProvider } from "../src/storage/LocalStorageProvider.js";
+import type { MediaJobQueue } from "../src/media/mediaQueue.js";
+import { processMedia } from "../src/media/mediaProcessor.js";
 import type {
   SaveObjectInput,
   StorageProvider,
@@ -107,6 +110,7 @@ function pdf(): Buffer {
 async function authenticate(
   overrides: Parameters<typeof createTestConfig>[0] = {},
   storageProvider?: StorageProvider,
+  mediaQueue?: MediaJobQueue,
 ): Promise<AuthenticatedAgent> {
   await bootstrapAdministrator({
     email: "admin@example.com",
@@ -122,6 +126,7 @@ async function authenticate(
     config,
     sessionStore: createMongoSessionStore(config),
     ...(storageProvider === undefined ? {} : { storageProvider }),
+    ...(mediaQueue === undefined ? {} : { mediaQueue }),
   });
   const agent = request.agent(app);
   const csrfResponse = await agent.get("/api/v1/admin/auth/csrf").expect(200);
@@ -202,6 +207,56 @@ afterAll(async () => {
 }, 60_000);
 
 describe.sequential("secure media pipeline", () => {
+  it("queues images, keeps their source private, and creates responsive AVIF/WebP variants", async () => {
+    const queued: string[] = [];
+    const mediaQueue: MediaJobQueue = {
+      enqueue: async (mediaId) => {
+        queued.push(mediaId);
+        return mediaId;
+      },
+      retry: async (mediaId) => mediaId,
+      close: async () => undefined,
+    };
+    const provider = new LocalStorageProvider(
+      uploadRoot,
+      "http://localhost:5000/uploads",
+    );
+    const auth = await authenticate({}, provider, mediaQueue);
+    const source = await sharp({
+      create: {
+        width: 1_600,
+        height: 900,
+        channels: 3,
+        background: { r: 34, g: 139, b: 94 },
+      },
+    }).png().toBuffer();
+    const response = await auth.agent
+      .post("/api/v1/admin/media")
+      .set("Origin", frontendOrigin)
+      .set("X-CSRF-Token", auth.csrfToken)
+      .attach("file", source, { filename: "hero.png", contentType: "image/png" })
+      .expect(202);
+    const uploaded = apiSuccessSchema(adminMediaDtoSchema).parse(response.body).data;
+    expect(uploaded).toMatchObject({ status: "queued", progress: 0 });
+    expect(uploaded.url).toBeUndefined();
+    expect(queued).toEqual([uploaded.id]);
+    const staged = await MediaModel.findById(uploaded.id).select("+sourceStorage");
+    expect(staged?.sourceStorage?.key).toMatch(/^\.staging\//);
+
+    const config = createTestConfig({ mongoUri, uploadRoot });
+    await processMedia(uploaded.id, provider, config);
+    const readyResponse = await auth.agent
+      .get(`/api/v1/admin/media/${uploaded.id}`)
+      .expect(200);
+    const ready = apiSuccessSchema(adminMediaDtoSchema).parse(readyResponse.body).data;
+    expect(ready).toMatchObject({ status: "ready", progress: 100, mimeType: "image/webp" });
+    expect(ready.url).toMatch(/\/uploads\/images\//);
+    expect(ready.variants?.filter((variant) => variant.mimeType === "image/avif").map((variant) => variant.width)).toEqual([480, 768, 1280, 1600]);
+    expect(ready.variants?.filter((variant) => variant.mimeType === "image/webp").map((variant) => variant.width)).toEqual([480, 768, 1280, 1600]);
+    expect(ready.variants?.every((variant) => (variant.width ?? 0) <= 1_600)).toBe(true);
+    expect(staged?.sourceStorage === undefined ? false : await provider.exists(staged.sourceStorage.key)).toBe(false);
+  });
+
   it("accepts each approved signature, derives metadata, and stores no binary data in MongoDB", async () => {
     const auth = await authenticate();
     const candidates = [
@@ -257,6 +312,12 @@ describe.sequential("secure media pipeline", () => {
         status: 422,
       },
       {
+        value: png(),
+        name: "wrong.jpg",
+        mime: "image/png",
+        status: 422,
+      },
+      {
         value: Buffer.from("%PDF-1.7 without trailer"),
         name: "broken.pdf",
         mime: "application/pdf",
@@ -286,7 +347,7 @@ describe.sequential("secure media pipeline", () => {
         })
         .expect(candidate.status);
       expect(apiErrorSchema.parse(response.body).error.code).toMatch(
-        /INVALID_MEDIA_FILE|UNSUPPORTED_MEDIA_TYPE|MEDIA_TOO_LARGE/,
+        /INVALID_MEDIA_FILE|UNSUPPORTED_MEDIA_TYPE|MEDIA_TOO_LARGE|MEDIA_EXTENSION_MISMATCH/,
       );
     }
 

@@ -14,6 +14,7 @@ export type ReceivedMediaUpload = Readonly<{
   claimedMimeType: string;
   sizeBytes: number;
   checksum: string;
+  audioPolicy: "keep" | "remove";
 }>;
 
 const claimedLimits = new Map<string, keyof Pick<
@@ -65,14 +66,14 @@ export async function receiveMediaUpload(
           headers: request.headers,
           limits: {
             fieldNameSize: 100,
-            fields: 0,
+            fields: 1,
             files: 2,
             fileSize: Math.max(
               config.maxImageBytes,
               config.maxVideoBytes,
               config.maxDocumentBytes,
             ),
-            parts: 2,
+            parts: 3,
           },
         });
       } catch {
@@ -88,7 +89,8 @@ export async function receiveMediaUpload(
 
       let fileCount = 0;
       let failure: Error | undefined;
-      let result: ReceivedMediaUpload | undefined;
+      let result: Omit<ReceivedMediaUpload, "audioPolicy"> | undefined;
+      let audioPolicy: ReceivedMediaUpload["audioPolicy"] = "keep";
       const writes: Promise<void>[] = [];
 
       const fail = (error: Error): void => {
@@ -192,14 +194,21 @@ export async function receiveMediaUpload(
         });
       });
 
+      parser.on("field", (fieldName, value) => {
+        if (fieldName !== "audioPolicy" || (value !== "keep" && value !== "remove")) {
+          fail(
+            new AppError(
+              422,
+              "INVALID_UPLOAD_OPTION",
+              "Only audioPolicy=keep or audioPolicy=remove is accepted.",
+            ),
+          );
+          return;
+        }
+        audioPolicy = value;
+      });
       parser.once("fieldsLimit", () => {
-        fail(
-          new AppError(
-            422,
-            "UNEXPECTED_UPLOAD_FIELD",
-            "Text fields are not accepted with this upload.",
-          ),
-        );
+        fail(new AppError(422, "UNEXPECTED_UPLOAD_FIELD", "Only one upload option is accepted."));
       });
       parser.once("partsLimit", () => {
         fail(
@@ -246,7 +255,7 @@ export async function receiveMediaUpload(
               ),
             );
           } else {
-            resolve(result);
+            resolve({ ...result, audioPolicy });
           }
         });
       });

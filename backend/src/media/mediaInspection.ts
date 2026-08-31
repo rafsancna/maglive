@@ -1,4 +1,5 @@
 import { open, stat } from "node:fs/promises";
+import path from "node:path";
 import type { MediaKind } from "@maglive/contracts";
 import { AppError } from "../errors/AppError.js";
 
@@ -17,6 +18,15 @@ const supportedMimeTypes = new Set([
   "video/mp4",
   "video/webm",
   "application/pdf",
+]);
+
+const allowedExtensions = new Map<string, ReadonlySet<string>>([
+  ["image/jpeg", new Set([".jpg", ".jpeg"])],
+  ["image/png", new Set([".png"])],
+  ["image/webp", new Set([".webp"])],
+  ["video/mp4", new Set([".mp4"])],
+  ["video/webm", new Set([".webm"])],
+  ["application/pdf", new Set([".pdf"])],
 ]);
 
 function isPrefix(buffer: Buffer, bytes: readonly number[]): boolean {
@@ -99,6 +109,7 @@ function invalidMedia(message: string): never {
 export async function inspectMediaFile(
   filePath: string,
   claimedMimeType: string,
+  originalName?: string,
 ): Promise<InspectedMedia> {
   const normalizedMimeType = claimedMimeType.toLowerCase();
   if (!supportedMimeTypes.has(normalizedMimeType)) {
@@ -106,6 +117,16 @@ export async function inspectMediaFile(
       415,
       "UNSUPPORTED_MEDIA_TYPE",
       "Only JPEG, PNG, WebP, MP4, WebM, and PDF files are supported.",
+    );
+  }
+  if (
+    originalName !== undefined &&
+    !allowedExtensions.get(normalizedMimeType)?.has(path.extname(originalName).toLowerCase())
+  ) {
+    throw new AppError(
+      422,
+      "MEDIA_EXTENSION_MISMATCH",
+      "The file extension does not match the uploaded media type.",
     );
   }
   const details = await stat(filePath);

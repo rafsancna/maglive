@@ -215,7 +215,11 @@ function publicMedia(
   media: MediaDocument,
   storageProvider: StorageProvider,
 ): PublicMediaDto {
-  if (media.status !== "ready" || media.storage.provider !== storageProvider.id) {
+  if (
+    media.status !== "ready" ||
+    media.storage === undefined ||
+    media.storage.provider !== storageProvider.id
+  ) {
     throw new AppError(
       503,
       "PUBLIC_MEDIA_UNAVAILABLE",
@@ -229,6 +233,19 @@ function publicMedia(
     mimeType: media.mimeType,
     ...(media.width === undefined ? {} : { width: media.width }),
     ...(media.height === undefined ? {} : { height: media.height }),
+    ...(media.variants.length === 0
+      ? {}
+      : {
+          variants: media.variants.map((variant) => ({
+            label: variant.label,
+            url: storageProvider.getPublicUrl(variant.storage.key),
+            mimeType: variant.mimeType,
+            sizeBytes: variant.sizeBytes,
+            ...(variant.width === undefined ? {} : { width: variant.width }),
+            ...(variant.height === undefined ? {} : { height: variant.height }),
+            ...(variant.codec === undefined ? {} : { codec: variant.codec }),
+          })),
+        }),
   };
 }
 
@@ -338,12 +355,25 @@ function mapMediaUsage(
     fallbackFields,
   );
   const poster =
-    media.posterMediaId === undefined
-      ? undefined
-      : publicMedia(
-          requireMedia(media.posterMediaId, mediaById),
-          storageProvider,
-        );
+    media.posterMediaId !== undefined
+      ? publicMedia(requireMedia(media.posterMediaId, mediaById), storageProvider)
+      : media.generatedPoster === undefined
+        ? undefined
+        : {
+            label: media.generatedPoster.label,
+            url: storageProvider.getPublicUrl(media.generatedPoster.storage.key),
+            mimeType: media.generatedPoster.mimeType,
+            sizeBytes: media.generatedPoster.sizeBytes,
+            ...(media.generatedPoster.width === undefined
+              ? {}
+              : { width: media.generatedPoster.width }),
+            ...(media.generatedPoster.height === undefined
+              ? {}
+              : { height: media.generatedPoster.height }),
+            ...(media.generatedPoster.codec === undefined
+              ? {}
+              : { codec: media.generatedPoster.codec }),
+          };
   return {
     ...publicMedia(media, storageProvider),
     role: usage.role,

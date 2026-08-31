@@ -9,9 +9,11 @@
   "scripts": {
     "predev": "npm run build -w @maglive/contracts",
     "dev": "tsx watch src/server.ts",
+    "worker:media": "tsx watch src/mediaWorker.ts",
     "prebuild": "npm run build -w @maglive/contracts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
+    "start:worker": "node dist/mediaWorker.js",
     "admin:create": "npm run build -w @maglive/contracts && tsx src/scripts/createAdmin.ts",
     "e2e:server": "tsx src/scripts/e2eServer.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
@@ -23,6 +25,7 @@
   "dependencies": {
     "@maglive/contracts": "*",
     "argon2": "^0.45.1",
+    "bullmq": "^6.3.2",
     "busboy": "1.6.0",
     "cheerio": "^1.2.0",
     "connect-mongo": "^6.0.0",
@@ -32,9 +35,11 @@
     "express-rate-limit": "^8.6.2",
     "express-session": "^1.19.0",
     "helmet": "8.3.0",
+    "ioredis": "^6.0.0",
     "mongoose": "9.9.4",
     "pino": "10.3.1",
     "pino-http": "11.0.0",
+    "sharp": "^0.35.4",
     "yoastseo": "^3.6.0",
     "zod": "4.4.3"
   },

@@ -14,12 +14,15 @@ import {
   deleteMedia,
   getMediaUsages,
   listMedia,
+  retryMedia,
   updateMedia,
   uploadMedia,
+  watchMediaProcessing,
 } from "./api";
 import { MediaPicker } from "./MediaPicker";
 import { MediaPreview } from "./MediaPreview";
 import { useLanguages } from "../languages/LanguageProvider";
+import { mediaStageLabel, savedPercentage } from "./processing";
 
 type TranslationFields = {
   title: string;
@@ -154,6 +157,7 @@ export function MediaLibrary() {
   const [notice, setNotice] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [processingMedia, setProcessingMedia] = useState<AdminMediaDto | null>(null);
   const [lastFile, setLastFile] = useState<File | null>(null);
   const [posterPickerOpen, setPosterPickerOpen] = useState(false);
   const uploadAbort = useRef<AbortController | null>(null);
@@ -171,6 +175,14 @@ export function MediaLibrary() {
   );
   const usagesLoading =
     selected !== undefined && usageResult?.mediaId !== selected.id;
+  const pendingMediaIds = items
+    .filter(
+      (item) =>
+        (item.status === "queued" || item.status === "processing") &&
+        item.id !== processingMedia?.id,
+    )
+    .map((item) => item.id)
+    .join("|");
 
   useEffect(() => {
     let active = true;
@@ -203,6 +215,28 @@ export function MediaLibrary() {
       active = false;
     };
   }, [kind, locale, page, search]);
+
+  useEffect(() => {
+    const controllers = pendingMediaIds === "" ? [] : pendingMediaIds.split("|").map((mediaId) => {
+      const controller = new AbortController();
+      void watchMediaProcessing(
+        mediaId,
+        (updated) => {
+          setItems((current) =>
+            current.map((candidate) => (candidate.id === updated.id ? updated : candidate)),
+          );
+          setProcessingMedia((current) => current?.id === updated.id ? updated : current);
+        },
+        controller.signal,
+      ).catch((reason: unknown) => {
+        if (!(reason instanceof AdminApiError && reason.code === "PROCESSING_ABORTED")) {
+          setError(mediaError(reason));
+        }
+      });
+      return controller;
+    });
+    return () => controllers.forEach((controller) => controller.abort());
+  }, [pendingMediaIds]);
 
   useEffect(() => {
     if (selected === undefined) return;
@@ -264,16 +298,54 @@ export function MediaLibrary() {
       setTranslation(translationFor(uploaded, locale));
       setUploadProgress(100);
       setLastFile(null);
-      setNotice(
-        replacement
-          ? "Replacement uploaded as a new immutable asset. Update each desired reference explicitly; the old asset remains intact."
-          : "Media uploaded and ready.",
-      );
+      setUploading(false);
+      let completed = uploaded;
+      if (uploaded.status === "queued" || uploaded.status === "processing") {
+        setProcessingMedia(uploaded);
+        completed = await watchMediaProcessing(uploaded.id, (updated) => {
+          replaceItem(updated);
+          setProcessingMedia(updated);
+        });
+      }
+      replaceItem(completed);
+      if (completed.status === "failed") {
+        setError(completed.processingError ?? "Media optimization failed.");
+      } else {
+        setNotice(
+          replacement
+            ? "Replacement optimized as a new immutable asset. Update each desired reference explicitly; the old asset remains intact."
+            : "Media optimized and ready.",
+        );
+      }
     } catch (reason) {
       setError(mediaError(reason));
     } finally {
       uploadAbort.current = null;
       setUploading(false);
+      setProcessingMedia(null);
+      setBusy(false);
+    }
+  }
+
+  async function retrySelectedProcessing(): Promise<void> {
+    if (selected === undefined) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const queued = await retryMedia(selected.id);
+      replaceItem(queued);
+      setProcessingMedia(queued);
+      const completed = await watchMediaProcessing(queued.id, (updated) => {
+        replaceItem(updated);
+        setProcessingMedia(updated);
+      });
+      replaceItem(completed);
+      if (completed.status === "failed") setError(completed.processingError ?? "Media optimization failed.");
+      else setNotice("Media optimization completed successfully.");
+    } catch (reason) {
+      setError(mediaError(reason));
+    } finally {
+      setProcessingMedia(null);
       setBusy(false);
     }
   }
@@ -386,14 +458,14 @@ export function MediaLibrary() {
         </label>
       </header>
 
-      {uploadProgress === null ? null : (
+      {uploadProgress === null && processingMedia === null ? null : (
         <div className="media-upload-progress">
           <div>
-            <strong>Upload progress</strong>
-            <span>{uploadProgress}%</span>
+            <strong>{processingMedia === null ? "Uploading" : mediaStageLabel(processingMedia)}</strong>
+            <span>{processingMedia?.progress ?? uploadProgress ?? 0}%</span>
           </div>
-          <progress max="100" value={uploadProgress}>
-            {uploadProgress}%
+          <progress aria-label="Upload and optimization progress" max="100" value={processingMedia?.progress ?? uploadProgress ?? 0}>
+            {processingMedia?.progress ?? uploadProgress ?? 0}%
           </progress>
           {uploading ? (
             <button onClick={() => uploadAbort.current?.abort()} type="button">
@@ -523,11 +595,30 @@ export function MediaLibrary() {
               <span className="admin-kicker">{selected.kind}</span>
               <h2>{selected.originalName}</h2>
               <p>
-                {formatBytes(selected.sizeBytes)}
+                {formatBytes(selected.originalSizeBytes ?? selected.sizeBytes)}
                 {selected.width === undefined
                   ? ""
                   : ` · ${selected.width} × ${selected.height}`}
               </p>
+            </div>
+
+            <div className="media-inspector__section media-processing-details">
+              <strong>{mediaStageLabel(selected)}</strong>
+              <progress aria-label="Selected media processing progress" max="100" value={selected.progress ?? (selected.status === "ready" ? 100 : 0)}>{selected.progress ?? (selected.status === "ready" ? 100 : 0)}%</progress>
+              {selected.optimizedSizeBytes === undefined ? null : (
+                <p>
+                  Original: {formatBytes(selected.originalSizeBytes ?? selected.sizeBytes)} · Optimized: {formatBytes(selected.optimizedSizeBytes)}
+                  {savedPercentage(selected) === undefined ? "" : ` · Saved: ${savedPercentage(selected)!.toFixed(1)}%`}
+                </p>
+              )}
+              {selected.processingError === undefined ? null : (
+                <p className="media-processing-error" role="alert">{selected.processingError}</p>
+              )}
+              {selected.status === "failed" ? (
+                <button className="admin-button admin-button--quiet" disabled={busy} onClick={() => void retrySelectedProcessing()} type="button">
+                  Retry optimization
+                </button>
+              ) : null}
             </div>
 
             <div
@@ -597,7 +688,7 @@ export function MediaLibrary() {
               </label>
               <button
                 className="admin-button admin-button--primary"
-                disabled={busy}
+                disabled={busy || selected.status !== "ready"}
                 onClick={() => void saveMetadata()}
                 type="button"
               >
@@ -694,7 +785,7 @@ export function MediaLibrary() {
               </label>
               <button
                 className="admin-button admin-button--danger"
-                disabled={busy || usages.length > 0}
+                disabled={busy || usages.length > 0 || (selected.status !== "ready" && selected.status !== "failed")}
                 onClick={() => void removeSelected()}
                 type="button"
               >

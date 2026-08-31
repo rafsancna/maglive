@@ -78,6 +78,94 @@ export function deleteMedia(id: string, version: number): Promise<void> {
   ).then(() => undefined);
 }
 
+export function retryMedia(id: string): Promise<AdminMediaDto> {
+  return requestAdminMutation(
+    `/admin/media/${id}/retry`,
+    adminMediaDtoSchema,
+    "POST",
+  );
+}
+
+export function watchMediaProcessing(
+  id: string,
+  onUpdate?: (media: AdminMediaDto) => void,
+  signal?: AbortSignal,
+): Promise<AdminMediaDto> {
+  if (signal?.aborted === true) {
+    return Promise.reject(
+      new AdminApiError(
+        0,
+        "PROCESSING_ABORTED",
+        "Stopped watching media processing.",
+      ),
+    );
+  }
+  return new Promise((resolve, reject) => {
+    const source = new EventSource(
+      `${getAdminApiBaseUrl()}/admin/media/${id}/events`,
+      { withCredentials: true },
+    );
+    let settled = false;
+    let polling = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    const close = () => {
+      source.close();
+      if (pollTimer !== undefined) clearTimeout(pollTimer);
+      signal?.removeEventListener("abort", abort);
+    };
+    const finish = (media: AdminMediaDto) => {
+      if (settled) return;
+      onUpdate?.(media);
+      if (media.status !== "ready" && media.status !== "failed") return;
+      settled = true;
+      close();
+      resolve(media);
+    };
+    const poll = async (): Promise<void> => {
+      if (settled) return;
+      try {
+        const media = await getMedia(id);
+        finish(media);
+        if (!settled) pollTimer = setTimeout(() => void poll(), 1_000);
+      } catch (reason) {
+        if (settled) return;
+        settled = true;
+        close();
+        reject(reason);
+      }
+    };
+    const startPolling = () => {
+      if (settled || polling) return;
+      polling = true;
+      source.close();
+      void poll();
+    };
+    const abort = () => {
+      if (settled) return;
+      settled = true;
+      close();
+      reject(new AdminApiError(0, "PROCESSING_ABORTED", "Stopped watching media processing."));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    source.addEventListener("media", (event) => {
+      let payload: unknown;
+      try {
+        payload = JSON.parse((event as MessageEvent<string>).data) as unknown;
+      } catch {
+        return;
+      }
+      const parsed = adminMediaDtoSchema.safeParse(payload);
+      if (!parsed.success) return;
+      finish(parsed.data);
+    });
+    source.addEventListener("error", () => {
+      if (source.readyState === EventSource.CLOSED) {
+        startPolling();
+      }
+    });
+  });
+}
+
 function parseUploadResponse(xhr: XMLHttpRequest): AdminMediaDto {
   let payload: unknown;
   try {
@@ -120,6 +208,7 @@ export async function uploadMedia(
   file: File,
   onProgress: (percentage: number) => void,
   signal?: AbortSignal,
+  audioPolicy: "keep" | "remove" = "keep",
 ): Promise<AdminMediaDto> {
   if (signal?.aborted === true) {
     throw new AdminApiError(
@@ -168,6 +257,7 @@ export async function uploadMedia(
     });
     const form = new FormData();
     form.set("file", file);
+    if (audioPolicy === "remove") form.set("audioPolicy", audioPolicy);
     xhr.send(form);
   });
 }

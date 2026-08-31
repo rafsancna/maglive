@@ -7,7 +7,7 @@ import {
   getCurrentCsrfToken,
   setCurrentCsrfToken,
 } from "@/admin/auth/api";
-import { uploadMedia } from "@/admin/media/api";
+import { uploadMedia, watchMediaProcessing } from "@/admin/media/api";
 
 class FakeXmlHttpRequest extends EventTarget {
   static instances: FakeXmlHttpRequest[] = [];
@@ -33,6 +33,23 @@ class FakeXmlHttpRequest extends EventTarget {
 
   setRequestHeader(name: string, value: string): void {
     this.headers.set(name, value);
+  }
+}
+
+class FakeEventSource extends EventTarget {
+  static readonly CLOSED = 2;
+  static instances: FakeEventSource[] = [];
+  readonly close = vi.fn(() => {
+    this.readyState = FakeEventSource.CLOSED;
+  });
+  readyState = 0;
+
+  constructor(
+    public readonly url: string,
+    public readonly options?: EventSourceInit,
+  ) {
+    super();
+    FakeEventSource.instances.push(this);
   }
 }
 
@@ -63,9 +80,11 @@ async function currentRequest(): Promise<FakeXmlHttpRequest> {
 
 beforeEach(() => {
   FakeXmlHttpRequest.instances = [];
+  FakeEventSource.instances = [];
   clearCurrentCsrfToken();
   setCurrentCsrfToken("authenticated-csrf-token-value-000001");
   vi.stubGlobal("XMLHttpRequest", FakeXmlHttpRequest);
+  vi.stubGlobal("EventSource", FakeEventSource);
 });
 
 describe("media upload API client", () => {
@@ -163,5 +182,51 @@ describe("media upload API client", () => {
     window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, countExpiry);
     expect(getCurrentCsrfToken()).toBeNull();
     expect(expiryEvents).toBe(1);
+  });
+
+  it("subscribes with credentials and resolves persistent processing updates", async () => {
+    const onUpdate = vi.fn();
+    const pending = watchMediaProcessing(uploadedMedia.id, onUpdate);
+    const source = FakeEventSource.instances[0];
+    expect(source).toBeDefined();
+    expect(source?.url).toBe(`${getAdminApiBaseUrl()}/admin/media/${uploadedMedia.id}/events`);
+    expect(source?.options).toEqual({ withCredentials: true });
+    source?.dispatchEvent(
+      new MessageEvent("media", {
+        data: JSON.stringify({ ...uploadedMedia, status: "ready", progress: 100 }),
+      }),
+    );
+    await expect(pending).resolves.toMatchObject({ status: "ready", progress: 100 });
+    expect(onUpdate).toHaveBeenCalledOnce();
+    expect(source?.close).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to authenticated polling when the progress stream closes", async () => {
+    const onUpdate = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: { ...uploadedMedia, status: "ready", progress: 100 },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = watchMediaProcessing(uploadedMedia.id, onUpdate);
+    const source = FakeEventSource.instances[0];
+    expect(source).toBeDefined();
+    if (source !== undefined) source.readyState = FakeEventSource.CLOSED;
+    source?.dispatchEvent(new Event("error"));
+
+    await expect(pending).resolves.toMatchObject({ status: "ready", progress: 100 });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${getAdminApiBaseUrl()}/admin/media/${uploadedMedia.id}`,
+      expect.objectContaining({ cache: "no-store", credentials: "include" }),
+    );
+    expect(onUpdate).toHaveBeenCalledOnce();
   });
 });

@@ -347,7 +347,7 @@ async function validateMedia(
       );
     }
     if (reference.expectedKind === "video") {
-      if (media.posterMediaId === undefined) {
+      if (media.posterMediaId === undefined && media.generatedPoster === undefined) {
         errors.push(
           issue(
             "error",
@@ -356,7 +356,7 @@ async function validateMedia(
             "Published product videos require a ready image poster.",
           ),
         );
-      } else {
+      } else if (media.posterMediaId !== undefined) {
         const poster =
           mediaById.get(media.posterMediaId.toString()) ??
           (await MediaModel.findById(media.posterMediaId).session(session));

@@ -46,6 +46,13 @@ const environmentSchema = z.object({
   MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(15 * 1024 * 1024),
   MAX_VIDEO_BYTES: z.coerce.number().int().positive().default(250 * 1024 * 1024),
   MAX_DOCUMENT_BYTES: z.coerce.number().int().positive().default(50 * 1024 * 1024),
+  REDIS_URL: z.url().default("redis://127.0.0.1:6379"),
+  FFMPEG_PATH: z.string().min(1).default("ffmpeg"),
+  FFPROBE_PATH: z.string().min(1).default("ffprobe"),
+  IMAGE_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
+  VIDEO_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
+  MEDIA_JOB_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+  MEDIA_SOURCE_RETENTION_HOURS: z.coerce.number().int().min(1).max(720).default(72),
   NEXT_REVALIDATION_URL: z.url(),
   NEXT_REVALIDATION_SECRET: secretSchema,
   TRUST_PROXY: trustProxySchema.default(false),
@@ -85,6 +92,13 @@ export type AppConfig = Readonly<{
   maxImageBytes: number;
   maxVideoBytes: number;
   maxDocumentBytes: number;
+  redisUrl: string;
+  ffmpegPath: string;
+  ffprobePath: string;
+  imageWorkerConcurrency: number;
+  videoWorkerConcurrency: number;
+  mediaJobAttempts: number;
+  mediaSourceRetentionMs: number;
   nextRevalidationUrl: string;
   nextRevalidationSecret: string;
   trustProxy: false | number;
@@ -132,6 +146,13 @@ export function loadConfig(environment: NodeJS.ProcessEnv): AppConfig {
     maxImageBytes: result.data.MAX_IMAGE_BYTES,
     maxVideoBytes: result.data.MAX_VIDEO_BYTES,
     maxDocumentBytes: result.data.MAX_DOCUMENT_BYTES,
+    redisUrl: result.data.REDIS_URL,
+    ffmpegPath: result.data.FFMPEG_PATH,
+    ffprobePath: result.data.FFPROBE_PATH,
+    imageWorkerConcurrency: result.data.IMAGE_WORKER_CONCURRENCY,
+    videoWorkerConcurrency: result.data.VIDEO_WORKER_CONCURRENCY,
+    mediaJobAttempts: result.data.MEDIA_JOB_ATTEMPTS,
+    mediaSourceRetentionMs: result.data.MEDIA_SOURCE_RETENTION_HOURS * 60 * 60 * 1_000,
     nextRevalidationUrl: result.data.NEXT_REVALIDATION_URL,
     nextRevalidationSecret: result.data.NEXT_REVALIDATION_SECRET,
     trustProxy: result.data.TRUST_PROXY,

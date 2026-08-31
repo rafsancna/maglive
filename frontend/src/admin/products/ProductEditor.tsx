@@ -840,7 +840,7 @@ export function ProductEditor({ productId }: EditorProps) {
         <span>{dirty ? "Unsaved changes" : "All changes saved"}</span>
         <button className="admin-button admin-button--primary" disabled={!canSave} form="product-editor-form" type="submit">{saving ? "Saving..." : "Save Draft"}</button>
       </footer>
-      {mediaPickerRole !== null && activeMediaField !== undefined ? <MediaPicker kind={activeMediaField.kind} onClose={() => setMediaPickerRole(null)} onSelect={assignMedia} {...(selectedMediaId === undefined ? {} : { selectedId: selectedMediaId })} title={`Choose ${activeMediaField.label.toLowerCase()}`} /> : null}
+      {mediaPickerRole !== null && activeMediaField !== undefined ? <MediaPicker audioPolicy={mediaPickerRole === "backgroundVideo" ? "remove" : "keep"} kind={activeMediaField.kind} onClose={() => setMediaPickerRole(null)} onSelect={assignMedia} {...(selectedMediaId === undefined ? {} : { selectedId: selectedMediaId })} title={`Choose ${activeMediaField.label.toLowerCase()}`} /> : null}
     </section>
   );
 }

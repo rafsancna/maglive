@@ -16,6 +16,8 @@ vi.mock("@/admin/media/api", () => ({
   listMedia: vi.fn(),
   updateMedia: vi.fn(),
   uploadMedia: vi.fn(),
+  retryMedia: vi.fn(),
+  watchMediaProcessing: vi.fn(),
 }));
 
 const timestamp = "2026-08-26T00:00:00.000Z";
@@ -119,11 +121,11 @@ describe("media library", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /retry without selecting/i,
     );
-    expect(screen.getByRole("progressbar")).toHaveAttribute("value", "52");
+    expect(screen.getByRole("progressbar", { name: "Upload and optimization progress" })).toHaveAttribute("value", "52");
     await user.click(screen.getByRole("button", { name: "Retry upload" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Media uploaded and ready.",
+      "Media optimized and ready.",
     );
     expect(mediaApi.uploadMedia).toHaveBeenCalledTimes(2);
   });

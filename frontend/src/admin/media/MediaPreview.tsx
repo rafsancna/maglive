@@ -8,16 +8,33 @@ export function MediaPreview({
   media: AdminMediaDto;
   compact?: boolean;
 }) {
-  if (media.kind === "image") {
+  if (media.status !== "ready" || media.url === undefined) {
     return (
-      <Image
-        alt={media.defaultTranslations.en?.alt ?? media.originalName}
-        className="media-preview__asset"
-        height={media.height ?? 800}
-        sizes={compact ? "12rem" : "(max-width: 768px) 100vw, 40vw"}
-        src={media.url}
-        width={media.width ?? 1200}
-      />
+      <div className="media-preview__processing" role="status">
+        <span>{media.status === "failed" ? "!" : `${media.progress ?? 0}%`}</span>
+        <strong>{media.processingStage ?? media.status}</strong>
+      </div>
+    );
+  }
+  if (media.kind === "image") {
+    const avif = media.variants?.filter((variant) => variant.mimeType === "image/avif");
+    const webp = media.variants?.filter((variant) => variant.mimeType === "image/webp");
+    const srcSet = (variants: typeof avif) =>
+      variants?.map((variant) => `${variant.url} ${variant.width ?? media.width ?? 1}w`).join(", ");
+    return (
+      <picture>
+        {avif && avif.length > 0 ? <source srcSet={srcSet(avif)} type="image/avif" /> : null}
+        {webp && webp.length > 0 ? <source srcSet={srcSet(webp)} type="image/webp" /> : null}
+        <Image
+          alt={media.defaultTranslations.en?.alt ?? media.originalName}
+          className="media-preview__asset"
+          height={media.height ?? 800}
+          sizes={compact ? "12rem" : "(max-width: 768px) 100vw, 40vw"}
+          src={media.url}
+          unoptimized
+          width={media.width ?? 1200}
+        />
+      </picture>
     );
   }
   if (media.kind === "video") {
@@ -28,6 +45,7 @@ export function MediaPreview({
         controls={!compact}
         muted
         preload={compact ? "metadata" : "none"}
+        poster={media.generatedPoster?.url}
       >
         <source src={media.url} type={media.mimeType} />
       </video>
