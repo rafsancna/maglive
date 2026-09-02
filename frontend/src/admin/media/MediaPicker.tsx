@@ -6,6 +6,7 @@ import { AdminApiError } from "../auth/api";
 import { listMedia, uploadMedia, watchMediaProcessing } from "./api";
 import { MediaPreview } from "./MediaPreview";
 import { mediaStageLabel } from "./processing";
+import { SelectedMediaSummary } from "./SelectedMediaSummary";
 
 const MEDIA_KIND_COPY: Record<
   MediaKind,
@@ -67,6 +68,8 @@ export function MediaPicker({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processing, setProcessing] = useState<AdminMediaDto | null>(null);
+  const [pendingId, setPendingId] = useState<string | undefined>(selectedId);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const uploadAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -102,12 +105,13 @@ export function MediaPicker({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose, uploading]);
 
-  async function uploadAndUse(file: File): Promise<void> {
+  async function uploadToLibrary(file: File): Promise<void> {
     const controller = new AbortController();
     uploadAbort.current = controller;
     setUploading(true);
     setUploadProgress(0);
     setError(null);
+    setUploadMessage(null);
     try {
       let uploaded = await uploadMedia(
         file,
@@ -118,7 +122,11 @@ export function MediaPicker({
       setUploadProgress(100);
       if (uploaded.status === "queued" || uploaded.status === "processing") {
         setProcessing(uploaded);
-        uploaded = await watchMediaProcessing(uploaded.id, setProcessing, controller.signal);
+        uploaded = await watchMediaProcessing(
+          uploaded.id,
+          setProcessing,
+          controller.signal,
+        );
       }
       if (uploaded.status === "failed") {
         setError(uploaded.processingError ?? "Media optimization failed.");
@@ -130,7 +138,15 @@ export function MediaPicker({
         );
         return;
       }
-      onSelect(uploaded);
+      setSearch("");
+      setItems((current) => [
+        uploaded,
+        ...current.filter((media) => media.id !== uploaded.id),
+      ]);
+      setPendingId(undefined);
+      setUploadMessage(
+        `${uploaded.originalName} is ready in the library. Select it below, then confirm your choice.`,
+      );
     } catch (reason) {
       setError(mediaError(reason));
     } finally {
@@ -148,6 +164,7 @@ export function MediaPicker({
           .map(({ accept }) => accept)
           .join(",")
       : MEDIA_KIND_COPY[kind].accept;
+  const pendingMedia = items.find((media) => media.id === pendingId);
 
   return (
     <div
@@ -166,20 +183,29 @@ export function MediaPicker({
       <div className="media-picker__panel">
         <header>
           <div>
-            <span className="admin-kicker">Media library · {categoryLabel}</span>
+            <span className="admin-kicker">
+              Media library · {categoryLabel}
+            </span>
             <h2 id="media-picker-title">{title}</h2>
-            <p>Select an existing asset or upload a new one without leaving this page.</p>
+            <p>
+              Upload files to the library, choose an asset from the grid, then
+              confirm your selection.
+            </p>
           </div>
           <div className="media-picker__header-actions">
             <label className="admin-button admin-button--primary media-upload-button">
-              <span>{uploading ? `${processing === null ? "Uploading" : "Optimizing"} ${processing?.progress ?? uploadProgress}%` : "Upload new"}</span>
+              <span>
+                {uploading
+                  ? `${processing === null ? "Uploading" : "Optimizing"} ${processing?.progress ?? uploadProgress}%`
+                  : "Upload new"}
+              </span>
               <input
                 accept={acceptedFiles}
                 aria-label={`Upload new ${kind === undefined ? "media" : MEDIA_KIND_COPY[kind].singular}`}
                 disabled={uploading}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-                  if (file !== undefined) void uploadAndUse(file);
+                  if (file !== undefined) void uploadToLibrary(file);
                   event.target.value = "";
                 }}
                 type="file"
@@ -200,7 +226,11 @@ export function MediaPicker({
         {uploading ? (
           <div className="media-picker__upload" role="status">
             <div>
-              <strong>{processing === null ? "Uploading and validating asset" : mediaStageLabel(processing)}</strong>
+              <strong>
+                {processing === null
+                  ? "Uploading and validating asset"
+                  : mediaStageLabel(processing)}
+              </strong>
               <span>{processing?.progress ?? uploadProgress}%</span>
             </div>
             <progress max="100" value={processing?.progress ?? uploadProgress}>
@@ -211,6 +241,13 @@ export function MediaPicker({
             </button>
           </div>
         ) : null}
+
+        {uploadMessage === null ? null : (
+          <div className="media-picker__upload-complete" role="status">
+            <strong>Upload complete</strong>
+            <span>{uploadMessage}</span>
+          </div>
+        )}
 
         <div className="media-picker__toolbar">
           <label className="admin-field">
@@ -247,17 +284,56 @@ export function MediaPicker({
         <div className="media-picker__grid">
           {items.map((media) => (
             <button
-              aria-pressed={media.id === selectedId}
+              aria-pressed={media.id === pendingId}
               key={media.id}
-              onClick={() => onSelect(media)}
+              onClick={() => {
+                setPendingId(media.id);
+                setUploadMessage(null);
+              }}
               type="button"
             >
               <MediaPreview compact media={media} />
-              <span>{media.defaultTranslations.en?.title ?? media.originalName}</span>
-              <small>{media.originalName} · {mediaDetails(media)}</small>
+              <span>
+                {media.defaultTranslations.en?.title ?? media.originalName}
+              </span>
+              <small>
+                {media.originalName} · {mediaDetails(media)}
+              </small>
             </button>
           ))}
         </div>
+        <footer className="media-picker__footer">
+          <div aria-live="polite">
+            {pendingMedia === undefined ? (
+              <div className="media-picker__selection-empty">
+                <strong>Select an asset from the library</strong>
+                <span>Its preview and filename will appear here.</span>
+              </div>
+            ) : (
+              <SelectedMediaSummary media={pendingMedia} mediaId={pendingMedia.id} />
+            )}
+          </div>
+          <div>
+            <button
+              className="admin-button admin-button--quiet"
+              disabled={uploading}
+              onClick={onClose}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="admin-button admin-button--primary"
+              disabled={uploading || pendingMedia === undefined}
+              onClick={() => {
+                if (pendingMedia !== undefined) onSelect(pendingMedia);
+              }}
+              type="button"
+            >
+              Confirm selection
+            </button>
+          </div>
+        </footer>
       </div>
     </div>
   );

@@ -16,6 +16,11 @@ import {
   type PublicSitemapEntriesDto,
   type LanguageListDto,
   type NavigationData,
+  publicNewsDetailDtoSchema,
+  publicNewsListDtoSchema,
+  type PublicNewsDetailDto,
+  type PublicNewsListDto,
+  type PublicNewsListQuery,
 } from "@maglive/contracts";
 import type { z } from "zod";
 
@@ -105,4 +110,17 @@ export function getPublicLanguages(): Promise<LanguageListDto> {
 
 export function getPublicNavigation(): Promise<NavigationData> {
   return request("/public/navigation", navigationDataSchema);
+}
+
+export function listPublicNews(query: PublicNewsListQuery): Promise<PublicNewsListDto> {
+  const parameters = new URLSearchParams({ page: String(query.page), limit: String(query.limit), locale: query.locale });
+  if (query.category !== undefined) parameters.set("category", query.category);
+  if (query.tag !== undefined) parameters.set("tag", query.tag);
+  if (query.search !== undefined) parameters.set("search", query.search);
+  if (query.featured !== undefined) parameters.set("featured", String(query.featured));
+  return request(`/public/news?${parameters}`, publicNewsListDtoSchema).then((result) => { assertAllowedMediaOrigins(result); return result; });
+}
+
+export function getPublicNews(slug: string, locale: string): Promise<PublicNewsDetailDto> {
+  return request(`/public/news/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`, publicNewsDetailDtoSchema).then((result) => { assertAllowedMediaOrigins(result); return result; });
 }

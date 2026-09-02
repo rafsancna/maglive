@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AdminApiError } from "../auth/api";
 import { useLanguages } from "../languages/LanguageProvider";
 import { MediaPicker } from "../media/MediaPicker";
+import { SelectedMediaSummary } from "../media/SelectedMediaSummary";
 import { getNavigation, updateNavigation } from "./api";
 
 type MenuTab = "products" | "solutions" | "cases" | "news" | "documents" | "services";
@@ -96,12 +97,14 @@ function TextPair({ label, value, onChange }: { label: string; value: Readonly<R
 function ImageFields({ item, onChange }: { item: NavigationProduct; onChange: (next: NavigationProduct) => void }) {
   const image = item.image;
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickedMedia, setPickedMedia] = useState<AdminMediaDto | null>(null);
   function selectMedia(media: AdminMediaDto): void {
     if (media.url === undefined) return;
+    setPickedMedia(media);
     onChange({ ...item, image: { src: media.url, alt: image?.alt ?? item.label, width: media.width ?? image?.width ?? 1200, height: media.height ?? image?.height ?? 800, mediaId: media.id } });
     setPickerOpen(false);
   }
-  return <fieldset className="admin-navigation__image-fields"><legend>Featured image</legend><div className="admin-navigation__image-actions"><button className="admin-button admin-button--quiet" onClick={() => setPickerOpen(true)} type="button">Choose from media library</button>{image?.mediaId ? <small>Linked media: {image.mediaId}</small> : null}</div><label className="admin-field"><span>Image URL</span><input placeholder="https://... or /uploads/..." value={image?.src ?? ""} onChange={(event) => onChange({ ...item, image: event.target.value.trim() === "" ? undefined : { src: event.target.value, alt: image?.alt ?? item.label, width: image?.width ?? 1200, height: image?.height ?? 800, ...(image?.mediaId === undefined ? {} : { mediaId: image.mediaId }) } })} /></label><TextPair label="Alt text" value={image?.alt} onChange={(locale, value) => onChange({ ...item, image: { src: image?.src ?? "/nav/solar.jpg", alt: setLocalized(image?.alt, locale, value), width: image?.width ?? 1200, height: image?.height ?? 800, ...(image?.mediaId === undefined ? {} : { mediaId: image.mediaId }) } })} />{pickerOpen ? <MediaPicker kind="image" onClose={() => setPickerOpen(false)} onSelect={selectMedia} title="Choose navigation image" {...(image?.mediaId === undefined ? {} : { selectedId: image.mediaId })} /> : null}</fieldset>;
+  return <fieldset className="admin-navigation__image-fields"><legend>Featured image</legend>{image?.mediaId ? <SelectedMediaSummary media={pickedMedia} mediaId={image.mediaId} /> : null}<div className="admin-navigation__image-actions"><button className="admin-button admin-button--quiet" onClick={() => setPickerOpen(true)} type="button">{image?.mediaId ? "Replace media image" : "Choose from media library"}</button></div><label className="admin-field"><span>Image URL</span><input placeholder="https://... or /uploads/..." value={image?.src ?? ""} onChange={(event) => onChange({ ...item, image: event.target.value.trim() === "" ? undefined : { src: event.target.value, alt: image?.alt ?? item.label, width: image?.width ?? 1200, height: image?.height ?? 800, ...(image?.mediaId === undefined ? {} : { mediaId: image.mediaId }) } })} /></label><TextPair label="Alt text" value={image?.alt} onChange={(locale, value) => onChange({ ...item, image: { src: image?.src ?? "/nav/solar.jpg", alt: setLocalized(image?.alt, locale, value), width: image?.width ?? 1200, height: image?.height ?? 800, ...(image?.mediaId === undefined ? {} : { mediaId: image.mediaId }) } })} />{pickerOpen ? <MediaPicker kind="image" onClose={() => setPickerOpen(false)} onSelect={selectMedia} title="Choose navigation image" {...(image?.mediaId === undefined ? {} : { selectedId: image.mediaId })} /> : null}</fieldset>;
 }
 
 function EntryFields({ item, onChange, showImage = false, extra, onRemove }: { item: NavigationProduct | NavigationLink; onChange: (next: typeof item) => void; showImage?: boolean; extra?: ReactNode; onRemove?: () => void }) {

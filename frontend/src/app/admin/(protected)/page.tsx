@@ -2,6 +2,7 @@ import { AdminRouteIntro } from "@/admin/components/AdminRouteIntro";
 
 const modules = [
   ["Products", "Phase 5–7", "Author, preview, and publish multilingual technical products."],
+  ["News", "Editorial", "Create and publish multilingual news with rich media, documents, and full SEO."],
   ["Categories", "Phase 3", "Organize the two-level public product taxonomy."],
   ["Media", "Phase 4", "Upload and safely reuse product images, videos, and documents."],
   ["Navigation", "Content control", "Manage navbar labels, menu links, hover cards, ordering, visibility, and imagery."],
@@ -13,8 +14,8 @@ export default function AdminDashboardPage() {
   return (
     <AdminRouteIntro
       eyebrow="Dashboard"
-      text="Authentication is active. Editorial modules will unlock in their verified implementation phases."
-      title="A controlled workspace for product publishing."
+      text="Manage multilingual products, news, media, navigation, and search visibility from one controlled workspace."
+      title="A controlled workspace for digital publishing."
     >
       <div className="admin-module-grid">
         {modules.map(([name, phase, description]) => (

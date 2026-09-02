@@ -1,4 +1,4 @@
-import type { LanguageDto, LocaleCode, PublicProductDetailDto, PublicCategoryDto } from "@maglive/contracts";
+import type { LanguageDto, LocaleCode, PublicProductDetailDto, PublicCategoryDto, PublicNewsDetailDto } from "@maglive/contracts";
 import { productPath } from "./product-path";
 
 export const siteUrl = new URL(process.env.SITE_URL ?? "http://localhost:3000");
@@ -50,4 +50,24 @@ export function categoryMetadata(category: PublicCategoryDto, locale: LocaleCode
   const openGraphTitle = category.seo.openGraphTitle || title;
   const openGraphDescription = category.seo.openGraphDescription || description;
   return { title, ...(description ? { description } : {}), alternates: { canonical, languages }, robots: robotsFor(category.seo.robots), openGraph: { type: "website" as const, title: openGraphTitle, ...(openGraphDescription ? { description: openGraphDescription } : {}), url: canonical } };
+}
+
+export function newsMetadata(news: PublicNewsDetailDto, locale: LocaleCode, languages: readonly LanguageDto[]) {
+  const title = news.seo.title || news.title;
+  const description = news.seo.description || news.excerpt;
+  const fallbackCanonical = localizedPath(locale, `/news/${news.slug}`);
+  const canonical = canonicalUrl(news.seo.canonicalUrlOverride, fallbackCanonical);
+  const alternates: Record<string, string> = {};
+  for (const available of news.availableLocales) alternates[languageTag(available, languages)] = localizedPath(available, `/news/${news.slug}`);
+  alternates["x-default"] = localizedPath("en", `/news/${news.slug}`);
+  const openGraphTitle = news.seo.openGraphTitle || title;
+  const openGraphDescription = news.seo.openGraphDescription || description;
+  const socialImage = news.seo.openGraphMedia ?? news.heroMedia;
+  return {
+    title, description, keywords: news.seo.keywords,
+    alternates: { canonical, languages: alternates }, robots: robotsFor(news.seo.robots),
+    openGraph: { type: "website" as const, title: openGraphTitle, description: openGraphDescription, url: canonical, locale: languageTag(locale, languages),
+      ...(socialImage ? { images: [{ url: socialImage.url, width: socialImage.width, height: socialImage.height, alt: openGraphTitle }] } : {}) },
+    twitter: { card: socialImage ? "summary_large_image" as const : "summary" as const, title: openGraphTitle, description: openGraphDescription, ...(socialImage ? { images: [socialImage.url] } : {}) },
+  };
 }

@@ -28,9 +28,7 @@ const otherHash = "b".repeat(64);
 const timestamp = "2026-08-26T00:00:00.000Z";
 const adminId = "507f1f77bcf86cd799439011";
 
-function category(
-  overrides: Partial<CategoryAdminDto> = {},
-): CategoryAdminDto {
+function category(overrides: Partial<CategoryAdminDto> = {}): CategoryAdminDto {
   return {
     id: "507f191e810c19729de860ea",
     slug: "modules",
@@ -116,19 +114,21 @@ describe("category manager", () => {
     expect(
       screen.getByRole("complementary", { name: "Category hierarchy" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Solar modules/ })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: /Residential/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /English published/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: /Solar modules/ }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(
+      screen.getByRole("button", { name: /Residential/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: /English published/ }),
+    ).toHaveAttribute("aria-selected", "true");
     expect(
       screen.getByRole("tab", { name: /Simplified Chinese draft/ }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose image" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Choose image" }),
+    ).toBeInTheDocument();
   });
 
   it("creates an English draft and exposes only root categories as parents", async () => {
@@ -149,8 +149,12 @@ describe("category manager", () => {
 
     await user.click(screen.getByRole("button", { name: "New category" }));
     await user.type(screen.getByLabelText("Display name"), "Energy storage");
-    expect(screen.getByLabelText("Category URL slug")).toHaveValue("energy-storage");
-    expect(screen.getByLabelText("Category URL slug")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Category URL slug")).toHaveValue(
+      "energy-storage",
+    );
+    expect(screen.getByLabelText("Category URL slug")).toHaveAttribute(
+      "readonly",
+    );
     const parent = screen.getByLabelText("Parent category");
     expect(parent).toHaveTextContent("Solar modules");
     expect(parent).not.toHaveTextContent("Residential");
@@ -227,7 +231,9 @@ describe("category manager", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "changed elsewhere",
     );
-    expect(screen.getByDisplayValue("High-efficiency modules")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("High-efficiency modules"),
+    ).toBeInTheDocument();
   });
 
   it("selects a reusable image and saves localized contextual metadata", async () => {
@@ -269,6 +275,7 @@ describe("category manager", () => {
     await user.click(
       await screen.findByRole("button", { name: /category.png/ }),
     );
+    await user.click(screen.getByRole("button", { name: "Confirm selection" }));
     const alt = screen.getByLabelText(/Contextual alt text/);
     await user.clear(alt);
     await user.type(alt, "Category solar array");

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { LocaleCode, PublicCategoryDto, PublicProductDetailDto } from "@maglive/contracts";
+import type { LocaleCode, PublicCategoryDto, PublicProductDetailDto, PublicNewsDetailDto } from "@maglive/contracts";
 import { siteUrl, localizedPath } from "./seo";
 import { productPath } from "./product-path";
 
@@ -45,4 +45,9 @@ export function StructuredData({ product, locale }: { product: PublicProductDeta
 
 export function CategoryStructuredData({ category, locale }: { category: PublicCategoryDto; locale: LocaleCode }): ReactNode {
   return <><JsonLd value={organizationJsonLd()} /><JsonLd value={categoryBreadcrumbJsonLd(category, locale)} /><JsonLd value={categoryJsonLd(category, locale)} /></>;
+}
+
+export function NewsStructuredData({ news, locale }: { news: PublicNewsDetailDto; locale: LocaleCode }): ReactNode {
+  const url = localizedPath(locale, `/news/${news.slug}`);
+  return <><JsonLd value={organizationJsonLd()} /><JsonLd value={{ "@context": "https://schema.org", "@type": "NewsArticle", headline: news.title, description: news.excerpt, datePublished: news.publishedAt, dateModified: news.updatedAt, url, mainEntityOfPage: url, author: { "@type": "Organization", name: news.authorName }, publisher: { "@type": "Organization", name: "Maglive", url: siteUrl.toString() }, ...(news.heroMedia ? { image: [news.heroMedia.url] } : {}) }} /><JsonLd value={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "News", item: localizedPath(locale, "/news") }, { "@type": "ListItem", position: 2, name: news.title, item: url }] }} /></>;
 }

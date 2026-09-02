@@ -28,6 +28,7 @@ beforeEach(() => {
   navigation.replace.mockReset();
   navigation.refresh.mockReset();
   authApi.clearCurrentCsrfToken();
+  window.localStorage.clear();
 });
 
 describe("administrator login", () => {
@@ -98,6 +99,28 @@ describe("protected administrator shell", () => {
     );
     expect(screen.getByRole("link", { name: /Products/ })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("button", { name: "Log out" })).toBeEnabled();
+  });
+
+  it("collapses the dashboard navigation and remembers the preference", async () => {
+    vi.spyOn(authApi, "getCurrentAdministrator").mockResolvedValue(admin);
+    vi.spyOn(authApi, "fetchCsrfToken").mockResolvedValue("authenticated-csrf-token-value-000001");
+    const user = userEvent.setup();
+
+    const { container } = render(
+      <AdminAuthProvider>
+        <AdminShell><h1>Category workspace</h1></AdminShell>
+      </AdminAuthProvider>
+    );
+
+    await screen.findByText("admin@example.com");
+    await user.click(screen.getByRole("button", { name: "Collapse dashboard navigation" }));
+
+    expect(container.querySelector(".admin-shell")).toHaveClass("admin-shell--collapsed");
+    expect(screen.getByRole("button", { name: "Expand dashboard navigation" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(window.localStorage.getItem("maglive.admin.sidebar-collapsed")).toBe("true");
   });
 
   it("preserves the current route when a global session-expiry event occurs", async () => {

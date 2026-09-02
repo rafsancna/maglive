@@ -47,7 +47,7 @@ beforeEach(() => {
 });
 
 describe("media picker", () => {
-  it("loads only ready assets and selects an existing asset", async () => {
+  it("loads only ready assets and requires confirmation for an existing asset", async () => {
     vi.mocked(mediaApi.listMedia).mockResolvedValue(list([uploaded]));
     const onSelect = vi.fn();
     const user = userEvent.setup();
@@ -65,6 +65,9 @@ describe("media picker", () => {
       await screen.findByRole("button", { name: /Product front view/ }),
     );
 
+    expect(onSelect).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Confirm selection" }));
+
     expect(mediaApi.listMedia).toHaveBeenCalledWith({
       kind: "image",
       search: "",
@@ -74,7 +77,7 @@ describe("media picker", () => {
     expect(onSelect).toHaveBeenCalledWith(uploaded);
   });
 
-  it("uploads and immediately uses a new asset inside the picker", async () => {
+  it("adds a completed upload to the library without assigning it", async () => {
     vi.mocked(mediaApi.uploadMedia).mockImplementation(
       async (_file, onProgress) => {
         onProgress(72);
@@ -98,11 +101,25 @@ describe("media picker", () => {
       new File(["image"], "product.png", { type: "image/png" }),
     );
 
-    await waitFor(() => expect(onSelect).toHaveBeenCalledWith(uploaded));
+    await screen.findByText(
+      "product.png is ready in the library. Select it below, then confirm your choice.",
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Confirm selection" }),
+    ).toBeDisabled();
+
+    await user.click(
+      screen.getByRole("button", { name: /Product front view/ }),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Confirm selection" }));
+
+    expect(onSelect).toHaveBeenCalledWith(uploaded);
     expect(mediaApi.uploadMedia).toHaveBeenCalledOnce();
   });
 
-  it("waits for optimization before selecting a newly uploaded asset", async () => {
+  it("waits for optimization, then requires selection and confirmation", async () => {
     const queued: AdminMediaDto = {
       ...uploaded,
       url: undefined,
@@ -113,7 +130,12 @@ describe("media picker", () => {
     vi.mocked(mediaApi.uploadMedia).mockResolvedValue(queued);
     vi.mocked(mediaApi.watchMediaProcessing).mockImplementation(
       async (_id, onUpdate) => {
-        onUpdate?.({ ...queued, status: "processing", progress: 64, processingStage: "creating-1280" });
+        onUpdate?.({
+          ...queued,
+          status: "processing",
+          progress: 64,
+          processingStage: "creating-1280",
+        });
         return { ...uploaded, progress: 100, processingStage: "ready" };
       },
     );
@@ -126,11 +148,26 @@ describe("media picker", () => {
       new File(["image"], "product.png", { type: "image/png" }),
     );
 
-    await waitFor(() => expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ status: "ready" })));
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "product.png is ready in the library. Select it below, then confirm your choice.",
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
     expect(mediaApi.watchMediaProcessing).toHaveBeenCalledWith(
       queued.id,
       expect.any(Function),
       expect.any(AbortSignal),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Product front view/ }),
+    );
+    await user.click(screen.getByRole("button", { name: "Confirm selection" }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "ready" }),
     );
   });
 });

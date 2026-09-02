@@ -14,6 +14,7 @@
   },
   "packageManager": "npm@11.17.0",
   "scripts": {
+    "predev": "node scripts/ensure-local-redis.mjs",
     "dev": "npm run build -w @maglive/contracts && concurrently --kill-others-on-fail --names frontend,backend,media-worker --prefix-colors cyan,green,magenta \"npm run dev -w @maglive/frontend\" \"npm run dev -w @maglive/backend\" \"npm run worker:media -w @maglive/backend\"",
     "worker:media": "npm run start:worker -w @maglive/backend",
     "build": "npm run build -w @maglive/contracts && npm run build -w @maglive/backend && npm run build -w @maglive/frontend",

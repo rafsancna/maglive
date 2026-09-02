@@ -45,7 +45,7 @@ export type PreviewExchangeResponse = z.infer<typeof previewExchangeResponseSche
 export const revalidationEventSchema = z.object({
   eventId: z.uuid(),
   timestamp: z.number().int().positive(),
-  kind: z.enum(["product", "category", "media", "sitemap"]),
+  kind: z.enum(["product", "category", "media", "news", "sitemap"]),
   operation: z.enum(["publish", "update", "unpublish", "archive", "delete"]),
   tags: z.array(z.string().min(1).max(120)).max(24),
 }).strict();

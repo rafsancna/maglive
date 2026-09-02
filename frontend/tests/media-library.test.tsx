@@ -12,6 +12,7 @@ import * as mediaApi from "@/admin/media/api";
 
 vi.mock("@/admin/media/api", () => ({
   deleteMedia: vi.fn(),
+  getMedia: vi.fn(),
   getMediaUsages: vi.fn(),
   listMedia: vi.fn(),
   updateMedia: vi.fn(),
@@ -23,9 +24,7 @@ vi.mock("@/admin/media/api", () => ({
 const timestamp = "2026-08-26T00:00:00.000Z";
 const adminId = "507f1f77bcf86cd799439011";
 
-function media(
-  overrides: Partial<AdminMediaDto> = {},
-): AdminMediaDto {
+function media(overrides: Partial<AdminMediaDto> = {}): AdminMediaDto {
   return {
     id: "507f191e810c19729de860ea",
     kind: "image",
@@ -73,6 +72,7 @@ function list(items: AdminMediaDto[]): MediaListDto {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(mediaApi.listMedia).mockResolvedValue(list([image, video]));
+  vi.mocked(mediaApi.getMedia).mockResolvedValue(image);
   vi.mocked(mediaApi.getMediaUsages).mockResolvedValue({ usages: [] });
 });
 
@@ -84,8 +84,12 @@ describe("media library", () => {
     expect(
       await screen.findByRole("heading", { name: "Media library" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /poster.png/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /launch.mp4/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /poster.png/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /launch.mp4/ }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Photos/ }));
@@ -121,7 +125,11 @@ describe("media library", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /retry without selecting/i,
     );
-    expect(screen.getByRole("progressbar", { name: "Upload and optimization progress" })).toHaveAttribute("value", "52");
+    expect(
+      screen.getByRole("progressbar", {
+        name: "Upload and optimization progress",
+      }),
+    ).toHaveAttribute("value", "52");
     await user.click(screen.getByRole("button", { name: "Retry upload" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
@@ -167,6 +175,11 @@ describe("media library", () => {
     });
     await user.click(
       within(posterDialog).getByRole("button", { name: /poster.png/ }),
+    );
+    await user.click(
+      within(posterDialog).getByRole("button", {
+        name: "Confirm selection",
+      }),
     );
 
     await waitFor(() => {

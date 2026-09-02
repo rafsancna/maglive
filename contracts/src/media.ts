@@ -136,6 +136,9 @@ export const mediaUsageKindSchema = z.enum([
   "product-published-seo",
   "product-published-feature-icon",
   "media-poster",
+  "news-hero",
+  "news-media",
+  "news-seo",
 ]);
 
 export const mediaUsageOwnerTypeSchema = z.enum([

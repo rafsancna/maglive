@@ -17,17 +17,29 @@ export interface MediaJobQueue {
   close(): Promise<void>;
 }
 
-export function redisConnectionOptions(redisUrl: string): ConnectionOptions {
+export function redisConnectionOptions(
+  redisUrl: string,
+  purpose: "producer" | "worker" = "worker",
+): ConnectionOptions {
   const parsed = new URL(redisUrl);
   const database = parsed.pathname.replace(/^\//, "");
   return {
     host: parsed.hostname,
     port: parsed.port === "" ? 6379 : Number.parseInt(parsed.port, 10),
-    ...(parsed.username === "" ? {} : { username: decodeURIComponent(parsed.username) }),
-    ...(parsed.password === "" ? {} : { password: decodeURIComponent(parsed.password) }),
+    ...(parsed.username === ""
+      ? {}
+      : { username: decodeURIComponent(parsed.username) }),
+    ...(parsed.password === ""
+      ? {}
+      : { password: decodeURIComponent(parsed.password) }),
     ...(database === "" ? {} : { db: Number.parseInt(database, 10) }),
     ...(parsed.protocol === "rediss:" ? { tls: {} } : {}),
-    maxRetriesPerRequest: null,
+    // Workers use blocking Redis commands and BullMQ requires unlimited
+    // retries for those connections. API producers must fail immediately
+    // while Redis is offline; otherwise an HTTP upload can remain open at
+    // 100% forever while ioredis keeps the command in its offline queue.
+    maxRetriesPerRequest: purpose === "worker" ? null : 1,
+    enableOfflineQueue: purpose === "worker",
   };
 }
 
@@ -37,7 +49,7 @@ export class BullMediaJobQueue implements MediaJobQueue {
   readonly jobOptions: JobsOptions;
 
   constructor(config: AppConfig) {
-    const connection = redisConnectionOptions(config.redisUrl);
+    const connection = redisConnectionOptions(config.redisUrl, "producer");
     this.images = new Queue(IMAGE_MEDIA_QUEUE, { connection });
     this.videos = new Queue(VIDEO_MEDIA_QUEUE, { connection });
     this.jobOptions = {
@@ -49,9 +61,17 @@ export class BullMediaJobQueue implements MediaJobQueue {
   }
 
   private queue(kind: MediaKind): Queue<MediaJobData> {
-    return kind === "image" ? this.images : kind === "video" ? this.videos : (() => {
-      throw new AppError(422, "MEDIA_PROCESSING_UNSUPPORTED", "This media type does not require optimization.");
-    })();
+    return kind === "image"
+      ? this.images
+      : kind === "video"
+        ? this.videos
+        : (() => {
+            throw new AppError(
+              422,
+              "MEDIA_PROCESSING_UNSUPPORTED",
+              "This media type does not require optimization.",
+            );
+          })();
   }
 
   async enqueue(mediaId: string, kind: MediaKind): Promise<string> {

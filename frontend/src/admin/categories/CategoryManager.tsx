@@ -17,7 +17,7 @@ import {
 import { AdminApiError } from "../auth/api";
 import { getMedia } from "../media/api";
 import { MediaPicker } from "../media/MediaPicker";
-import { MediaPreview } from "../media/MediaPreview";
+import { SelectedMediaSummary } from "../media/SelectedMediaSummary";
 import { useLanguages } from "../languages/LanguageProvider";
 import {
   archiveCategory,
@@ -184,7 +184,7 @@ export function CategoryManager() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<AdminMediaDto | null>(null);
-  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerTarget, setMediaPickerTarget] = useState<"image" | "openGraph" | null>(null);
   const [seoScore, setSeoScore] = useState<SeoScore>();
   const [seoScoreLoading, setSeoScoreLoading] = useState(false);
   const [seoEngines, setSeoEngines] = useState<SeoScoreResponse["engines"]>();
@@ -784,6 +784,8 @@ export function CategoryManager() {
                   scoreLoading={seoScoreLoading}
                   engines={seoEngines}
                   value={seoValue}
+                  onChooseOpenGraphMedia={() => setMediaPickerTarget("openGraph")}
+                  onClearOpenGraphMedia={() => updateField("seoOpenGraphMediaId", "")}
                   fieldError={(field) => field === "title" ? undefined : undefined}
                   onChange={(next: SeoEditorValue) => {
                     updateField("seoFocusKeyphrase", next.focusKeyphrase ?? "");
@@ -809,15 +811,15 @@ export function CategoryManager() {
                     <span>Choose a ready image from the media library.</span>
                   </div>
                 ) : (
-                  <div className="category-media-editor__preview">
-                    <MediaPreview compact media={selectedMedia} />
-                    <span>{selectedMedia.originalName}</span>
-                  </div>
+                  <SelectedMediaSummary
+                    media={selectedMedia}
+                    mediaId={fields.imageMediaId}
+                  />
                 )}
                 <div className="category-media-editor__controls">
                   <button
                     className="admin-button admin-button--quiet"
-                    onClick={() => setMediaPickerOpen(true)}
+                    onClick={() => setMediaPickerTarget("image")}
                     type="button"
                   >
                     {fields.imageMediaId === "" ? "Choose image" : "Replace image"}
@@ -984,13 +986,18 @@ export function CategoryManager() {
           )}
         </div>
       </div>
-      {mediaPickerOpen ? (
+      {mediaPickerTarget !== null ? (
         <MediaPicker
           kind="image"
-          onClose={() => setMediaPickerOpen(false)}
+          onClose={() => setMediaPickerTarget(null)}
           onSelect={(media) => {
+            if (mediaPickerTarget === "openGraph") {
+              updateField("seoOpenGraphMediaId", media.id);
+              setMediaPickerTarget(null);
+              return;
+            }
             setSelectedMedia(media);
-            setMediaPickerOpen(false);
+            setMediaPickerTarget(null);
             setFields((current) => ({
               ...current,
               imageMediaId: media.id,
@@ -1005,10 +1012,17 @@ export function CategoryManager() {
             }));
             setDirty(true);
           }}
-          {...(fields.imageMediaId === ""
+          {...((mediaPickerTarget === "openGraph"
+            ? fields.seoOpenGraphMediaId
+            : fields.imageMediaId) === ""
             ? {}
-            : { selectedId: fields.imageMediaId })}
-          title="Choose category image"
+            : {
+                selectedId:
+                  mediaPickerTarget === "openGraph"
+                    ? fields.seoOpenGraphMediaId
+                    : fields.imageMediaId,
+              })}
+          title={mediaPickerTarget === "openGraph" ? "Choose category social image" : "Choose category image"}
         />
       ) : null}
     </section>

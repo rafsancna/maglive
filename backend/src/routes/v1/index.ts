@@ -25,6 +25,7 @@ import {
   createAdminNavigationRouter,
   createPublicNavigationRouter,
 } from "./navigation.js";
+import { createAdminNewsRouter, createPublicNewsRouter } from "./news.js";
 
 export function createV1Router(
   getDatabaseHealth: () => DatabaseHealth,
@@ -60,6 +61,7 @@ export function createV1Router(
     "/admin/navigation",
     createAdminNavigationRouter(config, now ?? Date.now),
   );
+  router.use("/admin/news", createAdminNewsRouter(config, now ?? Date.now));
   router.use(
     "/admin/seo",
     createAdminSeoRouter(config, now ?? Date.now),
@@ -67,6 +69,7 @@ export function createV1Router(
   router.use("/public/categories", createPublicCategoriesRouter());
   router.use("/public/languages", createPublicLanguagesRouter());
   router.use("/public/navigation", createPublicNavigationRouter());
+  router.use("/public/news", createPublicNewsRouter(storageProvider));
   router.use("/public/products", createPublicProductsRouter(storageProvider));
   router.use("/preview", createPreviewRouter(config, now ?? Date.now));
   router.use(

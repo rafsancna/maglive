@@ -767,9 +767,11 @@ export function ProductEditor({ productId }: EditorProps) {
           <div className="product-editor__media-grid">
             {PRODUCT_MEDIA_FIELDS.map((field) => {
               const usage = state.mediaUsages.find((candidate) => candidate.role === field.role && candidate.locale === undefined);
-              const media = usage === undefined ? undefined : mediaById[usage.mediaId];
+              const mediaId = field.role === "openGraph" ? translation.seo.openGraphMediaId : usage?.mediaId;
+              const assigned = mediaId !== undefined;
+              const media = mediaId === undefined ? undefined : mediaById[mediaId];
               return (
-                <article className={`product-editor__media-role${usage ? " is-assigned" : ""}`} key={field.role}>
+                <article className={`product-editor__media-role${assigned ? " is-assigned" : ""}`} key={field.role}>
                   <div className="product-editor__media-role-preview">
                     {media === undefined || media === null ? (
                       <span aria-hidden="true">{field.kind === "image" ? "IMG" : field.kind === "video" ? "VID" : "PDF"}</span>
@@ -779,12 +781,12 @@ export function ProductEditor({ productId }: EditorProps) {
                   </div>
                   <div className="product-editor__media-role-copy">
                     <strong>{field.label}</strong>
-                    <span>{media?.originalName ?? (usage ? media === null ? "Asset unavailable" : "Loading asset details…" : field.description)}</span>
-                    <small>{usage ? `${field.kind} assigned` : `Requires ${field.kind}`}</small>
+                    <span>{media?.originalName ?? (assigned ? media === null ? "Asset unavailable" : "Loading asset details…" : field.description)}</span>
+                    <small>{assigned ? `${field.kind} assigned` : `Requires ${field.kind}`}</small>
                   </div>
                   <div className="product-editor__media-role-actions">
-                    <button className="admin-button admin-button--quiet" onClick={() => setMediaPickerRole(field.role)} type="button">{usage ? "Replace" : "Choose"}</button>
-                    {usage ? <button className="product-editor__media-remove" onClick={() => removeMedia(field.role)} type="button">Remove</button> : null}
+                    <button className="admin-button admin-button--quiet" onClick={() => setMediaPickerRole(field.role)} type="button">{assigned ? "Replace" : "Choose"}</button>
+                    {assigned ? <button className="product-editor__media-remove" onClick={() => removeMedia(field.role)} type="button">Remove</button> : null}
                   </div>
                 </article>
               );
@@ -801,6 +803,9 @@ export function ProductEditor({ productId }: EditorProps) {
             scoreLoading={seoScoreLoading}
             engines={seoEngines}
             value={translation.seo}
+            openGraphMedia={translation.seo.openGraphMediaId === undefined ? undefined : mediaById[translation.seo.openGraphMediaId]}
+            onChooseOpenGraphMedia={() => setMediaPickerRole("openGraph")}
+            onClearOpenGraphMedia={() => removeMedia("openGraph")}
             fieldError={(field) => fieldErrorFor(fieldErrors, `translations.${locale}.seo.${field}`)}
             onChange={(next: SeoEditorValue) => mutate((draft) => {
               const current = draft.translations[locale] ?? emptyTranslation();

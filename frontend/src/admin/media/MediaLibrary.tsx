@@ -21,6 +21,7 @@ import {
 } from "./api";
 import { MediaPicker } from "./MediaPicker";
 import { MediaPreview } from "./MediaPreview";
+import { SelectedMediaSummary } from "./SelectedMediaSummary";
 import { useLanguages } from "../languages/LanguageProvider";
 import { mediaStageLabel, savedPercentage } from "./processing";
 
@@ -699,11 +700,11 @@ export function MediaLibrary() {
             {selected.kind === "video" ? (
               <div className="media-inspector__section">
                 <strong>Video poster</strong>
-                <p>
-                  {selected.posterMediaId === undefined
-                    ? "No poster selected."
-                    : `Poster asset ${selected.posterMediaId}`}
-                </p>
+                {selected.posterMediaId === undefined ? (
+                  <p>No poster selected.</p>
+                ) : (
+                  <SelectedMediaSummary mediaId={selected.posterMediaId} />
+                )}
                 <button
                   className="admin-button admin-button--quiet"
                   onClick={() => setPosterPickerOpen(true)}

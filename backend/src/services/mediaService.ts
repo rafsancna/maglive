@@ -32,6 +32,7 @@ import { ProductModel, type ProductDocument } from "../models/Product.js";
 import type { StorageProvider } from "../storage/StorageProvider.js";
 import type { MediaJobQueue } from "../media/mediaQueue.js";
 import { assertLanguagesExist, listLanguageCodes } from "./languageService.js";
+import { newsMediaUsages } from "./newsService.js";
 
 type MediaListQuery = z.output<typeof mediaListQuerySchema>;
 
@@ -62,7 +63,11 @@ async function inTransaction<T>(
     await session.endSession();
   }
   if (result === undefined) {
-    throw new AppError(500, "TRANSACTION_FAILED", "The database transaction did not complete.");
+    throw new AppError(
+      500,
+      "TRANSACTION_FAILED",
+      "The database transaction did not complete.",
+    );
   }
   return result;
 }
@@ -74,18 +79,22 @@ function mediaTranslations(
     Object.entries(values ?? {}).flatMap(([locale, translation]) =>
       translation === undefined
         ? []
-        : [[
-            locale,
-            {
-              ...(translation.title === undefined
-                ? {}
-                : { title: translation.title }),
-              ...(translation.alt === undefined ? {} : { alt: translation.alt }),
-              ...(translation.caption === undefined
-                ? {}
-                : { caption: translation.caption }),
-            },
-          ] as const],
+        : [
+            [
+              locale,
+              {
+                ...(translation.title === undefined
+                  ? {}
+                  : { title: translation.title }),
+                ...(translation.alt === undefined
+                  ? {}
+                  : { alt: translation.alt }),
+                ...(translation.caption === undefined
+                  ? {}
+                  : { caption: translation.caption }),
+              },
+            ] as const,
+          ],
     ),
   );
 }
@@ -94,7 +103,10 @@ export function toAdminMediaDto(
   media: MediaDocument,
   storageProvider: StorageProvider,
 ): AdminMediaDto {
-  if (media.storage !== undefined && media.storage.provider !== storageProvider.id) {
+  if (
+    media.storage !== undefined &&
+    media.storage.provider !== storageProvider.id
+  ) {
     throw new AppError(
       503,
       "STORAGE_PROVIDER_UNAVAILABLE",
@@ -137,7 +149,9 @@ export function toAdminMediaDto(
       : {
           generatedPoster: {
             label: media.generatedPoster.label,
-            url: storageProvider.getPublicUrl(media.generatedPoster.storage.key),
+            url: storageProvider.getPublicUrl(
+              media.generatedPoster.storage.key,
+            ),
             mimeType: media.generatedPoster.mimeType,
             sizeBytes: media.generatedPoster.sizeBytes,
             ...(media.generatedPoster.width === undefined
@@ -180,7 +194,11 @@ async function requireMedia(
   if (session !== undefined) query.session(session);
   const media = await query;
   if (media === null) {
-    throw new AppError(404, "MEDIA_NOT_FOUND", "The media record was not found.");
+    throw new AppError(
+      404,
+      "MEDIA_NOT_FOUND",
+      "The media record was not found.",
+    );
   }
   return media;
 }
@@ -299,13 +317,11 @@ export async function uploadMedia(
     if (requiresProcessing) {
       try {
         await mediaQueue.enqueue(media.id, inspected.kind);
-      } catch (error) {
+      } catch {
         media.status = "failed";
         media.processingStage = "failed";
         media.processingError =
-          error instanceof Error
-            ? error.message.slice(0, 2_000)
-            : "The optimization job could not be queued.";
+          "The media processing queue is unavailable. Start Redis, then retry processing from the Media library.";
         await media.save();
       }
     }
@@ -327,17 +343,32 @@ export async function retryMediaProcessing(
 ): Promise<AdminMediaDto> {
   const media = await MediaModel.findById(id).select("+sourceStorage");
   if (media === null) {
-    throw new AppError(404, "MEDIA_NOT_FOUND", "The media record was not found.");
+    throw new AppError(
+      404,
+      "MEDIA_NOT_FOUND",
+      "The media record was not found.",
+    );
   }
-  if (media.status !== "failed" || (media.kind !== "image" && media.kind !== "video")) {
-    throw new AppError(409, "MEDIA_RETRY_UNAVAILABLE", "Only failed image or video processing can be retried.");
+  if (
+    media.status !== "failed" ||
+    (media.kind !== "image" && media.kind !== "video")
+  ) {
+    throw new AppError(
+      409,
+      "MEDIA_RETRY_UNAVAILABLE",
+      "Only failed image or video processing can be retried.",
+    );
   }
   if (
     media.sourceStorage === undefined ||
     media.sourceStorage.provider !== storageProvider.id ||
     !(await storageProvider.exists(media.sourceStorage.key))
   ) {
-    throw new AppError(409, "MEDIA_SOURCE_EXPIRED", "The private source has expired; upload the file again.");
+    throw new AppError(
+      409,
+      "MEDIA_SOURCE_EXPIRED",
+      "The private source has expired; upload the file again.",
+    );
   }
   media.status = "queued";
   media.processingStage = "queued";
@@ -347,10 +378,11 @@ export async function retryMediaProcessing(
   await media.save();
   try {
     await mediaQueue.retry(media.id, media.kind);
-  } catch (error) {
+  } catch {
     media.status = "failed";
     media.processingStage = "failed";
-    media.processingError = error instanceof Error ? error.message.slice(0, 2_000) : "The retry could not be queued.";
+    media.processingError =
+      "The media processing queue is unavailable. Start Redis, then retry processing.";
     await media.save();
   }
   return toAdminMediaDto(media, storageProvider);
@@ -548,9 +580,7 @@ function productUsages(
         ownerLabel,
         placement: productMediaPlacement(usage.role),
         path: `mediaUsages.${index}.mediaId`,
-        ...(usage.locale === undefined
-          ? {}
-          : { locale: usage.locale }),
+        ...(usage.locale === undefined ? {} : { locale: usage.locale }),
       });
     }
   }
@@ -630,9 +660,7 @@ function productUsages(
         ownerLabel,
         placement: productMediaPlacement(usage.role),
         path: `publishedGlobal.data.mediaUsages.${index}.mediaId`,
-        ...(usage.locale === undefined
-          ? {}
-          : { locale: usage.locale }),
+        ...(usage.locale === undefined ? {} : { locale: usage.locale }),
       });
     }
   }
@@ -655,7 +683,11 @@ async function navigationUsages(
     }
     if (typeof value !== "object" || value === null) return;
     for (const [key, child] of Object.entries(value)) {
-      if (key === "mediaId" && child !== undefined && String(child) === mediaId.toString()) {
+      if (
+        key === "mediaId" &&
+        child !== undefined &&
+        String(child) === mediaId.toString()
+      ) {
         usages.push({
           kind: "navigation-image",
           ownerType: "other",
@@ -684,8 +716,7 @@ async function usageDocuments(
     ...localeCodes.flatMap((locale) => [
       { [`translations.${locale}.seo.openGraphMediaId`]: mediaId },
       {
-        [`publishedSnapshots.${locale}.data.seo.openGraphMediaId`]:
-          mediaId,
+        [`publishedSnapshots.${locale}.data.seo.openGraphMediaId`]: mediaId,
       },
     ]),
   ];
@@ -723,16 +754,20 @@ async function usageDocuments(
     productQuery.session(session);
     posterQuery.session(session);
   }
-  const [categories, products, posterOwners, navigation] = await Promise.all([
-    categoryQuery,
-    productQuery,
-    posterQuery,
-    navigationUsages(mediaId, session),
-  ]);
+  const [categories, products, posterOwners, navigation, newsReferences] =
+    await Promise.all([
+      categoryQuery,
+      productQuery,
+      posterQuery,
+      navigationUsages(mediaId, session),
+      newsMediaUsages(mediaId),
+    ]);
   const usages = categories.flatMap((category) =>
     categoryUsages(category, mediaId),
   );
-  usages.push(...products.flatMap((product) => productUsages(product, mediaId)));
+  usages.push(
+    ...products.flatMap((product) => productUsages(product, mediaId)),
+  );
   usages.push(
     ...posterOwners.map((media) => ({
       kind: "media-poster" as const,
@@ -744,6 +779,23 @@ async function usageDocuments(
     })),
   );
   usages.push(...navigation);
+  usages.push(
+    ...newsReferences.map((reference) => ({
+      kind:
+        reference.placement === "News hero"
+          ? ("news-hero" as const)
+          : reference.placement.includes("Open Graph")
+            ? ("news-seo" as const)
+            : ("news-media" as const),
+      ownerType: "news" as const,
+      ownerId: reference.news._id.toString(),
+      ownerLabel:
+        reference.news.translations.get("en")?.title ?? reference.news.slug,
+      placement: reference.placement,
+      path: reference.path,
+      ...(reference.locale === undefined ? {} : { locale: reference.locale }),
+    })),
+  );
   return usages.sort(
     (left, right) =>
       left.kind.localeCompare(right.kind) ||
@@ -820,7 +872,11 @@ export async function deleteMedia(
 
   const media = await MediaModel.findById(id).select("+sourceStorage");
   if (media === null) {
-    throw new AppError(404, "MEDIA_NOT_FOUND", "The media record was not found.");
+    throw new AppError(
+      404,
+      "MEDIA_NOT_FOUND",
+      "The media record was not found.",
+    );
   }
   const storedObjects = [
     media.storage,

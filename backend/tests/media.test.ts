@@ -25,10 +25,7 @@ import {
   vi,
 } from "vitest";
 import { createApp } from "../src/app.js";
-import {
-  connectDatabase,
-  disconnectDatabase,
-} from "../src/config/database.js";
+import { connectDatabase, disconnectDatabase } from "../src/config/database.js";
 import {
   SESSION_COLLECTION_NAME,
   createMongoSessionStore,
@@ -75,10 +72,7 @@ function png(width = 1, height = 1): Buffer {
 }
 
 function jpeg(): Buffer {
-  return Buffer.from(
-    "ffd8ffc00011080001000103011100021100031100ffd9",
-    "hex",
-  );
+  return Buffer.from("ffd8ffc00011080001000103011100021100031100ffd9", "hex");
 }
 
 function webp(): Buffer {
@@ -229,18 +223,27 @@ describe.sequential("secure media pipeline", () => {
         channels: 3,
         background: { r: 34, g: 139, b: 94 },
       },
-    }).png().toBuffer();
+    })
+      .png()
+      .toBuffer();
     const response = await auth.agent
       .post("/api/v1/admin/media")
       .set("Origin", frontendOrigin)
       .set("X-CSRF-Token", auth.csrfToken)
-      .attach("file", source, { filename: "hero.png", contentType: "image/png" })
+      .attach("file", source, {
+        filename: "hero.png",
+        contentType: "image/png",
+      })
       .expect(202);
-    const uploaded = apiSuccessSchema(adminMediaDtoSchema).parse(response.body).data;
+    const uploaded = apiSuccessSchema(adminMediaDtoSchema).parse(
+      response.body,
+    ).data;
     expect(uploaded).toMatchObject({ status: "queued", progress: 0 });
     expect(uploaded.url).toBeUndefined();
     expect(queued).toEqual([uploaded.id]);
-    const staged = await MediaModel.findById(uploaded.id).select("+sourceStorage");
+    const staged = await MediaModel.findById(uploaded.id).select(
+      "+sourceStorage",
+    );
     expect(staged?.sourceStorage?.key).toMatch(/^\.staging\//);
 
     const config = createTestConfig({ mongoUri, uploadRoot });
@@ -248,20 +251,92 @@ describe.sequential("secure media pipeline", () => {
     const readyResponse = await auth.agent
       .get(`/api/v1/admin/media/${uploaded.id}`)
       .expect(200);
-    const ready = apiSuccessSchema(adminMediaDtoSchema).parse(readyResponse.body).data;
-    expect(ready).toMatchObject({ status: "ready", progress: 100, mimeType: "image/webp" });
+    const ready = apiSuccessSchema(adminMediaDtoSchema).parse(
+      readyResponse.body,
+    ).data;
+    expect(ready).toMatchObject({
+      status: "ready",
+      progress: 100,
+      mimeType: "image/webp",
+    });
     expect(ready.url).toMatch(/\/uploads\/images\//);
-    expect(ready.variants?.filter((variant) => variant.mimeType === "image/avif").map((variant) => variant.width)).toEqual([480, 768, 1280, 1600]);
-    expect(ready.variants?.filter((variant) => variant.mimeType === "image/webp").map((variant) => variant.width)).toEqual([480, 768, 1280, 1600]);
-    expect(ready.variants?.every((variant) => (variant.width ?? 0) <= 1_600)).toBe(true);
-    expect(staged?.sourceStorage === undefined ? false : await provider.exists(staged.sourceStorage.key)).toBe(false);
+    expect(
+      ready.variants
+        ?.filter((variant) => variant.mimeType === "image/avif")
+        .map((variant) => variant.width),
+    ).toEqual([480, 768, 1280, 1600]);
+    expect(
+      ready.variants
+        ?.filter((variant) => variant.mimeType === "image/webp")
+        .map((variant) => variant.width),
+    ).toEqual([480, 768, 1280, 1600]);
+    expect(
+      ready.variants?.every((variant) => (variant.width ?? 0) <= 1_600),
+    ).toBe(true);
+    expect(
+      staged?.sourceStorage === undefined
+        ? false
+        : await provider.exists(staged.sourceStorage.key),
+    ).toBe(false);
+  });
+
+  it("returns a failed asset promptly when the processing queue is unavailable", async () => {
+    const unavailableQueue: MediaJobQueue = {
+      enqueue: async () => {
+        throw new Error("Redis is offline");
+      },
+      retry: async () => {
+        throw new Error("Redis is offline");
+      },
+      close: async () => undefined,
+    };
+    const provider = new LocalStorageProvider(
+      uploadRoot,
+      "http://localhost:5000/uploads",
+    );
+    const auth = await authenticate({}, provider, unavailableQueue);
+    const source = await sharp({
+      create: {
+        width: 64,
+        height: 64,
+        channels: 3,
+        background: { r: 80, g: 120, b: 40 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const response = await auth.agent
+      .post("/api/v1/admin/media")
+      .set("Origin", frontendOrigin)
+      .set("X-CSRF-Token", auth.csrfToken)
+      .attach("file", source, {
+        filename: "queue-offline.png",
+        contentType: "image/png",
+      })
+      .expect(202);
+    const uploaded = apiSuccessSchema(adminMediaDtoSchema).parse(
+      response.body,
+    ).data;
+
+    expect(uploaded).toMatchObject({
+      status: "failed",
+      processingStage: "failed",
+      processingError:
+        "The media processing queue is unavailable. Start Redis, then retry processing from the Media library.",
+    });
   });
 
   it("accepts each approved signature, derives metadata, and stores no binary data in MongoDB", async () => {
     const auth = await authenticate();
     const candidates = [
       { value: jpeg(), name: "photo.jpeg", mime: "image/jpeg", kind: "image" },
-      { value: png(3, 2), name: "diagram.png", mime: "image/png", kind: "image" },
+      {
+        value: png(3, 2),
+        name: "diagram.png",
+        mime: "image/png",
+        kind: "image",
+      },
       { value: webp(), name: "render.webp", mime: "image/webp", kind: "image" },
       { value: mp4(), name: "demo.mp4", mime: "video/mp4", kind: "video" },
       { value: webm(), name: "demo.webm", mime: "video/webm", kind: "video" },
@@ -380,20 +455,24 @@ describe.sequential("secure media pipeline", () => {
     });
     await request(unauthenticatedApp)
       .post("/api/v1/admin/media")
-      .attach("file", png(), { filename: "image.png", contentType: "image/png" })
+      .attach("file", png(), {
+        filename: "image.png",
+        contentType: "image/png",
+      })
       .expect(401);
     await auth.agent
       .post("/api/v1/admin/media")
       .set("Origin", frontendOrigin)
-      .attach("file", png(), { filename: "image.png", contentType: "image/png" })
+      .attach("file", png(), {
+        filename: "image.png",
+        contentType: "image/png",
+      })
       .expect(403);
 
     expect(await MediaModel.countDocuments()).toBe(0);
     const temporary = await readdir(
-      new LocalStorageProvider(
-        uploadRoot,
-        "http://localhost:5000/uploads",
-      ).root,
+      new LocalStorageProvider(uploadRoot, "http://localhost:5000/uploads")
+        .root,
     );
     expect(temporary.filter((entry) => entry !== ".temporary")).toEqual([]);
   });
@@ -515,34 +594,31 @@ describe.sequential("media metadata, usage, and deletion", () => {
   it("retains live category usages after working removal and deletes only after unpublish", async () => {
     const auth = await authenticate();
     const image = await upload(auth, png(), "category.png", "image/png");
-    const created = await mutation(
-      auth,
-      "post",
-      "/api/v1/admin/categories",
-      {
-        slug: "modules",
-        translations: {
-          en: {
-            name: "Modules",
-            seo: { openGraphMediaId: image.id },
-          },
-        },
-        image: {
-          mediaId: image.id,
-          translations: { en: { alt: "Solar module array" } },
+    const created = await mutation(auth, "post", "/api/v1/admin/categories", {
+      slug: "modules",
+      translations: {
+        en: {
+          name: "Modules",
+          seo: { openGraphMediaId: image.id },
         },
       },
-    ).expect(201);
-    let category = apiSuccessSchema(categoryAdminDtoSchema).parse(created.body)
-      .data;
+      image: {
+        mediaId: image.id,
+        translations: { en: { alt: "Solar module array" } },
+      },
+    }).expect(201);
+    let category = apiSuccessSchema(categoryAdminDtoSchema).parse(
+      created.body,
+    ).data;
     const published = await mutation(
       auth,
       "post",
       `/api/v1/admin/categories/${category.id}/publish`,
       { version: category.version, locales: ["en"], promoteShared: false },
     ).expect(200);
-    category = apiSuccessSchema(categoryAdminDtoSchema).parse(published.body)
-      .data;
+    category = apiSuccessSchema(categoryAdminDtoSchema).parse(
+      published.body,
+    ).data;
     const workingRemoved = await mutation(
       auth,
       "patch",
@@ -553,8 +629,9 @@ describe.sequential("media metadata, usage, and deletion", () => {
         image: null,
       },
     ).expect(200);
-    category = apiSuccessSchema(categoryAdminDtoSchema).parse(workingRemoved.body)
-      .data;
+    category = apiSuccessSchema(categoryAdminDtoSchema).parse(
+      workingRemoved.body,
+    ).data;
 
     const usageResponse = await auth.agent
       .get(`/api/v1/admin/media/${image.id}/usages`)
@@ -587,15 +664,13 @@ describe.sequential("media metadata, usage, and deletion", () => {
       `/api/v1/admin/categories/${category.id}/unpublish`,
       { version: category.version, locale: "en" },
     ).expect(200);
-    category = apiSuccessSchema(categoryAdminDtoSchema).parse(unpublished.body)
-      .data;
+    category = apiSuccessSchema(categoryAdminDtoSchema).parse(
+      unpublished.body,
+    ).data;
     expect(category.publishedSnapshots).toEqual({});
-    await mutation(
-      auth,
-      "delete",
-      `/api/v1/admin/media/${image.id}`,
-      { version: currentMedia.version },
-    ).expect(200);
+    await mutation(auth, "delete", `/api/v1/admin/media/${image.id}`, {
+      version: currentMedia.version,
+    }).expect(200);
     expect(await MediaModel.findById(image.id)).toBeNull();
   });
 
@@ -666,19 +741,13 @@ describe.sequential("media metadata, usage, and deletion", () => {
     );
 
     provider.failDelete = false;
-    await mutation(
-      auth,
-      "delete",
-      `/api/v1/admin/media/${media.id}`,
-      { version: media.version },
-    ).expect(200);
+    await mutation(auth, "delete", `/api/v1/admin/media/${media.id}`, {
+      version: media.version,
+    }).expect(200);
     expect(await MediaModel.findById(media.id)).toBeNull();
 
-    await mutation(
-      auth,
-      "delete",
-      `/api/v1/admin/media/${media.id}`,
-      { version: 0 },
-    ).expect(404);
+    await mutation(auth, "delete", `/api/v1/admin/media/${media.id}`, {
+      version: 0,
+    }).expect(404);
   });
 });
