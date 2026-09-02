@@ -13,7 +13,14 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
 import UniqueID from "@tiptap/extension-unique-id";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import {
+  EditorContent,
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+  useEditor,
+  useEditorState,
+  type ReactNodeViewProps,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type {
   AdminMediaDto,
@@ -22,7 +29,10 @@ import type {
   NewsInlineContent,
   NewsTextMark,
 } from "@maglive/contracts";
+import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
+import { getMedia } from "../media/api";
+import { MediaPreview } from "../media/MediaPreview";
 import { SelectedMediaSummary } from "../media/SelectedMediaSummary";
 
 type NewsWriterProps = {
@@ -79,6 +89,88 @@ const NewsBlockAttributes = Extension.create({
   },
 });
 
+function NewsEmbedNodeView({ node }: ReactNodeViewProps) {
+  const attributes = node.attrs as EmbedAttributes;
+  const mediaId = attributes.mediaId ?? undefined;
+  const [loaded, setLoaded] = useState<{
+    id: string;
+    media: AdminMediaDto | null;
+  }>();
+  const media = loaded !== undefined && loaded.id === mediaId ? loaded.media : null;
+  const mediaLoading = mediaId !== undefined && loaded?.id !== mediaId;
+
+  useEffect(() => {
+    if (mediaId === undefined) return;
+    let active = true;
+    void getMedia(mediaId)
+      .then((next) => {
+        if (active) setLoaded({ id: mediaId, media: next });
+      })
+      .catch(() => {
+        if (active) setLoaded({ id: mediaId, media: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, [mediaId]);
+
+  const type = attributes.embedType;
+  const isLibraryMedia = type === "image" || type === "video" || type === "document";
+  const filename = media?.originalName ?? attributes.label ?? `${type[0]!.toUpperCase()}${type.slice(1)}`;
+  const detail =
+    attributes.caption ??
+    attributes.description ??
+    media?.defaultTranslations.en?.title ??
+    (mediaLoading ? "Loading media preview…" : isLibraryMedia ? `${type} from media library` : attributes.url);
+
+  let preview: ReactNode;
+  if (media !== null) {
+    preview = <MediaPreview compact media={media} />;
+  } else if (type === "image" && attributes.previewUrl) {
+    preview = (
+      <Image
+        alt={attributes.alt ?? ""}
+        draggable={false}
+        height={800}
+        src={attributes.previewUrl}
+        unoptimized
+        width={1200}
+      />
+    );
+  } else if (type === "video" && attributes.previewUrl) {
+    preview = (
+      <video aria-label={attributes.alt ?? filename} muted preload="metadata">
+        <source src={attributes.previewUrl} />
+      </video>
+    );
+  } else {
+    preview = (
+      <span className="news-writer-embed__badge" aria-hidden="true">
+        {type === "document" ? "PDF" : type.toUpperCase()}
+      </span>
+    );
+  }
+
+  return (
+    <NodeViewWrapper
+      className={`news-writer-embed news-writer-embed--${type}`}
+      contentEditable={false}
+      data-news-embed={type}
+    >
+      {type === "image" || type === "video" ? (
+        <div className="news-writer-embed__preview">{preview}</div>
+      ) : (
+        preview
+      )}
+      <div className="news-writer-embed__copy">
+        <strong title={filename}>{filename}</strong>
+        <small>{detail ?? "Embedded content"}</small>
+      </div>
+      <span className="news-writer-embed__action">Select to edit</span>
+    </NodeViewWrapper>
+  );
+}
+
 const NewsEmbed = Node.create({
   name: "newsEmbed",
   group: "block",
@@ -100,6 +192,9 @@ const NewsEmbed = Node.create({
   },
   parseHTML() {
     return [{ tag: "div[data-news-embed]" }];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(NewsEmbedNodeView);
   },
   renderHTML({ node, HTMLAttributes }) {
     const attributes = node.attrs as EmbedAttributes;
