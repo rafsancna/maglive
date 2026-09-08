@@ -100,9 +100,9 @@
       "note": "Project CMS is planned as a future module."
     },
     "news": {
-      "eyebrow": "Newsroom",
-      "title": "A clear channel for future company updates.",
-      "intro": "The newsroom shell is code-owned today and will remain free of fabricated articles.",
+      "eyebrow": "News & insights",
+      "title": "Ideas shaping the future of energy.",
+      "intro": "Company updates, product intelligence, and considered perspectives from across the energy landscape.",
       "paragraphs": [
         "News publishing, authoring, and article metadata will be designed as a dedicated module when approved."
       ],

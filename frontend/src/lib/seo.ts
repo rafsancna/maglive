@@ -66,7 +66,8 @@ export function newsMetadata(news: PublicNewsDetailDto, locale: LocaleCode, lang
   return {
     title, description, keywords: news.seo.keywords,
     alternates: { canonical, languages: alternates }, robots: robotsFor(news.seo.robots),
-    openGraph: { type: "website" as const, title: openGraphTitle, description: openGraphDescription, url: canonical, locale: languageTag(locale, languages),
+    authors: [{ name: news.authorName }], category: news.category,
+    openGraph: { type: "article" as const, title: openGraphTitle, description: openGraphDescription, url: canonical, siteName: "Maglive", locale: languageTag(locale, languages), publishedTime: news.publishedAt, modifiedTime: news.updatedAt, authors: [news.authorName], tags: news.tags,
       ...(socialImage ? { images: [{ url: socialImage.url, width: socialImage.width, height: socialImage.height, alt: openGraphTitle }] } : {}) },
     twitter: { card: socialImage ? "summary_large_image" as const : "summary" as const, title: openGraphTitle, description: openGraphDescription, ...(socialImage ? { images: [socialImage.url] } : {}) },
   };

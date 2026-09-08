@@ -27,10 +27,21 @@ import type {
   MediaKind,
   NewsContentBlock,
   NewsInlineContent,
+  NewsMediaAlignment,
+  NewsMediaAspectRatio,
+  NewsMediaDisplaySize,
+  NewsMediaFocalPoint,
   NewsTextMark,
 } from "@maglive/contracts";
 import Image from "next/image";
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { getMedia } from "../media/api";
 import { MediaPreview } from "../media/MediaPreview";
 import { SelectedMediaSummary } from "../media/SelectedMediaSummary";
@@ -53,10 +64,58 @@ type EmbedAttributes = {
   description?: string | null;
   alt?: string | null;
   caption?: string | null;
+  displaySize?: NewsMediaDisplaySize | null;
+  alignment?: NewsMediaAlignment | null;
+  aspectRatio?: NewsMediaAspectRatio | null;
+  focalPoint?: NewsMediaFocalPoint | null;
   url?: string | null;
   newWindow?: boolean;
   previewUrl?: string | null;
 };
+
+type NewsWriterContextValue = Pick<NewsWriterProps, "locale" | "onChooseMedia">;
+
+const NewsWriterContext = createContext<NewsWriterContextValue | null>(null);
+
+const mediaDisplaySizes = [
+  { value: "compact", label: "Compact", width: "45%" },
+  { value: "medium", label: "Medium", width: "65%" },
+  { value: "large", label: "Large", width: "82%" },
+  { value: "full", label: "Full", width: "100%" },
+] as const satisfies ReadonlyArray<{
+  value: NewsMediaDisplaySize;
+  label: string;
+  width: string;
+}>;
+
+const mediaAlignments = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
+] as const satisfies ReadonlyArray<{
+  value: NewsMediaAlignment;
+  label: string;
+}>;
+
+const mediaAspectRatios = [
+  { value: "original", label: "Original" },
+  { value: "landscape", label: "16:9" },
+  { value: "classic", label: "4:3" },
+  { value: "square", label: "1:1" },
+  { value: "portrait", label: "4:5" },
+] as const satisfies ReadonlyArray<{
+  value: NewsMediaAspectRatio;
+  label: string;
+}>;
+
+const mediaFocalPoints = [
+  { value: "top", label: "Top" },
+  { value: "center", label: "Center" },
+  { value: "bottom", label: "Bottom" },
+] as const satisfies ReadonlyArray<{
+  value: NewsMediaFocalPoint;
+  label: string;
+}>;
 
 const identifiedNodes = [
   "paragraph",
@@ -89,14 +148,24 @@ const NewsBlockAttributes = Extension.create({
   },
 });
 
-function NewsEmbedNodeView({ node }: ReactNodeViewProps) {
+function NewsEmbedNodeView({
+  deleteNode,
+  node,
+  selected,
+  updateAttributes,
+}: ReactNodeViewProps) {
+  const writer = useContext(NewsWriterContext);
   const attributes = node.attrs as EmbedAttributes;
   const mediaId = attributes.mediaId ?? undefined;
+  const [cropOpen, setCropOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [loaded, setLoaded] = useState<{
     id: string;
     media: AdminMediaDto | null;
   }>();
-  const media = loaded !== undefined && loaded.id === mediaId ? loaded.media : null;
+  const media =
+    loaded !== undefined && loaded.id === mediaId ? loaded.media : null;
   const mediaLoading = mediaId !== undefined && loaded?.id !== mediaId;
 
   useEffect(() => {
@@ -114,14 +183,56 @@ function NewsEmbedNodeView({ node }: ReactNodeViewProps) {
     };
   }, [mediaId]);
 
+  useEffect(() => {
+    if (!controlsOpen) return;
+    const closeControls = (event: PointerEvent) => {
+      if (!wrapperRef.current?.contains(event.target as globalThis.Node)) {
+        setControlsOpen(false);
+        setCropOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeControls);
+    return () => document.removeEventListener("pointerdown", closeControls);
+  }, [controlsOpen]);
+
   const type = attributes.embedType;
-  const isLibraryMedia = type === "image" || type === "video" || type === "document";
-  const filename = media?.originalName ?? attributes.label ?? `${type[0]!.toUpperCase()}${type.slice(1)}`;
+  const isLibraryMedia =
+    type === "image" || type === "video" || type === "document";
+  const isVisualMedia = type === "image" || type === "video";
+  const displaySize =
+    attributes.displaySize ?? (type === "image" ? "medium" : "full");
+  const alignment = attributes.alignment ?? "center";
+  const aspectRatio = attributes.aspectRatio ?? "original";
+  const focalPoint = attributes.focalPoint ?? "center";
+  const filename =
+    media?.originalName ??
+    attributes.label ??
+    `${type[0]!.toUpperCase()}${type.slice(1)}`;
   const detail =
     attributes.caption ??
     attributes.description ??
     media?.defaultTranslations.en?.title ??
-    (mediaLoading ? "Loading media preview…" : isLibraryMedia ? `${type} from media library` : attributes.url);
+    (mediaLoading
+      ? "Loading media preview…"
+      : isLibraryMedia
+        ? `${type} from media library`
+        : attributes.url);
+
+  const replaceImage = () => {
+    if (writer === null) return;
+    writer.onChooseMedia("image", (nextMedia) => {
+      const localized =
+        nextMedia.defaultTranslations[writer.locale] ??
+        nextMedia.defaultTranslations.en;
+      updateAttributes({
+        mediaId: nextMedia.id,
+        label: localized?.title ?? nextMedia.originalName,
+        alt: localized?.alt ?? null,
+        caption: localized?.caption ?? null,
+        previewUrl: nextMedia.url ?? null,
+      });
+    });
+  };
 
   let preview: ReactNode;
   if (media !== null) {
@@ -153,10 +264,127 @@ function NewsEmbedNodeView({ node }: ReactNodeViewProps) {
 
   return (
     <NodeViewWrapper
-      className={`news-writer-embed news-writer-embed--${type}`}
+      className={`news-writer-embed news-writer-embed--${type}${
+        isVisualMedia
+          ? ` news-writer-embed--size-${displaySize} news-writer-embed--align-${alignment} news-writer-embed--ratio-${aspectRatio} news-writer-embed--focus-${focalPoint}`
+          : ""
+      }${type === "image" && (selected || controlsOpen) ? " news-writer-embed--controls-open" : ""}`}
       contentEditable={false}
       data-news-embed={type}
+      onPointerDown={(event: React.PointerEvent<HTMLDivElement>) => {
+        const target = event.target as Element;
+        if (
+          type === "image" &&
+          target.closest("button, input, .news-writer-embed__inline-fields") ===
+            null
+        )
+          setControlsOpen(true);
+      }}
+      ref={wrapperRef}
     >
+      {type === "image" ? (
+        <div
+          aria-label="Image layout controls"
+          className="news-writer-embed__inline-toolbar"
+          onPointerDown={(event) => event.stopPropagation()}
+          role="toolbar"
+        >
+          <div className="news-writer-embed__control-group">
+            <span>Size</span>
+            {mediaDisplaySizes.map((option) => (
+              <button
+                aria-label={`${option.label} image width`}
+                aria-pressed={displaySize === option.value}
+                key={option.value}
+                onClick={() => updateAttributes({ displaySize: option.value })}
+                title={`${option.label} width`}
+                type="button"
+              >
+                {option.value === "compact"
+                  ? "S"
+                  : option.value === "medium"
+                    ? "M"
+                    : option.value === "large"
+                      ? "L"
+                      : "Full"}
+              </button>
+            ))}
+          </div>
+          <div className="news-writer-embed__control-group">
+            <span>Align</span>
+            {mediaAlignments.map((option) => (
+              <button
+                aria-label={`Align image ${option.label.toLowerCase()}`}
+                aria-pressed={alignment === option.value}
+                key={option.value}
+                onClick={() => updateAttributes({ alignment: option.value })}
+                title={`Align ${option.label.toLowerCase()}`}
+                type="button"
+              >
+                {option.label[0]}
+              </button>
+            ))}
+          </div>
+          <button
+            aria-expanded={cropOpen}
+            className="news-writer-embed__crop-trigger"
+            onClick={() => setCropOpen((current) => !current)}
+            type="button"
+          >
+            Crop:{" "}
+            {
+              mediaAspectRatios.find((option) => option.value === aspectRatio)
+                ?.label
+            }
+          </button>
+          <span className="news-writer-embed__toolbar-spacer" />
+          <button onClick={replaceImage} type="button">
+            Replace
+          </button>
+          <button
+            className="news-writer-embed__remove"
+            onClick={() => deleteNode()}
+            type="button"
+          >
+            Remove
+          </button>
+          {cropOpen ? (
+            <div className="news-writer-embed__crop-panel">
+              <div className="news-writer-embed__control-group">
+                <span>Ratio</span>
+                {mediaAspectRatios.map((option) => (
+                  <button
+                    aria-pressed={aspectRatio === option.value}
+                    key={option.value}
+                    onClick={() =>
+                      updateAttributes({ aspectRatio: option.value })
+                    }
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <div className="news-writer-embed__control-group">
+                <span>Focus</span>
+                {mediaFocalPoints.map((option) => (
+                  <button
+                    aria-pressed={focalPoint === option.value}
+                    disabled={aspectRatio === "original"}
+                    key={option.value}
+                    onClick={() =>
+                      updateAttributes({ focalPoint: option.value })
+                    }
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {type === "image" || type === "video" ? (
         <div className="news-writer-embed__preview">{preview}</div>
       ) : (
@@ -166,7 +394,35 @@ function NewsEmbedNodeView({ node }: ReactNodeViewProps) {
         <strong title={filename}>{filename}</strong>
         <small>{detail ?? "Embedded content"}</small>
       </div>
-      <span className="news-writer-embed__action">Select to edit</span>
+      {type === "image" ? (
+        <div
+          className="news-writer-embed__inline-fields"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <label>
+            <span>Alternative text</span>
+            <input
+              onChange={(event) =>
+                updateAttributes({ alt: event.target.value || null })
+              }
+              placeholder="Describe the image for screen readers"
+              value={attributes.alt ?? ""}
+            />
+          </label>
+          <label>
+            <span>Caption</span>
+            <input
+              onChange={(event) =>
+                updateAttributes({ caption: event.target.value || null })
+              }
+              placeholder="Optional reader-facing caption"
+              value={attributes.caption ?? ""}
+            />
+          </label>
+        </div>
+      ) : (
+        <span className="news-writer-embed__action">Select to edit</span>
+      )}
     </NodeViewWrapper>
   );
 }
@@ -185,6 +441,10 @@ const NewsEmbed = Node.create({
       description: { default: null, rendered: false },
       alt: { default: null, rendered: false },
       caption: { default: null, rendered: false },
+      displaySize: { default: null, rendered: false },
+      alignment: { default: null, rendered: false },
+      aspectRatio: { default: null, rendered: false },
+      focalPoint: { default: null, rendered: false },
       url: { default: null, rendered: false },
       newWindow: { default: false, rendered: false },
       previewUrl: { default: null, rendered: false },
@@ -303,6 +563,11 @@ function embedNode(
       mediaId: block.mediaId,
       alt: block.alt ?? null,
       caption: block.caption ?? null,
+      displaySize:
+        block.displaySize ?? (block.type === "image" ? "medium" : "full"),
+      alignment: block.alignment ?? "center",
+      aspectRatio: block.aspectRatio ?? "original",
+      focalPoint: block.focalPoint ?? "center",
     },
   };
 }
@@ -471,6 +736,11 @@ function embedBlock(node: JSONContent): NewsContentBlock | null {
       mediaId: attrs.mediaId,
       ...(attrs.alt ? { alt: attrs.alt } : {}),
       ...(attrs.caption ? { caption: attrs.caption } : {}),
+      displaySize:
+        attrs.displaySize ?? (attrs.embedType === "image" ? "medium" : "full"),
+      alignment: attrs.alignment ?? "center",
+      aspectRatio: attrs.aspectRatio ?? "original",
+      focalPoint: attrs.focalPoint ?? "center",
     };
   return null;
 }
@@ -734,7 +1004,16 @@ export function NewsWriter({
           .chain()
           .focus()
           .setTextSelection(insertionPoint)
-          .insertContent({ type: "newsEmbed", attrs: attributes })
+          .insertContent({
+            type: "newsEmbed",
+            attrs: {
+              ...attributes,
+              displaySize: media.kind === "image" ? "medium" : "full",
+              alignment: "center",
+              aspectRatio: "original",
+              focalPoint: "center",
+            },
+          })
           .run();
     });
   };
@@ -1170,10 +1449,14 @@ export function NewsWriter({
       ) : null}
 
       <div className="news-writer__canvas">
-        <EditorContent editor={editor} />
+        <NewsWriterContext.Provider value={{ locale, onChooseMedia }}>
+          <EditorContent editor={editor} />
+        </NewsWriterContext.Provider>
       </div>
 
-      {mode === "write" && editorState.embed ? (
+      {mode === "write" &&
+      editorState.embed &&
+      editorState.embed.embedType !== "image" ? (
         <aside className="news-writer__embed-inspector">
           <header>
             <div>
@@ -1196,20 +1479,14 @@ export function NewsWriter({
             </button>
           </header>
           {editorState.embed.mediaId &&
-          (editorState.embed.embedType === "image" ||
-            editorState.embed.embedType === "video" ||
+          (editorState.embed.embedType === "video" ||
             editorState.embed.embedType === "document") ? (
             <SelectedMediaSummary mediaId={editorState.embed.mediaId} />
           ) : null}
-          {editorState.embed.embedType === "image" ||
-          editorState.embed.embedType === "video" ? (
+          {editorState.embed.embedType === "video" ? (
             <div className="news-writer__embed-fields">
               <label>
-                <span>
-                  {editorState.embed.embedType === "image"
-                    ? "Alternative text"
-                    : "Accessible label"}
-                </span>
+                <span>Accessible label</span>
                 <input
                   onChange={(event) =>
                     updateEmbed({ alt: event.target.value || null })
@@ -1226,15 +1503,7 @@ export function NewsWriter({
                   value={editorState.embed.caption ?? ""}
                 />
               </label>
-              <button
-                onClick={() =>
-                  chooseMedia(
-                    editorState.embed!.embedType as "image" | "video",
-                    true,
-                  )
-                }
-                type="button"
-              >
+              <button onClick={() => chooseMedia("video", true)} type="button">
                 Replace media
               </button>
             </div>

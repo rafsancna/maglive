@@ -70,6 +70,14 @@ function newsFingerprint(news: NewsAdminDto): string {
   });
 }
 
+function formatNewsDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 export function LegacyNewsBlockEditor({
   blocks,
   onChange,
@@ -409,9 +417,12 @@ export function NewsWorkspace() {
         ...(status ? { status: status as NewsAdminDto["status"] } : {}),
       });
       setItems(result.items);
-      const id = keepId ?? selectedId ?? result.items[0]?.id ?? null;
-      const selected = result.items.find((item) => item.id === id) ?? null;
-      setSelectedId(id);
+      const id = keepId ?? selectedId;
+      const selected =
+        id === null
+          ? null
+          : (result.items.find((item) => item.id === id) ?? null);
+      setSelectedId(selected?.id ?? null);
       setDraft(selected);
       setSavedFingerprint(selected === null ? "" : newsFingerprint(selected));
       setError(null);
@@ -431,11 +442,7 @@ export function NewsWorkspace() {
     })
       .then((result) => {
         if (!active) return;
-        const first = result.items[0] ?? null;
         setItems(result.items);
-        setSelectedId(first?.id ?? null);
-        setDraft(first);
-        setSavedFingerprint(first === null ? "" : newsFingerprint(first));
         setError(null);
       })
       .catch((reason: unknown) => {
@@ -678,6 +685,89 @@ export function NewsWorkspace() {
       setBusy(false);
     }
   };
+  const editItem = (item: NewsAdminDto) => {
+    const firstTranslation =
+      (item.translations.en ? "en" : undefined) ??
+      localeCodes.find((code) => item.translations[code] !== undefined) ??
+      "en";
+    setLocale(firstTranslation);
+    setSelectedId(item.id);
+    setDraft(item);
+    setSavedFingerprint(newsFingerprint(item));
+    setNotice(null);
+    setError(null);
+  };
+  const showNewsLibrary = async () => {
+    if (draft !== null && isDirty) {
+      const saved = await persistNews(draft, true);
+      if (saved === null) return;
+    }
+    setFocusMode(false);
+    setSelectedId(null);
+    setDraft(null);
+    setSavedFingerprint("");
+  };
+  const publishFromList = async (item: NewsAdminDto, code: LocaleCode) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await publishNews(item.id, {
+        version: item.version,
+        locales: [code],
+      });
+      setItems((current) =>
+        current.map((candidate) =>
+          candidate.id === updated.id ? updated : candidate,
+        ),
+      );
+      setNotice(`${languageByCode[code]?.label ?? code} news published.`);
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const unpublishFromList = async (item: NewsAdminDto, code: LocaleCode) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await unpublishNews(item.id, {
+        version: item.version,
+        locale: code,
+      });
+      setItems((current) =>
+        current.map((candidate) =>
+          candidate.id === updated.id ? updated : candidate,
+        ),
+      );
+      setNotice(`${languageByCode[code]?.label ?? code} news unpublished.`);
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const removeFromList = async (item: NewsAdminDto): Promise<void> => {
+    if (
+      !confirm(
+        `Permanently delete "${item.translations.en?.title ?? item.slug}"?`,
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteNews(item.id, item.version);
+      setItems((current) =>
+        current.filter((candidate) => candidate.id !== item.id),
+      );
+      setNotice("News item deleted.");
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <section className={`news-admin${focusMode ? " news-admin--focus" : ""}`}>
@@ -755,63 +845,247 @@ export function NewsWorkspace() {
         </form>
       ) : null}
       <div className="news-admin__layout">
-        <aside className="news-list">
-          <div className="news-list__filters">
-            <input
-              aria-label="Search news"
-              onChange={(event) => {
-                setLoading(true);
-                setSearch(event.target.value);
-              }}
-              placeholder="Search news"
-              type="search"
-              value={search}
-            />
-            <select
-              aria-label="Filter news status"
-              onChange={(event) => {
-                setLoading(true);
-                setStatus(event.target.value);
-              }}
-              value={status}
-            >
-              <option value="">All statuses</option>
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          {loading ? (
-            <p>Loading news…</p>
-          ) : (
-            items.map((item) => (
-              <button
-                aria-current={item.id === selectedId ? "true" : undefined}
-                key={item.id}
-                onClick={() => {
-                  setSelectedId(item.id);
-                  setDraft(item);
-                  setSavedFingerprint(newsFingerprint(item));
-                }}
-                type="button"
-              >
-                <span>{item.translations.en?.title ?? item.slug}</span>
-                <small>
-                  {item.status} · {categoryLabel(item.category)}
-                </small>
-              </button>
-            ))
-          )}
-        </aside>
         {draft === null ? (
-          <div className="news-editor-empty">
-            <h2>Select or create news</h2>
-            <p>Your multilingual newsroom will appear here.</p>
-          </div>
-        ) : (
+          <section className="news-library">
+            <header className="news-library__overview">
+              <div>
+                <span className="admin-kicker">Content library</span>
+                <h2>All news</h2>
+                <p>
+                  Review every story and manage publication without opening the
+                  editor.
+                </p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Total</dt>
+                  <dd>{items.length}</dd>
+                </div>
+                <div>
+                  <dt>Published</dt>
+                  <dd>
+                    {items.filter((item) => item.status === "published").length}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Drafts</dt>
+                  <dd>
+                    {items.filter((item) => item.status === "draft").length}
+                  </dd>
+                </div>
+              </dl>
+            </header>
+            <div className="news-library__toolbar">
+              <label>
+                <span>Search stories</span>
+                <input
+                  aria-label="Search news"
+                  onChange={(event) => {
+                    setLoading(true);
+                    setSearch(event.target.value);
+                  }}
+                  placeholder="Headline, slug, author, or category"
+                  type="search"
+                  value={search}
+                />
+              </label>
+              <label>
+                <span>Status</span>
+                <select
+                  aria-label="Filter news status"
+                  onChange={(event) => {
+                    setLoading(true);
+                    setStatus(event.target.value);
+                  }}
+                  value={status}
+                >
+                  <option value="">All statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </label>
+              <span className="news-library__result" aria-live="polite">
+                {loading
+                  ? "Loading stories..."
+                  : `${items.length} ${items.length === 1 ? "story" : "stories"}`}
+              </span>
+            </div>
+            {loading ? (
+              <div className="news-library__loading">Loading newsroom...</div>
+            ) : items.length === 0 ? (
+              <div className="news-library__empty">
+                <h3>No news found</h3>
+                <p>Adjust the filters or create the first news draft.</p>
+                <button
+                  className="admin-button admin-button--primary"
+                  onClick={() => setCreating(true)}
+                  type="button"
+                >
+                  Create news
+                </button>
+              </div>
+            ) : (
+              <div className="news-library__table-wrap">
+                <table className="news-library__table">
+                  <thead>
+                    <tr>
+                      <th>Story</th>
+                      <th>Status</th>
+                      <th>Languages</th>
+                      <th>Details</th>
+                      <th>Last updated</th>
+                      <th aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => {
+                      const orderedLocales = [
+                        ...localeCodes.filter((code) => code === "en"),
+                        ...localeCodes.filter((code) => code !== "en"),
+                      ];
+                      const publishLocale = orderedLocales.find(
+                        (code) =>
+                          item.translations[code] !== undefined &&
+                          item.localeStates[code] !== "published",
+                      );
+                      const unpublishLocale = orderedLocales.find(
+                        (code) => item.publishedSnapshots[code] !== undefined,
+                      );
+                      return (
+                        <tr key={item.id}>
+                          <td>
+                            <button
+                              className="news-library__story-link"
+                              onClick={() => editItem(item)}
+                              type="button"
+                            >
+                              {item.translations.en?.title ?? item.slug}
+                            </button>
+                            <code>/{item.slug}</code>
+                            {item.translations.en?.excerpt ? (
+                              <small>{item.translations.en.excerpt}</small>
+                            ) : null}
+                          </td>
+                          <td>
+                            <span
+                              className={`news-status news-status--${item.status}`}
+                            >
+                              {item.status}
+                            </span>
+                            {item.featured ? (
+                              <span className="news-library__featured">
+                                Featured
+                              </span>
+                            ) : null}
+                          </td>
+                          <td>
+                            <div className="news-library__locales">
+                              {localeCodes.map((code) => (
+                                <span
+                                  className={`news-library__locale news-library__locale--${item.localeStates[code] ?? "incomplete"}`}
+                                  key={code}
+                                  title={`${languageByCode[code]?.label ?? code}: ${item.localeStates[code] ?? "incomplete"}`}
+                                >
+                                  {code.toUpperCase()}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td>
+                            <strong>{categoryLabel(item.category)}</strong>
+                            <small>{item.authorName}</small>
+                            <small>
+                              {item.tags.length === 0
+                                ? "No tags"
+                                : item.tags.join(" · ")}
+                            </small>
+                          </td>
+                          <td>
+                            <time dateTime={item.updatedAt}>
+                              {formatNewsDate(item.updatedAt)}
+                            </time>
+                            <small>Version {item.version}</small>
+                            {item.firstPublishedAt ? (
+                              <small>
+                                First published{" "}
+                                {formatNewsDate(item.firstPublishedAt)}
+                              </small>
+                            ) : null}
+                          </td>
+                          <td>
+                            <div className="news-library__actions">
+                              <button
+                                className="admin-button admin-button--quiet"
+                                disabled={busy}
+                                onClick={() => editItem(item)}
+                                type="button"
+                              >
+                                Edit
+                              </button>
+                              {publishLocale ? (
+                                <button
+                                  className="admin-button admin-button--primary"
+                                  disabled={busy || item.status === "archived"}
+                                  onClick={() =>
+                                    void publishFromList(item, publishLocale)
+                                  }
+                                  type="button"
+                                >
+                                  Publish {publishLocale.toUpperCase()}
+                                </button>
+                              ) : null}
+                              {unpublishLocale ? (
+                                <button
+                                  className="admin-button admin-button--quiet"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void unpublishFromList(
+                                      item,
+                                      unpublishLocale,
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  Unpublish {unpublishLocale.toUpperCase()}
+                                </button>
+                              ) : null}
+                              <button
+                                className="news-library__delete"
+                                disabled={busy || item.status === "published"}
+                                onClick={() => void removeFromList(item)}
+                                title={
+                                  item.status === "published"
+                                    ? "Unpublish every language before deleting"
+                                    : "Delete this news item permanently"
+                                }
+                                type="button"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        ) : null}
+        {draft === null ? null : (
           <main className="news-editor">
             <header className="news-editor__top">
               <div>
+                <button
+                  className="news-editor__back"
+                  disabled={busy}
+                  onClick={() => void showNewsLibrary()}
+                  type="button"
+                >
+                  <span aria-hidden="true">&larr;</span> All news
+                </button>
                 <span className={`news-status news-status--${draft.status}`}>
                   {draft.status}
                 </span>
@@ -941,8 +1215,18 @@ export function NewsWorkspace() {
                   <div className="news-media-control">
                     {draft.heroMediaId === undefined ? (
                       <div className="selected-media-summary selected-media-summary--empty">
-                        <div className="selected-media-summary__placeholder" aria-hidden="true">IMG</div>
-                        <div><strong>No hero image selected</strong><span>Choose a reusable image from the media library.</span></div>
+                        <div
+                          className="selected-media-summary__placeholder"
+                          aria-hidden="true"
+                        >
+                          IMG
+                        </div>
+                        <div>
+                          <strong>No hero image selected</strong>
+                          <span>
+                            Choose a reusable image from the media library.
+                          </span>
+                        </div>
                       </div>
                     ) : (
                       <SelectedMediaSummary mediaId={draft.heroMediaId} />

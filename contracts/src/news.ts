@@ -138,6 +138,25 @@ export const newsListBlockSchema = z
 export const newsDividerBlockSchema = z
   .object({ id: blockIdSchema, type: z.literal("divider") })
   .strict();
+export const newsMediaDisplaySizeSchema = z.enum([
+  "compact",
+  "medium",
+  "large",
+  "full",
+]);
+export const newsMediaAlignmentSchema = z.enum(["left", "center", "right"]);
+export const newsMediaAspectRatioSchema = z.enum([
+  "original",
+  "landscape",
+  "classic",
+  "square",
+  "portrait",
+]);
+export const newsMediaFocalPointSchema = z.enum(["top", "center", "bottom"]);
+export type NewsMediaDisplaySize = z.infer<typeof newsMediaDisplaySizeSchema>;
+export type NewsMediaAlignment = z.infer<typeof newsMediaAlignmentSchema>;
+export type NewsMediaAspectRatio = z.infer<typeof newsMediaAspectRatioSchema>;
+export type NewsMediaFocalPoint = z.infer<typeof newsMediaFocalPointSchema>;
 export const newsMediaBlockSchema = z
   .object({
     id: blockIdSchema,
@@ -145,6 +164,10 @@ export const newsMediaBlockSchema = z
     mediaId: objectIdStringSchema,
     alt: optionalText(240),
     caption: optionalText(1_000),
+    displaySize: newsMediaDisplaySizeSchema.optional(),
+    alignment: newsMediaAlignmentSchema.optional(),
+    aspectRatio: newsMediaAspectRatioSchema.optional(),
+    focalPoint: newsMediaFocalPointSchema.optional(),
   })
   .strict();
 export const newsDocumentBlockSchema = z
@@ -331,6 +354,10 @@ const publicResolvedMediaBlockSchema = z
     media: publicMediaDtoSchema,
     alt: optionalText(240),
     caption: optionalText(1_000),
+    displaySize: newsMediaDisplaySizeSchema.optional(),
+    alignment: newsMediaAlignmentSchema.optional(),
+    aspectRatio: newsMediaAspectRatioSchema.optional(),
+    focalPoint: newsMediaFocalPointSchema.optional(),
   })
   .strict();
 const publicResolvedDocumentBlockSchema = z

@@ -16,5 +16,5 @@ export default async function NewsPage({ params }: LocalizedPageProps) {
   const dictionary = await getDictionary(locale);
   let data: Awaited<ReturnType<typeof listPublicNews>> | null = null;
   try { data = await listPublicNews({ locale, page: 1, limit: 100 }); } catch { /* The route renders a recoverable service state below. */ }
-  return <main className="news-page"><header className="news-page__header"><span className="eyebrow">{dictionary.pages.news.eyebrow}</span><h1>{dictionary.pages.news.title}</h1><p>{dictionary.pages.news.intro}</p></header>{data === null ? <div className="news-empty" role="alert"><strong>News is temporarily unavailable</strong><p>Please try again shortly.</p></div> : <NewsExplorer categories={data.categories} items={data.items} locale={locale} />}</main>;
+  return <div className="news-page"><header className="news-page__header"><span className="eyebrow">{dictionary.pages.news.eyebrow}</span><h1>{dictionary.pages.news.title}</h1><p>{dictionary.pages.news.intro}</p></header>{data === null ? <div className="news-empty" role="alert"><strong>News is temporarily unavailable</strong><p>Please try again shortly.</p></div> : <NewsExplorer categories={data.categories} items={data.items} locale={locale} />}</div>;
 }

@@ -1,6 +1,10 @@
 import type {
   LocaleCode,
   NewsInlineContent,
+  NewsMediaAlignment,
+  NewsMediaAspectRatio,
+  NewsMediaDisplaySize,
+  NewsMediaFocalPoint,
   PublicNewsDetailDto,
   PublicNewsContentBlock,
 } from "@maglive/contracts";
@@ -10,6 +14,7 @@ import {
   ResponsiveVideoSources,
 } from "../media/ResponsiveMedia";
 import { LocaleLink } from "../site/LocaleLink";
+import { NewsShare } from "./NewsShare";
 
 function richText(
   content: NewsInlineContent | undefined,
@@ -44,6 +49,41 @@ function alignmentClass(
   alignment: "left" | "center" | "right" | undefined,
 ): string | undefined {
   return alignment === undefined ? undefined : `news-body__align-${alignment}`;
+}
+
+type MediaPresentation = Readonly<{
+  type: "image" | "video";
+  displaySize?: NewsMediaDisplaySize | undefined;
+  alignment?: NewsMediaAlignment | undefined;
+  aspectRatio?: NewsMediaAspectRatio | undefined;
+  focalPoint?: NewsMediaFocalPoint | undefined;
+}>;
+
+function mediaPresentation(block: MediaPresentation): {
+  className: string;
+  sizes: string;
+} {
+  const displaySize =
+    block.displaySize ?? (block.type === "image" ? "medium" : "full");
+  const alignment = block.alignment ?? "center";
+  const aspectRatio = block.aspectRatio ?? "original";
+  const focalPoint = block.focalPoint ?? "center";
+  const desktopWidth = {
+    compact: "340px",
+    medium: "500px",
+    large: "640px",
+    full: "760px",
+  }[displaySize];
+  return {
+    className: [
+      "news-body__media",
+      `news-body__media--size-${displaySize}`,
+      `news-body__media--align-${alignment}`,
+      `news-body__media--ratio-${aspectRatio}`,
+      `news-body__media--focus-${focalPoint}`,
+    ].join(" "),
+    sizes: `(max-width: 720px) calc(100vw - 2.5rem), ${desktopWidth}`,
+  };
 }
 
 function block(block: PublicNewsContentBlock) {
@@ -92,20 +132,23 @@ function block(block: PublicNewsContentBlock) {
   }
   if (block.type === "divider")
     return <hr className="news-body__divider" key={block.id} />;
-  if (block.type === "image")
+  if (block.type === "image") {
+    const presentation = mediaPresentation(block);
     return (
-      <figure className="news-body__media" key={block.id}>
+      <figure className={presentation.className} key={block.id}>
         <ResponsiveMediaImage
           alt={block.alt ?? ""}
           media={block.media}
-          sizes="(max-width: 900px) 100vw, 760px"
+          sizes={presentation.sizes}
         />
         {block.caption ? <figcaption>{block.caption}</figcaption> : null}
       </figure>
     );
-  if (block.type === "video")
+  }
+  if (block.type === "video") {
+    const presentation = mediaPresentation(block);
     return (
-      <figure className="news-body__media" key={block.id}>
+      <figure className={presentation.className} key={block.id}>
         <video
           aria-label={block.alt ?? "News video"}
           controls
@@ -121,6 +164,7 @@ function block(block: PublicNewsContentBlock) {
         {block.caption ? <figcaption>{block.caption}</figcaption> : null}
       </figure>
     );
+  }
   if (block.type === "document")
     return (
       <a
@@ -206,20 +250,31 @@ export function NewsDetail({
         </div>
       </header>
       <div className="news-detail__layout">
-        <aside>
-          <span>Published</span>
-          <strong>{date}</strong>
-          <span>Topics</span>
-          <div>
-            {news.tags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
+        <aside className="news-detail__meta">
+          <div className="news-detail__meta-group">
+            <span>Published</span>
+            <strong>{date}</strong>
           </div>
-          <LocaleLink href="/news" locale={locale}>
+          <div className="news-detail__meta-group">
+            <span>Topics</span>
+            <div className="news-detail__tags">
+              {news.tags.map((tag) => (
+                <span key={tag}>{tag}</span>
+              ))}
+            </div>
+          </div>
+          <LocaleLink
+            className="news-detail__back-link"
+            href="/news"
+            locale={locale}
+          >
             ← All news
           </LocaleLink>
         </aside>
-        <div className="news-body">{news.content.map(block)}</div>
+        <div className="news-detail__content">
+          <div className="news-body">{news.content.map(block)}</div>
+          <NewsShare excerpt={news.excerpt} title={news.title} />
+        </div>
       </div>
     </main>
   );

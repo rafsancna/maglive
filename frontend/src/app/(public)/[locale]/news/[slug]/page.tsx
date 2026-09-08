@@ -21,6 +21,6 @@ export default async function SingleNewsPage({ params }: NewsPageProps) {
   let failure: unknown;
   try { news = await getPublicNews(slug, locale); } catch (error) { failure = error; }
   if (failure instanceof PublicApiError && failure.status === 404) notFound();
-  if (news === null) return <main className="news-detail"><div className="news-empty" role="alert"><strong>News temporarily unavailable</strong><p>Please retry shortly.</p></div></main>;
+  if (news === null) return <div className="news-detail"><div className="news-empty" role="alert"><strong>News temporarily unavailable</strong><p>Please retry shortly.</p></div></div>;
   return <><NewsDetail locale={locale} news={news} /><NewsStructuredData locale={locale} news={news} /></>;
 }

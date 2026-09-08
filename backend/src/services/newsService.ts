@@ -230,7 +230,13 @@ function requireMedia(id: string, map: Map<string, MediaDocument>): MediaDocumen
 function publicBlocks(blocks: NewsContentBlock[], map: Map<string, MediaDocument>, storageProvider: StorageProvider): PublicNewsContentBlock[] {
   return blocks.map((block) => {
     const parsed = newsContentBlockSchema.parse(block);
-    if (parsed.type === "image" || parsed.type === "video") { const { mediaId, ...rest } = parsed; return { ...rest, media: publicMedia(requireMedia(mediaId, map), storageProvider) }; }
+    if (parsed.type === "image" || parsed.type === "video") {
+      const { mediaId, ...presentation } = parsed;
+      return {
+        ...presentation,
+        media: publicMedia(requireMedia(mediaId, map), storageProvider),
+      };
+    }
     if (parsed.type === "document") { const { mediaId, ...rest } = parsed; return { ...rest, media: publicMedia(requireMedia(mediaId, map), storageProvider) }; }
     return parsed as PublicNewsContentBlock;
   });
