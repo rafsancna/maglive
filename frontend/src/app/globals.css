@@ -1803,6 +1803,44 @@ select {
   margin-top: 2.2rem;
 }
 
+.admin-login__credential-hint {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgb(111 135 38 / 35%);
+  border-radius: 0.7rem;
+  background: rgb(184 242 54 / 12%);
+  color: var(--color-ink-soft);
+  font-size: 0.75rem;
+}
+
+.admin-login__credential-hint strong {
+  color: var(--color-night);
+}
+
+.admin-login__credential-hint code {
+  color: var(--color-night);
+  font-family: inherit;
+  font-weight: 800;
+  user-select: all;
+}
+
+.admin-login__show-password {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+}
+
+.admin-login__show-password input {
+  width: 1rem;
+  min-height: 1rem;
+  margin: 0;
+  accent-color: var(--color-accent-deep);
+}
+
 .admin-field {
   display: grid;
   gap: 0.4rem;
@@ -2165,6 +2203,80 @@ select {
   margin-top: clamp(3rem, 8vw, 6rem);
   border-top: 1px solid var(--color-line);
   border-left: 1px solid var(--color-line);
+}
+
+.site-icon-settings {
+  display: grid;
+  gap: 1rem;
+  margin-top: clamp(2rem, 5vw, 3.5rem);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid var(--color-line);
+  background: rgb(255 255 255 / 70%);
+}
+
+.site-icon-settings__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.site-icon-settings__heading h2 {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+}
+
+.site-icon-settings__heading p,
+.site-icon-settings__empty p {
+  max-width: 42rem;
+  margin-bottom: 0;
+  color: var(--color-ink-soft);
+}
+
+.site-icon-settings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.site-icon-settings__empty {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px dashed var(--color-line);
+}
+
+.site-icon-settings__empty > span {
+  display: grid;
+  width: 3.5rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 0.6rem 1.4rem 0.6rem 0.6rem;
+  background: var(--color-night);
+  color: var(--color-accent);
+  font-weight: 900;
+}
+
+.site-icon-settings__dirty {
+  color: var(--color-accent-deep);
+  font-weight: 800;
+}
+
+.site-icon-settings + .admin-module-grid {
+  margin-top: clamp(2rem, 5vw, 3.5rem);
+}
+
+@media (max-width: 48rem) {
+  .site-icon-settings__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .site-icon-settings__actions {
+    justify-content: flex-start;
+  }
 }
 
 .admin-module-card {

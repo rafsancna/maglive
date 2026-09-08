@@ -9,6 +9,14 @@ export default async function AdminLoginPage({
   const params = await searchParams;
   const rawReturnPath = typeof params.returnTo === "string" ? params.returnTo : undefined;
   const returnTo = getSafeAdminReturnPath(rawReturnPath);
+  const developmentEmail = process.env.DEVELOPMENT_ADMIN_EMAIL;
+  const developmentPassword = process.env.DEVELOPMENT_ADMIN_PASSWORD;
+  const credentialHint =
+    process.env.NODE_ENV === "development" &&
+    developmentEmail !== undefined &&
+    developmentPassword !== undefined
+      ? { email: developmentEmail, password: developmentPassword }
+      : undefined;
 
   return (
     <main className="admin-login" id="admin-main">
@@ -25,7 +33,10 @@ export default async function AdminLoginPage({
           <h1 id="admin-login-title">Welcome back.</h1>
           <p>Sign in to manage product content, categories, and media.</p>
         </div>
-        <LoginForm returnTo={returnTo} />
+        <LoginForm
+          {...(credentialHint === undefined ? {} : { credentialHint })}
+          returnTo={returnTo}
+        />
         <p className="admin-login__security-note">
           Access is restricted. Sessions are server-managed and may be revoked at any time.
         </p>

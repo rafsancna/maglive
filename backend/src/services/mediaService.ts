@@ -28,6 +28,7 @@ import {
   type MediaTranslation,
 } from "../models/Media.js";
 import { NavigationConfigModel } from "../models/NavigationConfig.js";
+import { SiteSettingsModel } from "../models/SiteSettings.js";
 import { ProductModel, type ProductDocument } from "../models/Product.js";
 import type { StorageProvider } from "../storage/StorageProvider.js";
 import type { MediaJobQueue } from "../media/mediaQueue.js";
@@ -749,18 +750,31 @@ async function usageDocuments(
     status: { $ne: "deleting" },
     posterMediaId: mediaId,
   });
+  const siteSettingsQuery = SiteSettingsModel.findOne({
+    key: "site",
+    iconMediaId: mediaId,
+  });
   if (session !== undefined) {
     categoryQuery.session(session);
     productQuery.session(session);
     posterQuery.session(session);
+    siteSettingsQuery.session(session);
   }
-  const [categories, products, posterOwners, navigation, newsReferences] =
+  const [
+    categories,
+    products,
+    posterOwners,
+    navigation,
+    newsReferences,
+    siteSettings,
+  ] =
     await Promise.all([
       categoryQuery,
       productQuery,
       posterQuery,
       navigationUsages(mediaId, session),
       newsMediaUsages(mediaId),
+      siteSettingsQuery,
     ]);
   const usages = categories.flatMap((category) =>
     categoryUsages(category, mediaId),
@@ -779,6 +793,16 @@ async function usageDocuments(
     })),
   );
   usages.push(...navigation);
+  if (siteSettings !== null) {
+    usages.push({
+      kind: "site-icon",
+      ownerType: "other",
+      ownerId: siteSettings._id.toString(),
+      ownerLabel: "Site appearance",
+      placement: "Browser tab icon",
+      path: "iconMediaId",
+    });
+  }
   usages.push(
     ...newsReferences.map((reference) => ({
       kind:

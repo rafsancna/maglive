@@ -10,7 +10,13 @@ import {
   loginAdministrator
 } from "./api";
 
-type LoginFormProps = Readonly<{ returnTo: string }>;
+type LoginFormProps = Readonly<{
+  returnTo: string;
+  credentialHint?: Readonly<{
+    email: string;
+    password: string;
+  }>;
+}>;
 
 function errorMessage(error: unknown): string {
   if (!(error instanceof AdminApiError)) {
@@ -28,12 +34,13 @@ function errorMessage(error: unknown): string {
   return "The authentication service is unavailable. Please try again.";
 }
 
-export function LoginForm({ returnTo }: LoginFormProps) {
+export function LoginForm({ returnTo, credentialHint }: LoginFormProps) {
   const router = useRouter();
   const errorRef = useRef<HTMLDivElement>(null);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function prepareLogin(): Promise<void> {
@@ -142,6 +149,14 @@ export function LoginForm({ returnTo }: LoginFormProps) {
 
   return (
     <form className="admin-login__form" onSubmit={(event) => void handleSubmit(event)}>
+      {credentialHint === undefined ? null : (
+        <div aria-label="Development login credentials" className="admin-login__credential-hint">
+          <strong>Local development login</strong>
+          <span>Email: <code>{credentialHint.email}</code></span>
+          <span>Password: <code>{credentialHint.password}</code></span>
+        </div>
+      )}
+
       <div className="admin-field">
         <label htmlFor="admin-email">Email address</label>
         <input
@@ -163,8 +178,17 @@ export function LoginForm({ returnTo }: LoginFormProps) {
           maxLength={1024}
           name="password"
           required
-          type="password"
+          type={showPassword ? "text" : "password"}
         />
+        <label className="admin-login__show-password" htmlFor="admin-show-password">
+          <input
+            checked={showPassword}
+            id="admin-show-password"
+            onChange={(event) => setShowPassword(event.target.checked)}
+            type="checkbox"
+          />
+          <span>Show password</span>
+        </label>
       </div>
 
       {error === null ? null : (

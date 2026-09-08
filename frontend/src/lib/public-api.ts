@@ -21,6 +21,8 @@ import {
   type PublicNewsDetailDto,
   type PublicNewsListDto,
   type PublicNewsListQuery,
+  publicSiteSettingsDtoSchema,
+  type PublicSiteSettingsDto,
 } from "@maglive/contracts";
 import type { z } from "zod";
 
@@ -110,6 +112,16 @@ export function getPublicLanguages(): Promise<LanguageListDto> {
 
 export function getPublicNavigation(): Promise<NavigationData> {
   return request("/public/navigation", navigationDataSchema);
+}
+
+export function getPublicSiteSettings(): Promise<PublicSiteSettingsDto> {
+  return request(
+    "/public/site-settings",
+    publicSiteSettingsDtoSchema,
+  ).then((result) => {
+    assertAllowedMediaOrigins(result);
+    return result;
+  });
 }
 
 export function listPublicNews(query: PublicNewsListQuery): Promise<PublicNewsListDto> {

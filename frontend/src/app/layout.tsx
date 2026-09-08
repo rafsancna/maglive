@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { DEFAULT_LOCALE } from "@maglive/contracts";
 import { LOCALE_REQUEST_HEADER } from "@/i18n/routing";
 import { getAvailableLanguage } from "@/i18n/languages";
+import { getPublicSiteSettings } from "@/lib/public-api";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,6 +17,26 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  let siteIcon:
+    | { mimeType: string; width?: number; height?: number; version: number }
+    | undefined;
+  try {
+    const settings = await getPublicSiteSettings();
+    if (settings.icon !== undefined) {
+      siteIcon = {
+        mimeType: settings.icon.mimeType,
+        ...(settings.icon.width === undefined
+          ? {}
+          : { width: settings.icon.width }),
+        ...(settings.icon.height === undefined
+          ? {}
+          : { height: settings.icon.height }),
+        version: settings.version,
+      };
+    }
+  } catch {
+    // Rendering remains available if site settings cannot be loaded.
+  }
   const requestHeaders = await headers();
   const requestedLocale = requestHeaders.get(LOCALE_REQUEST_HEADER);
   const requestedLanguage = requestedLocale === null
@@ -29,6 +50,20 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       dir={metadata?.direction ?? "ltr"}
       lang={metadata?.languageTag ?? DEFAULT_LOCALE}
     >
+      <head>
+        {siteIcon === undefined ? null : (
+          <link
+            href={`/api/site-icon?v=${siteIcon.version}`}
+            rel="icon"
+            sizes={
+              siteIcon.width !== undefined && siteIcon.height !== undefined
+                ? `${siteIcon.width}x${siteIcon.height}`
+                : "any"
+            }
+            type={siteIcon.mimeType}
+          />
+        )}
+      </head>
       <body>{children}</body>
     </html>
   );

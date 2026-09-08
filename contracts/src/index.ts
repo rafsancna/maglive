@@ -10,3 +10,4 @@ export * from "./product.js";
 export * from "./product-template.js";
 export * from "./preview.js";
 export * from "./seo.js";
+export * from "./site-settings.js";

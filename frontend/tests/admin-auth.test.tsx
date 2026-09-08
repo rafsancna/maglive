@@ -32,6 +32,32 @@ beforeEach(() => {
 });
 
 describe("administrator login", () => {
+  it("shows local credentials and toggles password visibility", async () => {
+    vi.spyOn(authApi, "getCurrentAdministrator").mockRejectedValue(
+      new authApi.AdminApiError(401, "AUTH_REQUIRED", "Authentication required")
+    );
+    vi.spyOn(authApi, "fetchCsrfToken").mockResolvedValue("pre-auth-csrf-token-value-00000001");
+    const user = userEvent.setup();
+
+    render(
+      <LoginForm
+        credentialHint={{ email: "admin@example.com", password: "Maglive Local Admin 2026!" }}
+        returnTo="/admin"
+      />
+    );
+
+    expect(screen.getByLabelText("Development login credentials")).toHaveTextContent(
+      "admin@example.com"
+    );
+    expect(screen.getByLabelText("Development login credentials")).toHaveTextContent(
+      "Maglive Local Admin 2026!"
+    );
+    const password = screen.getByLabelText("Password");
+    expect(password).toHaveAttribute("type", "password");
+    await user.click(screen.getByRole("checkbox", { name: "Show password" }));
+    expect(password).toHaveAttribute("type", "text");
+  });
+
   it("acquires pre-auth CSRF, logs in, and follows the validated return path", async () => {
     vi.spyOn(authApi, "getCurrentAdministrator").mockRejectedValue(
       new authApi.AdminApiError(401, "AUTH_REQUIRED", "Authentication required")

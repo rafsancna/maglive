@@ -1,4 +1,5 @@
 import { AdminRouteIntro } from "@/admin/components/AdminRouteIntro";
+import { SiteIconSettings } from "@/admin/site-settings/SiteIconSettings";
 
 const modules = [
   ["Products", "Phase 5–7", "Author, preview, and publish multilingual technical products."],
@@ -17,6 +18,7 @@ export default function AdminDashboardPage() {
       text="Manage multilingual products, news, media, navigation, and search visibility from one controlled workspace."
       title="A controlled workspace for digital publishing."
     >
+      <SiteIconSettings />
       <div className="admin-module-grid">
         {modules.map(([name, phase, description]) => (
           <article className="admin-module-card" key={name}>

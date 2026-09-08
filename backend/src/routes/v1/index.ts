@@ -26,6 +26,10 @@ import {
   createPublicNavigationRouter,
 } from "./navigation.js";
 import { createAdminNewsRouter, createPublicNewsRouter } from "./news.js";
+import {
+  createAdminSiteSettingsRouter,
+  createPublicSiteSettingsRouter,
+} from "./siteSettings.js";
 
 export function createV1Router(
   getDatabaseHealth: () => DatabaseHealth,
@@ -66,9 +70,17 @@ export function createV1Router(
     "/admin/seo",
     createAdminSeoRouter(config, now ?? Date.now),
   );
+  router.use(
+    "/admin/site-settings",
+    createAdminSiteSettingsRouter(config, now ?? Date.now),
+  );
   router.use("/public/categories", createPublicCategoriesRouter());
   router.use("/public/languages", createPublicLanguagesRouter());
   router.use("/public/navigation", createPublicNavigationRouter());
+  router.use(
+    "/public/site-settings",
+    createPublicSiteSettingsRouter(storageProvider),
+  );
   router.use("/public/news", createPublicNewsRouter(storageProvider));
   router.use("/public/products", createPublicProductsRouter(storageProvider));
   router.use("/preview", createPreviewRouter(config, now ?? Date.now));
