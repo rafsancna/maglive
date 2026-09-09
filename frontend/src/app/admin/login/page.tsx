@@ -25,26 +25,31 @@ export default async function AdminLoginPage({
           <span aria-hidden="true" className="admin-login__mark">M</span>
           <div>
             <strong>MAGLIVE</strong>
-            <span>Secure content operations</span>
+            <span>Administration</span>
           </div>
         </div>
         <div className="admin-login__heading">
-          <span className="admin-kicker">Administrator access</span>
-          <h1 id="admin-login-title">Welcome back.</h1>
-          <p>Sign in to manage product content, categories, and media.</p>
+          <h1 id="admin-login-title">Sign in</h1>
+          <p>Use your administrator account to continue.</p>
         </div>
         <LoginForm
           {...(credentialHint === undefined ? {} : { credentialHint })}
           returnTo={returnTo}
         />
         <p className="admin-login__security-note">
-          Access is restricted. Sessions are server-managed and may be revoked at any time.
+          Sessions are server-managed and may be revoked at any time.
         </p>
       </section>
       <aside aria-hidden="true" className="admin-login__visual">
-        <span>Structured content</span>
-        <strong>Precise publishing.</strong>
-        <div className="admin-login__orb" />
+        <div className="admin-login__visual-brand">
+          <span className="admin-login__mark admin-login__mark--inverted">M</span>
+          <strong>MAGLIVE</strong>
+        </div>
+        <p className="admin-login__visual-line" />
+        <p className="admin-login__visual-copy">
+          Multilingual publishing for products, news, and media — from one
+          controlled workspace.
+        </p>
       </aside>
     </main>
   );

@@ -8,7 +8,7 @@ export function AdminRouteIntro({
 }: {
   eyebrow: string;
   title: string;
-  text: string;
+  text?: string;
   children?: ReactNode;
 }) {
   return (
@@ -16,7 +16,7 @@ export function AdminRouteIntro({
       <div className="admin-route__heading">
         <span className="admin-kicker">{eyebrow}</span>
         <h1>{title}</h1>
-        <p>{text}</p>
+        {text === undefined ? null : <p>{text}</p>}
       </div>
       {children}
     </section>

@@ -915,7 +915,7 @@ export function ProductWorkspace() {
       {!loading && data !== null && data.items.length === 0 ? (
         <div className="product-empty">
           <strong>No Products match these filters</strong>
-          <p>Change or reset the current URL-backed filters.</p>
+          <p>Adjust the filters above, or reset them to see everything.</p>
         </div>
       ) : null}
       {!loading && data !== null && data.items.length > 0 ? (

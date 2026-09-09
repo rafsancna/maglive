@@ -140,9 +140,9 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     return (
       <main className="admin-gate" id="admin-main">
         <div aria-live="polite" className="admin-gate__panel" role="status">
-          <span className="admin-kicker">Secure workspace</span>
+          <span aria-hidden="true" className="admin-spinner" />
           <h1>Verifying your session</h1>
-          <p>Connecting to the Maglive administration service…</p>
+          <p>Connecting to the administration service…</p>
         </div>
       </main>
     );
@@ -152,7 +152,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     return (
       <main className="admin-gate" id="admin-main">
         <div className="admin-gate__panel">
-          <span className="admin-kicker">Connection interrupted</span>
+          <span aria-hidden="true" className="admin-gate__icon">
+            <svg fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 20 20">
+              <path d="M10 2.6 18 17H2L10 2.6z" />
+              <path d="M10 8.4v3.8M10 14.6v.2" />
+            </svg>
+          </span>
           <h1>Administration is temporarily unavailable</h1>
           <p>Your session could not be verified. No changes have been made.</p>
           <button className="admin-button admin-button--primary" onClick={() => void verifySession()} type="button">
