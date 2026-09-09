@@ -2,6 +2,7 @@ import type { LocaleCode } from "@maglive/contracts";
 import type { Dictionary } from "@/i18n/dictionary";
 import { Container } from "@/components/ui/Container";
 import { LocaleLink } from "./LocaleLink";
+import { BrandLogo } from "./BrandLogo";
 
 export function Footer({
   dictionary,
@@ -14,7 +15,9 @@ export function Footer({
     <footer className="site-footer">
       <Container className="site-footer__grid">
         <div>
-          <div className="site-footer__brand">{dictionary.brand.name}</div>
+          <div className="site-footer__brand">
+            <BrandLogo />
+          </div>
           <p>{dictionary.footer.statement}</p>
         </div>
         <div className="site-footer__meta">

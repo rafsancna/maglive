@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { LanguageDto, LocaleCode } from "@maglive/contracts";
 import type { Dictionary } from "@/i18n/dictionary";
 import { Container } from "@/components/ui/Container";
+import { BrandLink } from "./BrandLogo";
 import { LocaleLink } from "./LocaleLink";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { MegaMenu, type MenuKey } from "./mega-menu/MegaMenu";
@@ -96,10 +97,7 @@ export function Navbar({
   return (
     <header className={`site-header ${scrolled ? "site-header--scrolled" : ""} ${openMenu ? "site-header--menu-open" : ""}`} onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
       <Container className="site-header__inner">
-        <LocaleLink aria-label={dictionary.brand.name} className="brand" href="/" locale={locale} onClick={closeMobile}>
-          <span className="brand__mark" aria-hidden="true">M</span>
-          <span className="brand__wordmark"><strong>{dictionary.brand.name}</strong><small>{dictionary.brand.descriptor}</small></span>
-        </LocaleLink>
+        <BrandLink href="/" label={dictionary.brand.name} locale={locale} onClick={closeMobile} />
 
         <nav aria-label={dictionary.accessibility.primaryNavigation} className="primary-nav">
           {primaryItems.map((item) => item.menu !== undefined ? (
