@@ -76,7 +76,7 @@ export function createV1Router(
   );
   router.use("/public/categories", createPublicCategoriesRouter());
   router.use("/public/languages", createPublicLanguagesRouter());
-  router.use("/public/navigation", createPublicNavigationRouter());
+  router.use("/public/navigation", createPublicNavigationRouter(storageProvider));
   router.use(
     "/public/site-settings",
     createPublicSiteSettingsRouter(storageProvider),

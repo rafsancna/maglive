@@ -24,9 +24,9 @@ function fromApi(data: NavigationData): NavigationMockData {
   } as NavigationMockData;
 }
 
-export async function getNavigationData(): Promise<NavigationMockData> {
+export async function getNavigationData(locale: string): Promise<NavigationMockData> {
   try {
-    return fromApi(await getPublicNavigation());
+    return fromApi(await getPublicNavigation(locale));
   } catch {
     return megaMenuMockData;
   }

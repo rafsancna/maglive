@@ -9,6 +9,8 @@ import {
 import { AppError } from "../errors/AppError.js";
 import { NavigationConfigModel } from "../models/NavigationConfig.js";
 import { MediaModel } from "../models/Media.js";
+import { NewsModel, type NewsDocument, type PublishedNewsLocale } from "../models/News.js";
+import type { StorageProvider } from "../storage/StorageProvider.js";
 import { Types } from "mongoose";
 
 const text = (en: string, zh: string) => ({ en, zh });
@@ -40,6 +42,8 @@ export const defaultNavigationData: NavigationData = navigationDataSchema.parse(
   featuredSolution: { id: "smarter-energy-balance", label: text("A smarter energy balance", "更智能的能源平衡"), description: text("Connect generation, storage and demand into one dependable operating picture.", "将发电、储能与负荷连接为可靠统一的运营视图。"), href: "/projects", tag: text("System thinking", "系统化思维"), image: image("https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1400&q=80", "Solar panels at sunset", "日落中的太阳能电池板") },
   cases: [],
   news: [],
+  newsArticleIds: [],
+  newsItemCount: 4,
   documents: [],
   services: [],
 });
@@ -47,9 +51,127 @@ export const defaultNavigationData: NavigationData = navigationDataSchema.parse(
 function adminDto(data: NavigationData, version: number, updatedAt?: Date): NavigationAdminDto {
   return {
     ...data,
+    news: [],
+    newsArticleIds: data.newsArticleIds ?? [],
+    newsItemCount: data.newsItemCount ?? 4,
     version,
     ...(updatedAt === undefined ? {} : { updatedAt: updatedAt.toISOString() }),
   };
+}
+
+function localizedPublishedText(
+  news: NewsDocument,
+  select: (snapshot: PublishedNewsLocale) => string,
+): Record<string, string> {
+  return Object.fromEntries(
+    [...news.publishedSnapshots.entries()].map(([locale, snapshot]) => [locale, select(snapshot)]),
+  );
+}
+
+function displayCategory(category: string): string {
+  return category
+    .split("-")
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}
+
+function displayDate(date: Date, locale: string): string {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(date);
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
+async function resolveNavigationNews(
+  data: NavigationData,
+  storageProvider: StorageProvider,
+  locale: string,
+): Promise<NavigationData["news"]> {
+  const selectedIds = [...new Set(data.newsArticleIds ?? [])];
+  const itemCount = selectedIds.length > 0 ? selectedIds.length : (data.newsItemCount ?? 4);
+  let articles: NewsDocument[] = [];
+
+  if (selectedIds.length > 0) {
+    const selected = await NewsModel.find({
+      _id: { $in: selectedIds },
+      status: "published",
+      publishedGlobal: { $exists: true },
+      [`publishedSnapshots.${locale}`]: { $exists: true },
+    });
+    const byId = new Map(selected.map((article) => [article._id.toString(), article]));
+    articles = selectedIds.flatMap((id) => {
+      const article = byId.get(id);
+      return article === undefined ? [] : [article];
+    });
+  }
+
+  if (articles.length < itemCount) {
+    const excludedIds = articles.map((article) => article._id);
+    const latest = await NewsModel.find({
+      status: "published",
+      publishedGlobal: { $exists: true },
+      [`publishedSnapshots.${locale}`]: { $exists: true },
+      ...(excludedIds.length === 0 ? {} : { _id: { $nin: excludedIds } }),
+    })
+      .sort({ "publishedGlobal.publishedAt": -1 })
+      .limit(itemCount - articles.length);
+    articles.push(...latest);
+  }
+
+  const mediaIds = articles.flatMap((article) => {
+    const id = article.publishedGlobal?.heroMediaId;
+    return id === undefined ? [] : [id];
+  });
+  const mediaById = new Map(
+    (await MediaModel.find({ _id: { $in: mediaIds }, kind: "image", status: "ready" })).map((media) => [
+      media._id.toString(),
+      media,
+    ]),
+  );
+
+  return articles.flatMap((article, order) => {
+    const global = article.publishedGlobal;
+    if (global === undefined || article.publishedSnapshots.size === 0) return [];
+    const label = localizedPublishedText(article, (snapshot) => snapshot.data.title);
+    const description = localizedPublishedText(article, (snapshot) => snapshot.data.excerpt);
+    const category = Object.fromEntries(
+      [...article.publishedSnapshots.keys()].map((locale) => [locale, displayCategory(global.category)]),
+    );
+    const publishedAt = article.firstPublishedAt ?? global.publishedAt;
+    const date = Object.fromEntries(
+      [...article.publishedSnapshots.keys()].map((locale) => [locale, displayDate(publishedAt, locale)]),
+    );
+    const media = global.heroMediaId === undefined
+      ? undefined
+      : mediaById.get(global.heroMediaId.toString());
+    const image = media?.storage?.provider === storageProvider.id
+      ? {
+          src: storageProvider.getPublicUrl(media.storage.key),
+          alt: label,
+          width: media.width ?? 1_200,
+          height: media.height ?? 800,
+          mediaId: media._id.toString(),
+        }
+      : undefined;
+    return [{
+      id: article._id.toString(),
+      label,
+      description,
+      href: `/news/${global.slug}`,
+      visible: true,
+      order,
+      date,
+      category,
+      ...(image === undefined ? {} : { image }),
+    }];
+  });
 }
 
 function publicData(data: NavigationData): NavigationData {
@@ -94,10 +216,29 @@ async function assertNavigationMediaReady(data: NavigationData): Promise<void> {
   }
 }
 
-export async function getPublicNavigation(): Promise<NavigationData> {
+async function assertNewsSelection(data: NavigationData): Promise<void> {
+  const ids = data.newsArticleIds ?? [];
+  if (ids.length !== new Set(ids).size) {
+    throw new AppError(422, "NEWS_SELECTION_DUPLICATE", "Each selected news article must be unique.");
+  }
+  if (ids.length !== 0 && ids.length !== (data.newsItemCount ?? 4)) {
+    throw new AppError(422, "NEWS_SELECTION_COUNT", "Select exactly 3 or 4 news articles, or select none to use the latest news automatically.");
+  }
+  if (ids.length === 0) return;
+  const published = await NewsModel.countDocuments({
+    _id: { $in: ids },
+    status: "published",
+    publishedGlobal: { $exists: true },
+  });
+  if (published !== ids.length) {
+    throw new AppError(422, "NEWS_SELECTION_UNAVAILABLE", "Every selected news article must still be published.");
+  }
+}
+
+export async function getPublicNavigation(storageProvider: StorageProvider, locale: string): Promise<NavigationData> {
   const config = await NavigationConfigModel.findOne({ key: "primary" });
-  if (config === null) return publicData(defaultNavigationData);
-  return publicData(navigationDataSchema.parse(config.data));
+  const data = config === null ? defaultNavigationData : navigationDataSchema.parse(config.data);
+  return publicData({ ...data, news: await resolveNavigationNews(data, storageProvider, locale) });
 }
 
 export async function getAdminNavigation(): Promise<NavigationAdminDto> {
@@ -113,6 +254,7 @@ export async function updateAdminNavigation(
   const { version, ...dataInput } = input;
   const data = navigationDataSchema.parse(dataInput);
   await assertNavigationMediaReady(data);
+  await assertNewsSelection(data);
   const current = await NavigationConfigModel.findOne({ key: "primary" });
   if (current === null) {
     if (version !== 0) throw new AppError(409, "VERSION_CONFLICT", "The navigation changed elsewhere. Refresh and retry.");

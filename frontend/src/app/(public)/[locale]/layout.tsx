@@ -24,7 +24,7 @@ export default async function LocaleLayout({
   const [dictionary, languages, navigationData] = await Promise.all([
     getDictionary(locale),
     getAvailableLanguages(),
-    getNavigationData(),
+    getNavigationData(locale),
   ]);
 
   return (

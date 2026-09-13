@@ -19,6 +19,7 @@ import { useLanguages } from "../languages/LanguageProvider";
 import { MediaPicker } from "../media/MediaPicker";
 import { SelectedMediaSummary } from "../media/SelectedMediaSummary";
 import { getNavigation, updateNavigation } from "./api";
+import { NewsSelectionEditor } from "./NewsSelectionEditor";
 
 type MenuTab = "products" | "solutions" | "cases" | "news" | "documents" | "services";
 type Tab = "navbar" | MenuTab;
@@ -120,6 +121,7 @@ function tabCount(data: NavigationAdminDto, tab: Tab): number {
   if (tab === "navbar") return data.primaryItems.length;
   if (tab === "products") return data.productCategories.length;
   if (tab === "solutions") return data.solutionCategories.length;
+  if (tab === "news") return data.newsArticleIds?.length || data.newsItemCount || 4;
   return data[tab].length;
 }
 
@@ -138,7 +140,7 @@ export function NavigationManager() {
     return () => { active = false; };
   }, []);
 
-  const itemCount = useMemo(() => data === null ? 0 : data.primaryItems.length + data.productCategories.length + data.productCategories.reduce((count, category) => count + category.products.length, 0) + data.featuredProducts.length + data.solutionCategories.length + data.solutionCategories.filter((solution) => solution.feature !== undefined).length + 1 + data.cases.length + data.news.length + data.documents.length + data.services.length, [data]);
+  const itemCount = useMemo(() => data === null ? 0 : data.primaryItems.length + data.productCategories.length + data.productCategories.reduce((count, category) => count + category.products.length, 0) + data.featuredProducts.length + data.solutionCategories.length + data.solutionCategories.filter((solution) => solution.feature !== undefined).length + 1 + data.cases.length + (data.newsArticleIds?.length || data.newsItemCount || 4) + data.documents.length + data.services.length, [data]);
 
   function change(next: NavigationAdminDto): void { setData(next); setDirty(true); setNotice(null); setError(null); }
 
@@ -158,13 +160,31 @@ export function NavigationManager() {
   function removeSolution(id: string): void { if (data === null) return; change({ ...data, solutionCategories: data.solutionCategories.filter((item) => item.id !== id) }); }
   function updateProduct(id: string, next: NavigationProduct): void { if (data === null) return; change({ ...data, featuredProducts: data.featuredProducts.map((item) => item.id === id ? next : item) }); }
   function removeProduct(id: string): void { if (data === null) return; change({ ...data, featuredProducts: data.featuredProducts.filter((item) => item.id !== id) }); }
-  function updateList<K extends "cases" | "news" | "documents" | "services">(key: K, id: string, next: NavigationData[K][number]): void { if (data === null) return; change({ ...data, [key]: data[key].map((item) => item.id === id ? next : item) } as NavigationAdminDto); }
-  function removeList<K extends "cases" | "news" | "documents" | "services">(key: K, id: string): void { if (data === null) return; change({ ...data, [key]: data[key].filter((item) => item.id !== id) } as NavigationAdminDto); }
+  function updateList<K extends "cases" | "documents" | "services">(key: K, id: string, next: NavigationData[K][number]): void { if (data === null) return; change({ ...data, [key]: data[key].map((item) => item.id === id ? next : item) } as NavigationAdminDto); }
+  function removeList<K extends "cases" | "documents" | "services">(key: K, id: string): void { if (data === null) return; change({ ...data, [key]: data[key].filter((item) => item.id !== id) } as NavigationAdminDto); }
 
   if (loading) return <section className="admin-route"><div className="admin-navigation__loading">Loading navigation settings…</div></section>;
   if (data === null) return <section className="admin-route"><div className="admin-alert" role="alert">{error ?? "Navigation settings could not be loaded."}</div></section>;
 
-  return <section className="admin-route admin-navigation"><header className="admin-route__heading"><span className="admin-kicker">Navigation control</span><h1>Navbar &amp; mega menu</h1><p>Manage the content, links, order, visibility, and imagery used by the public navigation. The layout and interaction remain code-owned.</p></header><div className="admin-navigation__toolbar"><div><strong>{itemCount}</strong><span>managed menu records</span>{dirty ? <em>Unsaved changes</em> : null}</div><button className="admin-button admin-button--primary" disabled={busy || !dirty} onClick={() => void save()} type="button">{busy ? "Saving…" : "Save navigation"}</button></div>{error ? <div className="admin-alert" role="alert">{error}</div> : null}{notice ? <div className="admin-alert admin-alert--success" role="status">{notice}</div> : null}<nav aria-label="Navigation settings" className="admin-navigation__tabs">{tabs.map((item) => <button aria-current={tab === item.key ? "page" : undefined} className={tab === item.key ? "is-active" : ""} key={item.key} onClick={() => setTab(item.key)} type="button"><span>{item.marker}</span>{item.label}<small>{tabCount(data, item.key)}</small></button>)}</nav>{tab === "navbar" ? <PrimaryItemsEditor data={data} onChange={change} onItemChange={updatePrimaryItem} onRemove={removePrimaryItem} /> : null}{tab === "products" ? <ProductsEditor data={data} onChange={change} onCategoryChange={updateCategory} onCategoryRemove={removeCategory} onCategoryProductChange={updateCategoryProduct} onCategoryProductRemove={removeCategoryProduct} onProductChange={updateProduct} onProductRemove={removeProduct} /> : null}{tab === "solutions" ? <SolutionsEditor data={data} onChange={change} onSolutionChange={updateSolution} onSolutionRemove={removeSolution} /> : null}{tab === "cases" ? <SimpleListEditor items={data.cases} title="Cases" description="Projects shown in the visual Cases menu." addLabel="Add case" onAdd={() => change({ ...data, cases: [...data.cases, { ...newProduct(generatedId("case")), location: { en: "Project location", zh: "项目地点" }, capacity: { en: "0 MWp", zh: "0 MWp" } }] })} onChange={(id, next) => updateList("cases", id, next as NavigationCase)} onRemove={(id) => removeList("cases", id)} showImage /> : null}{tab === "news" ? <SimpleListEditor items={data.news} title="News" description="Latest articles shown in the News menu." addLabel="Add news item" onAdd={() => change({ ...data, news: [...data.news, { ...newProduct(generatedId("news")), date: { en: "01 Jan 2025", zh: "2025年1月1日" }, category: { en: "Company", zh: "公司" } }] })} onChange={(id, next) => updateList("news", id, next as NavigationNews)} onRemove={(id) => removeList("news", id)} showImage /> : null}{tab === "documents" ? <SimpleListEditor items={data.documents} title="Documents" description="Download and resource links shown in the Documents menu." addLabel="Add document" onAdd={() => change({ ...data, documents: [...data.documents, newLink(generatedId("document"))] })} onChange={(id, next) => updateList("documents", id, next)} onRemove={(id) => removeList("documents", id)} /> : null}{tab === "services" ? <SimpleListEditor items={data.services} title="Services" description="Support and service links shown in the Services menu." addLabel="Add service" onAdd={() => change({ ...data, services: [...data.services, newLink(generatedId("service"))] })} onChange={(id, next) => updateList("services", id, next)} onRemove={(id) => removeList("services", id)} /> : null}</section>;
+  const selectedNewsCount = data.newsArticleIds?.length ?? 0;
+  const newsSelectionValid = selectedNewsCount === 0 || selectedNewsCount === (data.newsItemCount ?? 4);
+
+  return (
+    <section className="admin-route admin-navigation">
+      <header className="admin-route__heading"><span className="admin-kicker">Navigation control</span><h1>Navbar &amp; mega menu</h1><p>Manage the content, links, order, visibility, and imagery used by the public navigation. The layout and interaction remain code-owned.</p></header>
+      <div className="admin-navigation__toolbar"><div><strong>{itemCount}</strong><span>managed menu records</span>{dirty ? <em>Unsaved changes</em> : null}</div><button className="admin-button admin-button--primary" disabled={busy || !dirty || !newsSelectionValid} onClick={() => void save()} type="button">{busy ? "Saving…" : "Save navigation"}</button></div>
+      {error ? <div className="admin-alert" role="alert">{error}</div> : null}
+      {notice ? <div className="admin-alert admin-alert--success" role="status">{notice}</div> : null}
+      <nav aria-label="Navigation settings" className="admin-navigation__tabs">{tabs.map((item) => <button aria-current={tab === item.key ? "page" : undefined} className={tab === item.key ? "is-active" : ""} key={item.key} onClick={() => setTab(item.key)} type="button"><span>{item.marker}</span>{item.label}<small>{tabCount(data, item.key)}</small></button>)}</nav>
+      {tab === "navbar" ? <PrimaryItemsEditor data={data} onChange={change} onItemChange={updatePrimaryItem} onRemove={removePrimaryItem} /> : null}
+      {tab === "products" ? <ProductsEditor data={data} onChange={change} onCategoryChange={updateCategory} onCategoryRemove={removeCategory} onCategoryProductChange={updateCategoryProduct} onCategoryProductRemove={removeCategoryProduct} onProductChange={updateProduct} onProductRemove={removeProduct} /> : null}
+      {tab === "solutions" ? <SolutionsEditor data={data} onChange={change} onSolutionChange={updateSolution} onSolutionRemove={removeSolution} /> : null}
+      {tab === "cases" ? <SimpleListEditor items={data.cases} title="Cases" description="Projects shown in the visual Cases menu." addLabel="Add case" onAdd={() => change({ ...data, cases: [...data.cases, { ...newProduct(generatedId("case")), location: { en: "Project location", zh: "项目地点" }, capacity: { en: "0 MWp", zh: "0 MWp" } }] })} onChange={(id, next) => updateList("cases", id, next as NavigationCase)} onRemove={(id) => removeList("cases", id)} showImage /> : null}
+      {tab === "news" ? <NewsSelectionEditor data={data} onChange={change} /> : null}
+      {tab === "documents" ? <SimpleListEditor items={data.documents} title="Documents" description="Download and resource links shown in the Documents menu." addLabel="Add document" onAdd={() => change({ ...data, documents: [...data.documents, newLink(generatedId("document"))] })} onChange={(id, next) => updateList("documents", id, next)} onRemove={(id) => removeList("documents", id)} /> : null}
+      {tab === "services" ? <SimpleListEditor items={data.services} title="Services" description="Support and service links shown in the Services menu." addLabel="Add service" onAdd={() => change({ ...data, services: [...data.services, newLink(generatedId("service"))] })} onChange={(id, next) => updateList("services", id, next)} onRemove={(id) => removeList("services", id)} /> : null}
+    </section>
+  );
 }
 
 function PrimaryItemsEditor({ data, onChange, onItemChange, onRemove }: { data: NavigationAdminDto; onChange: (next: NavigationAdminDto) => void; onItemChange: (id: string, next: NavigationPrimaryItem) => void; onRemove: (id: string) => void }) {

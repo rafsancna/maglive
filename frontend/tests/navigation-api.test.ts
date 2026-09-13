@@ -45,6 +45,9 @@ describe("navigation API", () => {
     );
     expect(vi.mocked(requestAdminMutation).mock.calls[0]?.[3]).toMatchObject({
       version: 4,
+      news: [],
+      newsArticleIds: [],
+      newsItemCount: 4,
       documents: [],
     });
   });

@@ -1,4 +1,4 @@
-import { updateNavigationRequestSchema, type LanguageDto, type NavigationAdminDto } from "@maglive/contracts";
+import { updateNavigationRequestSchema, type LanguageDto, type NavigationAdminDto, type NewsAdminDto } from "@maglive/contracts";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/admin/languages/LanguageProvider";
 import { NavigationManager } from "@/admin/navigation/NavigationManager";
 import * as languageApi from "@/admin/languages/api";
 import * as navigationApi from "@/admin/navigation/api";
+import * as newsApi from "@/admin/news/api";
 
 vi.mock("@/admin/languages/api", () => ({
   getLanguages: vi.fn(),
@@ -14,6 +15,10 @@ vi.mock("@/admin/languages/api", () => ({
 vi.mock("@/admin/navigation/api", () => ({
   getNavigation: vi.fn(),
   updateNavigation: vi.fn(),
+}));
+
+vi.mock("@/admin/news/api", () => ({
+  listNews: vi.fn(),
 }));
 
 const languages: readonly LanguageDto[] = [
@@ -89,6 +94,30 @@ const navigation: NavigationAdminDto = {
   version: 3,
 };
 
+function publishedArticle(index: number): NewsAdminDto {
+  const id = String(index).padStart(24, "0");
+  const timestamp = `2026-09-${String(index).padStart(2, "0")}T10:00:00.000Z`;
+  return {
+    id,
+    slug: `article-${index}`,
+    category: "company-news",
+    authorName: "Maglive Newsroom",
+    featured: false,
+    tags: [],
+    translations: {},
+    status: "published",
+    publishedGlobal: { slug: `article-${index}`, category: "company-news", authorName: "Maglive Newsroom", featured: false, tags: [], publishedAt: timestamp },
+    publishedSnapshots: { en: { publishedAt: timestamp, data: { title: `Article ${index}`, excerpt: `Summary ${index}`, content: [{ id: `paragraph-${index}`, type: "paragraph", text: `Body ${index}` }], seo: { keywords: [] } } } },
+    localeStates: { en: "published", zh: "incomplete", fr: "incomplete" },
+    firstPublishedAt: timestamp,
+    createdBy: "507f1f77bcf86cd799439011",
+    updatedBy: "507f1f77bcf86cd799439011",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    version: 1,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(languageApi.getLanguages).mockResolvedValue({ languages: [...languages] });
@@ -96,6 +125,10 @@ beforeEach(() => {
   vi.mocked(navigationApi.updateNavigation).mockImplementation(async (input) => {
     const parsed = updateNavigationRequestSchema.parse(input);
     return { ...parsed, version: parsed.version + 1 };
+  });
+  vi.mocked(newsApi.listNews).mockResolvedValue({
+    items: [],
+    pagination: { page: 1, limit: 100, total: 0, totalPages: 0 },
   });
 });
 
@@ -234,7 +267,7 @@ describe("navigation manager", () => {
     await user.click(screen.getByRole("button", { name: /Cases/ }));
     await user.click(screen.getByRole("button", { name: "+ Add case" }));
     await user.click(screen.getByRole("button", { name: /News/ }));
-    await user.click(screen.getByRole("button", { name: "+ Add news item" }));
+    expect(screen.getByRole("heading", { name: "Choose the stories visitors see" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Documents/ }));
     await user.click(screen.getByRole("button", { name: "+ Add document" }));
     await user.click(screen.getByRole("button", { name: /Services/ }));
@@ -249,10 +282,39 @@ describe("navigation manager", () => {
         productCategories: expect.arrayContaining([expect.objectContaining({ label: expect.objectContaining({ en: "New category" }) })]),
         solutionCategories: expect.arrayContaining([expect.objectContaining({ feature: expect.objectContaining({ label: expect.objectContaining({ en: "New product" }) }) })]),
         cases: [expect.objectContaining({ label: expect.objectContaining({ en: "New product" }) })],
-        news: [expect.objectContaining({ label: expect.objectContaining({ en: "New product" }) })],
+        news: [],
         documents: [expect.objectContaining({ label: expect.objectContaining({ en: "New link" }) })],
         services: [expect.objectContaining({ label: expect.objectContaining({ en: "New link" }) })],
       });
+    });
+  });
+
+  it("selects and orders three published news records without duplicating their content", async () => {
+    const user = userEvent.setup();
+    const articles = [publishedArticle(1), publishedArticle(2), publishedArticle(3)];
+    vi.mocked(newsApi.listNews).mockResolvedValue({
+      items: articles,
+      pagination: { page: 1, limit: 100, total: 3, totalPages: 1 },
+    });
+    render(
+      <LanguageProvider>
+        <NavigationManager />
+      </LanguageProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /News/ }));
+    await user.click(screen.getByRole("button", { name: "3" }));
+    for (const article of articles) {
+      await user.click(await screen.findByRole("button", { name: new RegExp(article.publishedSnapshots.en!.data.title) }));
+    }
+    await user.click(screen.getByRole("button", { name: "Save navigation" }));
+
+    await waitFor(() => {
+      expect(navigationApi.updateNavigation).toHaveBeenCalledWith(expect.objectContaining({
+        news: [],
+        newsArticleIds: articles.map((article) => article.id),
+        newsItemCount: 3,
+      }));
     });
   });
 });

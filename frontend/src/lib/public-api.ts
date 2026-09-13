@@ -110,8 +110,8 @@ export function getPublicLanguages(): Promise<LanguageListDto> {
   return request("/public/languages", languageListDtoSchema);
 }
 
-export function getPublicNavigation(): Promise<NavigationData> {
-  return request("/public/navigation", navigationDataSchema);
+export function getPublicNavigation(locale: string): Promise<NavigationData> {
+  return request(`/public/navigation?locale=${encodeURIComponent(locale)}`, navigationDataSchema);
 }
 
 export function getPublicSiteSettings(): Promise<PublicSiteSettingsDto> {

@@ -1,12 +1,14 @@
 import {
   navigationAdminDtoSchema,
   navigationDataSchema,
+  localeCodeSchema,
   updateNavigationRequestSchema,
   type SafeAdminDto,
 } from "@maglive/contracts";
 import { Router, type RequestHandler } from "express";
 import { assertValidCsrfToken } from "../../auth/csrf.js";
 import type { AppConfig } from "../../config/env.js";
+import type { StorageProvider } from "../../storage/StorageProvider.js";
 import { createAdminMutationRateLimit } from "../../middleware/rateLimits.js";
 import { createRequireAdmin } from "../../middleware/requireAdmin.js";
 import { requireTrustedOrigin } from "../../middleware/trustedOrigin.js";
@@ -59,12 +61,17 @@ export function createAdminNavigationRouter(
   return router;
 }
 
-export function createPublicNavigationRouter(): Router {
+export function createPublicNavigationRouter(storageProvider: StorageProvider): Router {
   const router = Router();
-  router.get("/", async (_request, response, next) => {
+  router.get("/", async (request, response, next) => {
     try {
       response.setHeader("Cache-Control", "no-store");
-      response.json({ data: navigationDataSchema.parse(await getPublicNavigation()) });
+      const locale = parseRequestValue(
+        localeCodeSchema,
+        request.query.locale ?? "en",
+        "query",
+      );
+      response.json({ data: navigationDataSchema.parse(await getPublicNavigation(storageProvider, locale)) });
     } catch (error) {
       next(error);
     }

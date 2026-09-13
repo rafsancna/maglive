@@ -90,6 +90,8 @@ export const navigationDataSchema = z.object({
   featuredSolution: navigationProductSchema,
   cases: z.array(navigationCaseSchema).max(24),
   news: z.array(navigationNewsSchema).max(24),
+  newsArticleIds: z.array(objectIdStringSchema).max(4).optional(),
+  newsItemCount: z.union([z.literal(3), z.literal(4)]).optional(),
   documents: z.array(navigationLinkSchema).max(24),
   services: z.array(navigationLinkSchema).max(24),
 }).strict();
