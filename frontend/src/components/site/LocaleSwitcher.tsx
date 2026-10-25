@@ -2,6 +2,7 @@
 
 import {
   LOCALE_CODES,
+  countryCodeForLanguage,
   getLocaleMetadata,
   type LanguageDto,
   type LocaleCode,
@@ -9,6 +10,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CountryFlag } from "@/components/media/CountryFlag";
 import { LOCALE_COOKIE_NAME, switchPathLocale } from "@/i18n/routing";
 
 type LocaleSwitcherProps = {
@@ -17,6 +19,14 @@ type LocaleSwitcherProps = {
   languages?: readonly LanguageDto[];
   onOpen?: () => void;
 };
+
+function flagMetadata(
+  code: string,
+  languageTag: string,
+): Pick<LanguageDto, "countryCode"> {
+  const countryCode = countryCodeForLanguage(code, languageTag);
+  return countryCode === undefined ? {} : { countryCode };
+}
 
 const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
   const metadata = getLocaleMetadata(code);
@@ -29,46 +39,22 @@ const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
     label: metadata.label,
     nativeLabel: metadata.nativeLabel,
     builtIn: true,
+    ...flagMetadata(code, metadata.languageTag),
   };
 });
 
-const defaultCountryByLanguage: Readonly<Record<string, string>> = {
-  ar: "SA",
-  bn: "BD",
-  de: "DE",
-  en: "US",
-  es: "ES",
-  fa: "IR",
-  fr: "FR",
-  he: "IL",
-  hi: "IN",
-  id: "ID",
-  it: "IT",
-  ja: "JP",
-  ko: "KR",
-  ms: "MY",
-  nl: "NL",
-  pl: "PL",
-  pt: "BR",
-  ru: "RU",
-  th: "TH",
-  tr: "TR",
-  uk: "UA",
-  vi: "VN",
-  zh: "CN",
-};
-
-function getLanguageFlag(language: LanguageDto): string {
-  const region = language.languageTag
-    .split("-")
-    .find((part) => /^[A-Z]{2}$/.test(part));
-  const baseLanguage = language.code.split("-")[0];
-  const country = region ?? (baseLanguage ? defaultCountryByLanguage[baseLanguage] : undefined);
-
-  if (!country) return "🌐";
-
-  return String.fromCodePoint(
-    ...[...country].map((character) => 127397 + character.charCodeAt(0)),
+/**
+ * Country flags are served as SVG files from our own origin, so they render
+ * everywhere (unlike flag emoji, which Windows and many Linux setups show as
+ * plain letters) and never depend on the host the site is deployed to.
+ */
+function LanguageFlag({ language, variant }: { language: LanguageDto; variant: "trigger" | "option" }) {
+  return (
+    <CountryFlag
+      className={variant === "trigger" ? "locale-menu__flag" : "locale-menu__option-flag"}
+      countryCode={language.countryCode}
+      fallback={language.code.slice(0, 2).toUpperCase()}
+    />
   );
 }
 
@@ -146,9 +132,7 @@ export function LocaleSwitcher({ currentLocale, label, languages = builtInLangua
         ref={triggerRef}
         type="button"
       >
-        <span aria-hidden="true" className="locale-menu__flag">
-          {getLanguageFlag(activeLanguage)}
-        </span>
+        <LanguageFlag language={activeLanguage} variant="trigger" />
         <span className="locale-menu__current" lang={activeLanguage.languageTag}>
           {activeLanguage.nativeLabel}
         </span>
@@ -182,9 +166,7 @@ export function LocaleSwitcher({ currentLocale, label, languages = builtInLangua
                     setIsOpen(false);
                   }}
                 >
-                  <span aria-hidden="true" className="locale-menu__option-flag">
-                    {getLanguageFlag(metadata)}
-                  </span>
+                  <LanguageFlag language={metadata} variant="option" />
                   <span className="locale-menu__option-copy">
                     <strong>{metadata.nativeLabel}</strong>
                     {metadata.label !== metadata.nativeLabel ? <small>{metadata.label}</small> : null}

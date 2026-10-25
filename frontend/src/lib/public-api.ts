@@ -25,6 +25,7 @@ import {
   type PublicSiteSettingsDto,
 } from "@maglive/contracts";
 import type { z } from "zod";
+import { apiOrigin, normalizeMediaUrlFields } from "@/lib/media-origin";
 
 const baseUrl = (process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api/v1").replace(/\/$/, "");
 
@@ -35,25 +36,32 @@ export class PublicApiError extends Error {
   }
 }
 
-function assertAllowedMediaOrigins(value: unknown): void {
-  const configured = process.env.MEDIA_PUBLIC_ORIGIN ?? "http://localhost:5000";
-  const allowed = new URL(configured).origin;
-  const visit = (candidate: unknown): void => {
-    if (Array.isArray(candidate)) { for (const item of candidate) visit(item); return; }
-    if (typeof candidate !== "object" || candidate === null) return;
-    for (const [key, child] of Object.entries(candidate)) {
-      if (key === "url" && typeof child === "string") {
-        try { if (new URL(child).origin !== allowed) throw new Error("origin"); } catch { throw new PublicApiError(502, "INVALID_MEDIA_URL", "The catalog returned an unsafe media URL."); }
-      } else visit(child);
-    }
-  };
-  visit(value);
+/**
+ * Re-points every media link returned by the API at the origin of this
+ * deployment, so a catalog cached or seeded against another host (localhost, an
+ * IP address, a staging domain, a CDN) still renders correctly. Anything that is
+ * not a trusted http(s) URL is rejected, exactly as before.
+ */
+function assertSafeMediaUrls(value: unknown): void {
+  if (normalizeMediaUrlFields(value).length > 0) {
+    throw new PublicApiError(502, "INVALID_MEDIA_URL", "The catalog returned an unsafe media URL.");
+  }
 }
 
 async function request<TSchema extends z.ZodType>(path: string, schema: TSchema): Promise<z.infer<TSchema>> {
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}${path}`, { cache: "no-store", headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8_000) });
+    response = await fetch(`${baseUrl}${path}`, {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        // Tells the API which origin browsers use, so the media and flag links
+        // it builds are valid on whatever host, IP address or domain is serving
+        // this deployment.
+        "X-Public-Origin": apiOrigin(),
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
   } catch {
     throw new PublicApiError(503, "API_UNAVAILABLE", "The catalog service is unavailable.");
   }
@@ -65,6 +73,7 @@ async function request<TSchema extends z.ZodType>(path: string, schema: TSchema)
   const data = typeof payload === "object" && payload !== null && "data" in payload ? payload.data : undefined;
   const parsed = schema.safeParse(data);
   if (!parsed.success) throw new PublicApiError(502, "INVALID_API_RESPONSE", "The catalog response is invalid.");
+  assertSafeMediaUrls(parsed.data);
   return parsed.data;
 }
 
@@ -72,7 +81,7 @@ export function listPublicProducts(query: PublicProductListQuery): Promise<Publi
   const parameters = new URLSearchParams({ page: String(query.page), limit: String(query.limit), locale: query.locale, sort: query.sort });
   if (query.category !== undefined) parameters.set("category", query.category);
   if (query.featured !== undefined) parameters.set("featured", String(query.featured));
-  return request(`/public/products?${parameters.toString()}`, publicProductListDtoSchema).then((result) => { assertAllowedMediaOrigins(result); return result; });
+  return request(`/public/products?${parameters.toString()}`, publicProductListDtoSchema);
 }
 
 export function getPublicProductVisibility(slug: string, locale: string): Promise<PublicProductVisibilityDto> {
@@ -80,7 +89,7 @@ export function getPublicProductVisibility(slug: string, locale: string): Promis
 }
 
 export function getPublicProduct(slug: string, locale: string, publicationRevision: string): Promise<PublicProductDetailDto> {
-  return request(`/public/products/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}&publicationRevision=${encodeURIComponent(publicationRevision)}`, publicProductDetailDtoSchema).then((result) => { assertAllowedMediaOrigins(result); return result; });
+  return request(`/public/products/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}&publicationRevision=${encodeURIComponent(publicationRevision)}`, publicProductDetailDtoSchema);
 }
 
 export async function getPublicProductWithVisibility(slug: string, locale: string): Promise<PublicProductDetailDto> {
@@ -115,13 +124,7 @@ export function getPublicNavigation(locale: string): Promise<NavigationData> {
 }
 
 export function getPublicSiteSettings(): Promise<PublicSiteSettingsDto> {
-  return request(
-    "/public/site-settings",
-    publicSiteSettingsDtoSchema,
-  ).then((result) => {
-    assertAllowedMediaOrigins(result);
-    return result;
-  });
+  return request("/public/site-settings", publicSiteSettingsDtoSchema);
 }
 
 export function listPublicNews(query: PublicNewsListQuery): Promise<PublicNewsListDto> {
@@ -130,9 +133,9 @@ export function listPublicNews(query: PublicNewsListQuery): Promise<PublicNewsLi
   if (query.tag !== undefined) parameters.set("tag", query.tag);
   if (query.search !== undefined) parameters.set("search", query.search);
   if (query.featured !== undefined) parameters.set("featured", String(query.featured));
-  return request(`/public/news?${parameters}`, publicNewsListDtoSchema).then((result) => { assertAllowedMediaOrigins(result); return result; });
+  return request(`/public/news?${parameters}`, publicNewsListDtoSchema);
 }
 
 export function getPublicNews(slug: string, locale: string): Promise<PublicNewsDetailDto> {
-  return request(`/public/news/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`, publicNewsDetailDtoSchema).then((result) => { assertAllowedMediaOrigins(result); return result; });
+  return request(`/public/news/${encodeURIComponent(slug)}?locale=${encodeURIComponent(locale)}`, publicNewsDetailDtoSchema);
 }

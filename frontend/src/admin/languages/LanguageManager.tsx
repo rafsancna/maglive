@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { AdminApiError } from "../auth/api";
 import { AdminRouteIntro } from "../components/AdminRouteIntro";
+import { CountryFlag } from "@/components/media/CountryFlag";
 import { addLanguage } from "./api";
 import { useLanguages } from "./LanguageProvider";
 import { LANGUAGE_PRESETS, getLanguagePreset } from "./presets";
@@ -63,9 +64,10 @@ export function LanguageManager() {
             {languages.map((language) => (
               <article className="admin-language-card" key={language.code}>
                 <div className="admin-language-card__identity">
-                  <span aria-hidden="true" className="admin-language-flag">
-                    {getLanguagePreset(language.code)?.flag ?? "🌐"}
-                  </span>
+                  <CountryFlag
+                    className="admin-language-flag"
+                    countryCode={language.countryCode ?? getLanguagePreset(language.code)?.countryCode}
+                  />
                   <div>
                     <strong lang={language.languageTag}>{language.nativeLabel}</strong>
                     <span>{language.label}</span>
@@ -104,13 +106,13 @@ export function LanguageManager() {
               value={selectedCode}
             >
               <option value="">Choose a language</option>
-              {LANGUAGE_PRESETS.map(({ flag, request }) => (
+              {LANGUAGE_PRESETS.map(({ request }) => (
                 <option
                   disabled={enabledCodes.has(request.code)}
                   key={request.code}
                   value={request.code}
                 >
-                  {flag} {request.nativeLabel} — {request.label}{enabledCodes.has(request.code) ? " (already enabled)" : ""}
+                  {request.nativeLabel} — {request.label}{enabledCodes.has(request.code) ? " (already enabled)" : ""}
                 </option>
               ))}
             </select>
@@ -119,7 +121,10 @@ export function LanguageManager() {
 
           {selectedPreset ? (
             <div className="admin-language-selection" aria-live="polite">
-              <span aria-hidden="true" className="admin-language-selection__flag">{selectedPreset.flag}</span>
+              <CountryFlag
+                className="admin-language-selection__flag"
+                countryCode={selectedPreset.countryCode}
+              />
               <div>
                 <strong lang={selectedPreset.request.languageTag}>{selectedPreset.request.nativeLabel}</strong>
                 <span>{selectedPreset.request.label}</span>

@@ -13,7 +13,13 @@ import { notFound } from "./middleware/notFound.js";
 import { requestId } from "./middleware/requestId.js";
 import { createV1Router } from "./routes/v1/index.js";
 import { LocalStorageProvider } from "./storage/LocalStorageProvider.js";
+import { createFlagAssetsMiddleware } from "./storage/flagAssets.js";
 import { createLocalMediaMiddleware } from "./storage/localMediaMiddleware.js";
+import {
+  FLAGS_ROUTE_PREFIX,
+  MEDIA_ROUTE_PREFIX,
+  createPublicOriginsMiddleware,
+} from "./storage/publicMedia.js";
 import type { StorageProvider } from "./storage/StorageProvider.js";
 import type { MediaJobQueue } from "./media/mediaQueue.js";
 
@@ -37,11 +43,18 @@ export function createApp({
   mediaQueue,
   now
 }: AppDependencies): Express {
+  const mediaSources =
+    config.publicMediaBaseUrl !== "" && !config.publicMediaBaseUrl.startsWith("/")
+      ? [config.publicMediaBaseUrl]
+      : [];
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
 
   app.use(requestId);
+  // Resolves the public origin of this request so media links can be built for
+  // whichever domain, IP address or proxy the deployment runs behind.
+  app.use(createPublicOriginsMiddleware());
   app.use(
     pinoHttp({
       logger,
@@ -62,8 +75,8 @@ export function createApp({
                 frameAncestors: ["'none'"],
                 objectSrc: ["'none'"],
                 scriptSrc: ["'self'"],
-                imgSrc: ["'self'", config.publicMediaBaseUrl],
-                mediaSrc: ["'self'", config.publicMediaBaseUrl],
+                imgSrc: ["'self'", ...mediaSources],
+                mediaSrc: ["'self'", ...mediaSources],
                 connectSrc: ["'self'"],
               },
             }
@@ -94,8 +107,10 @@ export function createApp({
   app.use(createSessionMiddleware(config, sessionStore));
 
   if (storageProvider instanceof LocalStorageProvider) {
-    app.use("/uploads", createLocalMediaMiddleware(storageProvider));
+    app.use(MEDIA_ROUTE_PREFIX, createLocalMediaMiddleware(storageProvider));
   }
+  // Bundled country flags, available to every site origin.
+  app.use(FLAGS_ROUTE_PREFIX, createFlagAssetsMiddleware());
 
   app.use(
     "/api/v1",

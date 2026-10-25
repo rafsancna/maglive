@@ -28,6 +28,11 @@ function normalizeError(error: unknown): AppError {
     );
   }
 
+  // Missing static media/flags reach the handler through express.static.
+  if (isRecord(error) && (error.status === 404 || error.statusCode === 404)) {
+    return new AppError(404, "STATIC_ASSET_NOT_FOUND", "The requested file does not exist.");
+  }
+
   return new AppError(500, "INTERNAL_ERROR", "An unexpected server error occurred.");
 }
 

@@ -111,7 +111,7 @@ Phase 1 smoke tests do not mutate MongoDB. Later integration suites must opt int
 
 English (`en`) and Simplified Chinese (`zh`) are protected built-in languages, not a fixed two-language limit. Sign in and open `/admin/languages` to add another language. Enter its lowercase route code, BCP 47 language tag, English and native names, text direction, fallback language, and optional exact `Accept-Language` aliases.
 
-The new language is persisted in MongoDB and immediately becomes available to locale-aware public routing, HTML language/direction metadata, the public language switcher, sitemap generation, search, and the Category, Product, and Media editors. Translate and publish the complete Category ancestor chain before publishing Products in the new language. English must be published first and remain live while another locale is published.
+The new language is persisted in MongoDB and immediately becomes available to locale-aware public routing, HTML language/direction metadata, the public language switcher, sitemap generation, search, and the Category, Product, and Media editors. The switcher shows the stored country flag for the language; flags live in `backend/assets/flags` and are refreshed with `npm run flags:fetch`. Translate and publish the complete Category ancestor chain before publishing Products in the new language. English must be published first and remain live while another locale is published.
 
 Corporate shell copy such as navigation and general content pages remains code-owned. An admin-added language uses its selected fallback dictionary for that shell until a schema-compatible JSON dictionary is deployed in `frontend/src/i18n/dictionaries/` and registered in `frontend/src/i18n/get-dictionary.ts`. Database-backed Category, Product, specification, SEO, and contextual Media text can all be translated through the admin immediately.
 
@@ -198,6 +198,16 @@ Protected endpoints:
 - `GET /api/v1/admin/media/:id/usages`
 
 Deletion first enters a transaction-protected `deleting` state so new Category, Product, and poster references fail. It then verifies every working/live Category and Product usage plus Media poster relationships, deletes the stored object, and transactionally removes the Media record. A storage failure leaves a retryable record rather than reporting false success.
+
+## Host-independent media and flag links
+
+Every media link is resolved against the deployment that renders it, so the same build can run on `localhost`, a bare IP address, a review domain, or production without editing data or rebuilding.
+
+- `PUBLIC_MEDIA_BASE_URL` (backend) may be an absolute CDN/bucket URL, a root-relative path such as `/uploads`, or empty. An absolute value is used verbatim, which keeps existing deployments and CDN setups unchanged. A relative or empty value is resolved against the public origin of the current request, so `http://192.168.1.40:5000/uploads/...` or `https://shop.example.com/uploads/...` is produced automatically. Express reads `X-Forwarded-Proto`/`Host` (honouring `TRUST_PROXY`) and the `X-Public-Origin` header that the Next.js server sends for server-rendered pages.
+- `MEDIA_PUBLIC_ORIGIN` (frontend) is optional. When it is set, every media link returned by the API is re-pointed at that origin before it reaches the page, which is what keeps records seeded against an old host rendering correctly after a move. Without it the links follow `NEXT_PUBLIC_API_BASE_URL`. Non-http(s) schemes are rejected.
+- `NEXT_PUBLIC_API_BASE_URL` is the browser-facing API URL and the fallback source for the media origin. `API_INTERNAL_URL` stays internal-only.
+
+Country flags are static assets that belong to the backend: `backend/assets/flags/<country>.svg` (121 countries, refreshed with `npm run flags:fetch`, sourced from `flag-icons`). The API publishes them at `/media/flags/<country>.svg` with an immutable cache and `Access-Control-Allow-Origin: *`. The website re-serves the same files on its own origin at `/flags/<country>.svg` through `frontend/src/app/flags/[country]/route.ts`, so markup only contains a relative link and flag images render identically on Windows, macOS, iOS, Android, and Linux. Languages expose the ISO 3166-1 `countryCode` (and an absolute `flagUrl` for API consumers); a language without a stored flag falls back to a two-letter badge.
 
 ## Source-control safety
 

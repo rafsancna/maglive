@@ -64,6 +64,7 @@ describe("LocaleSwitcher", () => {
             label: "English",
             nativeLabel: "English",
             builtIn: true,
+            countryCode: "US",
           },
           {
             code: "fr",
@@ -74,6 +75,7 @@ describe("LocaleSwitcher", () => {
             label: "French",
             nativeLabel: "Français",
             builtIn: false,
+            countryCode: "FR",
           },
         ]}
       />,
@@ -84,5 +86,55 @@ describe("LocaleSwitcher", () => {
       "href",
       "/fr/about",
     );
+    expect(screen.getByRole("link", { name: "Français" }).querySelector("img")).toHaveAttribute(
+      "src",
+      "/flags/fr.svg",
+    );
+  });
+
+  it("uses stored flag images instead of emoji", async () => {
+    const user = userEvent.setup();
+    render(<LocaleSwitcher currentLocale="en" label="Choose language" />);
+
+    const trigger = screen.getByRole("button", { name: "Choose language: English" });
+    expect(trigger.querySelector("img")).toHaveAttribute("src", "/flags/us.svg");
+
+    await user.click(trigger);
+    for (const locale of LOCALE_CODES) {
+      const metadata = LOCALE_REGISTRY[locale];
+      const link = screen.getByRole("link", { name: metadata.nativeLabel });
+      expect(link.querySelector("img")).not.toBeNull();
+    }
+    expect(screen.getByRole("link", { name: "简体中文" }).querySelector("img")).toHaveAttribute(
+      "src",
+      "/flags/cn.svg",
+    );
+  });
+
+  it("falls back to a country code badge when no flag is stored", async () => {
+    const user = userEvent.setup();
+    render(
+      <LocaleSwitcher
+        currentLocale="en"
+        label="Choose language"
+        languages={[
+          {
+            code: "xx",
+            languageTag: "xx",
+            acceptLanguageAliases: [],
+            direction: "ltr",
+            fallback: "en",
+            label: "Example",
+            nativeLabel: "Example",
+            builtIn: false,
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Choose language: Example" }));
+    const link = screen.getByRole("link", { name: "Example" });
+    expect(link.querySelector("img")).toBeNull();
+    expect(link.textContent).toContain("XX");
   });
 });

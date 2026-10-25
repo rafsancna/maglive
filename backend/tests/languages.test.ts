@@ -84,6 +84,33 @@ describe.sequential("managed languages", () => {
     expect(result.languages.map(({ code }) => code)).toEqual(["en", "zh"]);
   });
 
+  it("reports the stored country flag for every language", async () => {
+    const app = createApp({
+      config: createTestConfig({ mongoUri }),
+      sessionStore: new session.MemoryStore(),
+    });
+    const response = await request(app)
+      .get("/api/v1/public/languages")
+      .set("X-Public-Origin", "https://shop.example.com")
+      .expect(200);
+    const { languages } = apiSuccessSchema(languageListDtoSchema).parse(response.body).data;
+
+    expect(languages).toContainEqual(
+      expect.objectContaining({
+        code: "en",
+        countryCode: "US",
+        flagUrl: "https://shop.example.com/media/flags/us.svg",
+      }),
+    );
+    expect(languages).toContainEqual(
+      expect.objectContaining({
+        code: "zh",
+        countryCode: "CN",
+        flagUrl: "https://shop.example.com/media/flags/cn.svg",
+      }),
+    );
+  });
+
   it("requires an authenticated, trusted, CSRF-protected request to add a language", async () => {
     const config = createTestConfig({ mongoUri });
     const app = createApp({ config, sessionStore: new session.MemoryStore() });

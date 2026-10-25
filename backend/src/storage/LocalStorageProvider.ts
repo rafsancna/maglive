@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { AppError } from "../errors/AppError.js";
+import { resolveMediaBaseUrl } from "./publicMedia.js";
 import type {
   SaveObjectInput,
   StorageProvider,
@@ -33,11 +34,16 @@ function isMissingFile(error: unknown): boolean {
 export class LocalStorageProvider implements StorageProvider {
   readonly id = "local" as const;
   readonly root: string;
+  /**
+   * Configured media base URL. An absolute URL is used verbatim; an empty value
+   * or a root-relative path is resolved against the current request origin so
+   * media links keep working on any domain or IP address.
+   */
   readonly publicBaseUrl: string;
 
   constructor(root: string, publicBaseUrl: string) {
     this.root = path.resolve(root);
-    this.publicBaseUrl = publicBaseUrl.replace(/\/$/, "");
+    this.publicBaseUrl = publicBaseUrl.trim();
   }
 
   resolveKey(key: string): string {
@@ -130,6 +136,6 @@ export class LocalStorageProvider implements StorageProvider {
       .split("/")
       .map((segment) => encodeURIComponent(segment))
       .join("/");
-    return `${this.publicBaseUrl}/${encodedKey}`;
+    return `${resolveMediaBaseUrl(this.publicBaseUrl)}/${encodedKey}`;
   }
 }

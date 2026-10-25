@@ -43,6 +43,22 @@ describe("environment configuration", () => {
     ).toThrow(/FRONTEND_ORIGIN/);
   });
 
+  it("accepts a relative or empty public media base URL", () => {
+    expect(loadConfig({ ...validEnvironment, PUBLIC_MEDIA_BASE_URL: "" }).publicMediaBaseUrl).toBe("");
+    expect(
+      loadConfig({ ...validEnvironment, PUBLIC_MEDIA_BASE_URL: "/library" }).publicMediaBaseUrl
+    ).toBe("/library");
+    expect(
+      loadConfig({ ...validEnvironment, PUBLIC_MEDIA_BASE_URL: undefined }).publicMediaBaseUrl
+    ).toBe("");
+    expect(() =>
+      loadConfig({ ...validEnvironment, PUBLIC_MEDIA_BASE_URL: "localhost:5000/uploads" })
+    ).toThrow(/PUBLIC_MEDIA_BASE_URL/);
+    expect(() =>
+      loadConfig({ ...validEnvironment, PUBLIC_MEDIA_BASE_URL: "ftp://localhost/uploads" })
+    ).toThrow(/PUBLIC_MEDIA_BASE_URL/);
+  });
+
   it("rejects an absolute session lifetime shorter than its idle window", () => {
     expect(() =>
       loadConfig({

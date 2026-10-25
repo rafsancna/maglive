@@ -14,6 +14,12 @@ export const languageTagSchema = z
 
 export const languageDirectionSchema = z.enum(["ltr", "rtl"]);
 
+export const countryCodeSchema = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Z]{2}$/, "Expected an ISO 3166-1 alpha-2 country code");
+
 export const languageDtoSchema = z.object({
   code: localeCodeSchema,
   languageTag: languageTagSchema,
@@ -23,6 +29,14 @@ export const languageDtoSchema = z.object({
   label: z.string().trim().min(1).max(80),
   nativeLabel: z.string().trim().min(1).max(80),
   builtIn: z.boolean(),
+  /** ISO 3166-1 alpha-2 code of the flag that represents this language. */
+  countryCode: countryCodeSchema.optional(),
+  /**
+   * Absolute URL of the stored flag. Websites should prefer the same-origin
+   * `flagPublicPath(countryCode)` so the link keeps working behind any proxy,
+   * domain or IP address.
+   */
+  flagUrl: z.url().max(2048).optional(),
 });
 
 export const languageListDtoSchema = z.object({
@@ -30,7 +44,7 @@ export const languageListDtoSchema = z.object({
 });
 
 export const createLanguageRequestSchema = languageDtoSchema
-  .omit({ builtIn: true })
+  .omit({ builtIn: true, countryCode: true, flagUrl: true })
   .strict()
   .refine(({ code, fallback }) => code !== fallback, {
     path: ["fallback"],

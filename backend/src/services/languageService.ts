@@ -1,6 +1,7 @@
 import {
   DEFAULT_LOCALE,
   LOCALE_CODES,
+  countryCodeForLanguage,
   getLocaleMetadata,
   type CreateLanguageRequest,
   type LanguageDto,
@@ -11,8 +12,30 @@ import {
 import { Types } from "mongoose";
 import { AppError } from "../errors/AppError.js";
 import { LanguageModel, type Language } from "../models/Language.js";
+import { resolveFlagBaseUrl } from "../storage/publicMedia.js";
 
-const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
+/**
+ * Adds the stored country flag that represents a language. `flagUrl` is only
+ * emitted when an absolute origin is known; the website prefers the same-origin
+ * `/flags/<country>.svg` path, which keeps working on any domain or IP address.
+ */
+function withFlag(language: LanguageDto): LanguageDto {
+  const countryCode = countryCodeForLanguage(
+    language.code,
+    language.languageTag,
+  );
+  if (countryCode === undefined) return language;
+  const flagBaseUrl = resolveFlagBaseUrl();
+  return {
+    ...language,
+    countryCode,
+    ...(flagBaseUrl.startsWith("http")
+      ? { flagUrl: `${flagBaseUrl}/${countryCode.toLowerCase()}.svg` }
+      : {}),
+  };
+}
+
+const builtInLanguageDtos: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
   const metadata = getLocaleMetadata(code);
   return {
     code,
@@ -27,7 +50,7 @@ const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
 });
 
 function toDto(language: Language): LanguageDto {
-  return {
+  return withFlag({
     code: language.code,
     languageTag: language.languageTag,
     acceptLanguageAliases: [...language.acceptLanguageAliases],
@@ -36,7 +59,7 @@ function toDto(language: Language): LanguageDto {
     label: language.label,
     nativeLabel: language.nativeLabel,
     builtIn: false,
-  };
+  });
 }
 
 function canonicalLanguageTag(tag: string): string {
@@ -55,7 +78,9 @@ function canonicalLanguageTag(tag: string): string {
 
 export async function listLanguages(): Promise<LanguageListDto> {
   const custom = await LanguageModel.find().sort({ createdAt: 1, code: 1 }).lean();
-  return { languages: [...builtInLanguages, ...custom.map(toDto)] };
+  return {
+    languages: [...builtInLanguageDtos.map(withFlag), ...custom.map(toDto)],
+  };
 }
 
 export async function listLanguageCodes(): Promise<LocaleCode[]> {
@@ -63,8 +88,8 @@ export async function listLanguageCodes(): Promise<LocaleCode[]> {
 }
 
 export async function getLanguage(code: string): Promise<LanguageDto | undefined> {
-  const builtIn = builtInLanguages.find((language) => language.code === code);
-  if (builtIn !== undefined) return builtIn;
+  const builtIn = builtInLanguageDtos.find((language) => language.code === code);
+  if (builtIn !== undefined) return withFlag(builtIn);
   const custom = await LanguageModel.findOne({ code }).lean();
   return custom === null ? undefined : toDto(custom);
 }
@@ -150,5 +175,8 @@ export async function createLanguage(
 }
 
 export function defaultLanguage(): LanguageDto {
-  return builtInLanguages.find(({ code }) => code === DEFAULT_LOCALE) ?? builtInLanguages[0]!;
+  const language =
+    builtInLanguageDtos.find(({ code }) => code === DEFAULT_LOCALE) ??
+    builtInLanguageDtos[0]!;
+  return withFlag(language);
 }

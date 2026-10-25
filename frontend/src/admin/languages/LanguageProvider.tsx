@@ -2,6 +2,7 @@
 
 import {
   LOCALE_CODES,
+  countryCodeForLanguage,
   getLocaleMetadata,
   type LanguageDto,
   type LocaleCode,
@@ -19,6 +20,7 @@ import { getLanguages } from "./api";
 
 const initialLanguages: LanguageDto[] = LOCALE_CODES.map((code) => {
   const metadata = getLocaleMetadata(code);
+  const countryCode = countryCodeForLanguage(code, metadata.languageTag);
   return {
     code,
     languageTag: metadata.languageTag,
@@ -28,6 +30,7 @@ const initialLanguages: LanguageDto[] = LOCALE_CODES.map((code) => {
     label: metadata.label,
     nativeLabel: metadata.nativeLabel,
     builtIn: true,
+    ...(countryCode === undefined ? {} : { countryCode }),
   };
 });
 

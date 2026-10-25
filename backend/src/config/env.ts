@@ -33,6 +33,46 @@ const trustProxySchema = z.preprocess((value) => {
 
 const secretSchema = z.string().min(32, "Secret must contain at least 32 characters");
 
+/**
+ * Absolute URL of a CDN/bucket, or a root-relative path such as `/uploads`.
+ * An empty value means "follow the origin of the incoming request", which keeps
+ * media links valid on any domain, IP address or port.
+ */
+const publicMediaBaseUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .default("")
+  .superRefine((value, context) => {
+    if (value === "") return;
+    if (value.startsWith("/")) {
+      if (value.startsWith("//") || /\s/.test(value)) {
+        context.addIssue({
+          code: "custom",
+          message: "Expected a root-relative path without spaces, such as /uploads",
+        });
+      }
+      return;
+    }
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        context.addIssue({ code: "custom", message: "Expected an http(s) URL" });
+      }
+      if (url.search !== "" || url.hash !== "") {
+        context.addIssue({
+          code: "custom",
+          message: "Expected a base URL without query or fragment",
+        });
+      }
+    } catch {
+      context.addIssue({
+        code: "custom",
+        message: "Expected an absolute http(s) URL or a root-relative path",
+      });
+    }
+  });
+
 const environmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(5000),
@@ -42,7 +82,7 @@ const environmentSchema = z.object({
   PREVIEW_SIGNING_SECRET: secretSchema,
   PREVIEW_EXCHANGE_SECRET: secretSchema,
   UPLOAD_ROOT: z.string().min(1).transform((value) => path.resolve(value)),
-  PUBLIC_MEDIA_BASE_URL: z.url().transform((value) => value.replace(/\/$/, "")),
+  PUBLIC_MEDIA_BASE_URL: publicMediaBaseUrlSchema,
   MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(15 * 1024 * 1024),
   MAX_VIDEO_BYTES: z.coerce.number().int().positive().default(250 * 1024 * 1024),
   MAX_DOCUMENT_BYTES: z.coerce.number().int().positive().default(50 * 1024 * 1024),
