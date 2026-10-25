@@ -8,12 +8,14 @@ import {
 } from "@maglive/contracts";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { LOCALE_COOKIE_NAME, switchPathLocale } from "@/i18n/routing";
 
 type LocaleSwitcherProps = {
   currentLocale: LocaleCode;
   label: string;
   languages?: readonly LanguageDto[];
+  onOpen?: () => void;
 };
 
 const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
@@ -30,8 +32,90 @@ const builtInLanguages: readonly LanguageDto[] = LOCALE_CODES.map((code) => {
   };
 });
 
-export function LocaleSwitcher({ currentLocale, label, languages = builtInLanguages }: LocaleSwitcherProps) {
+const defaultCountryByLanguage: Readonly<Record<string, string>> = {
+  ar: "SA",
+  bn: "BD",
+  de: "DE",
+  en: "US",
+  es: "ES",
+  fa: "IR",
+  fr: "FR",
+  he: "IL",
+  hi: "IN",
+  id: "ID",
+  it: "IT",
+  ja: "JP",
+  ko: "KR",
+  ms: "MY",
+  nl: "NL",
+  pl: "PL",
+  pt: "BR",
+  ru: "RU",
+  th: "TH",
+  tr: "TR",
+  uk: "UA",
+  vi: "VN",
+  zh: "CN",
+};
+
+function getLanguageFlag(language: LanguageDto): string {
+  const region = language.languageTag
+    .split("-")
+    .find((part) => /^[A-Z]{2}$/.test(part));
+  const baseLanguage = language.code.split("-")[0];
+  const country = region ?? (baseLanguage ? defaultCountryByLanguage[baseLanguage] : undefined);
+
+  if (!country) return "🌐";
+
+  return String.fromCodePoint(
+    ...[...country].map((character) => 127397 + character.charCodeAt(0)),
+  );
+}
+
+export function LocaleSwitcher({ currentLocale, label, languages = builtInLanguages, onOpen }: LocaleSwitcherProps) {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeLanguage = languages.find(({ code }) => code === currentLocale) ?? languages[0] ?? builtInLanguages[0]!;
+
+  function cancelHoverClose() {
+    if (hoverCloseTimer.current === null) return;
+    clearTimeout(hoverCloseTimer.current);
+    hoverCloseTimer.current = null;
+  }
+
+  function scheduleHoverClose() {
+    cancelHoverClose();
+    hoverCloseTimer.current = setTimeout(() => {
+      setIsOpen(false);
+      hoverCloseTimer.current = null;
+    }, 260);
+  }
+
+  useEffect(() => () => cancelHoverClose(), []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setIsOpen(false);
+      triggerRef.current?.focus();
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
 
   function rememberLocale(locale: LocaleCode) {
     // The locale preference is deliberately non-sensitive and must survive navigation.
@@ -39,23 +123,83 @@ export function LocaleSwitcher({ currentLocale, label, languages = builtInLangua
     document.cookie = `${LOCALE_COOKIE_NAME}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`;
   }
 
+  function revealMenu() {
+    cancelHoverClose();
+    onOpen?.();
+    setIsOpen(true);
+  }
+
   return (
-    <div aria-label={label} className="locale-switcher" role="group">
-      {languages.map((metadata) => {
-        const locale = metadata.code;
-        return (
-          <Link
-            aria-current={locale === currentLocale ? "page" : undefined}
-            className="locale-switcher__link"
-            href={switchPathLocale(pathname, locale)}
-            key={locale}
-            lang={metadata.languageTag}
-            onClick={() => rememberLocale(locale)}
-          >
-            {metadata.nativeLabel}
-          </Link>
-        );
-      })}
+    <div
+      className={`locale-menu ${isOpen ? "is-open" : ""}`}
+      onFocusCapture={onOpen}
+      onMouseEnter={revealMenu}
+      onMouseLeave={scheduleHoverClose}
+      ref={rootRef}
+    >
+      <button
+        aria-controls="site-language-menu"
+        aria-expanded={isOpen}
+        aria-label={`${label}: ${activeLanguage.nativeLabel}`}
+        className="locale-menu__trigger"
+        onClick={revealMenu}
+        ref={triggerRef}
+        type="button"
+      >
+        <span aria-hidden="true" className="locale-menu__flag">
+          {getLanguageFlag(activeLanguage)}
+        </span>
+        <span className="locale-menu__current" lang={activeLanguage.languageTag}>
+          {activeLanguage.nativeLabel}
+        </span>
+        <svg aria-hidden="true" className="locale-menu__chevron" viewBox="0 0 12 8">
+          <path d="m1 1.5 5 5 5-5" />
+        </svg>
+      </button>
+
+      {isOpen ? (
+        <div
+          aria-label={label}
+          className="locale-menu__panel"
+          id="site-language-menu"
+          onMouseEnter={cancelHoverClose}
+        >
+          <span className="locale-menu__eyebrow">{label}</span>
+          <div className="locale-menu__options">
+            {languages.map((metadata) => {
+              const locale = metadata.code;
+              const isCurrent = locale === currentLocale;
+              return (
+                <Link
+                  aria-current={isCurrent ? "page" : undefined}
+                  aria-label={metadata.nativeLabel}
+                  className="locale-menu__option"
+                  href={switchPathLocale(pathname, locale)}
+                  key={locale}
+                  lang={metadata.languageTag}
+                  onClick={() => {
+                    rememberLocale(locale);
+                    setIsOpen(false);
+                  }}
+                >
+                  <span aria-hidden="true" className="locale-menu__option-flag">
+                    {getLanguageFlag(metadata)}
+                  </span>
+                  <span className="locale-menu__option-copy">
+                    <strong>{metadata.nativeLabel}</strong>
+                    {metadata.label !== metadata.nativeLabel ? <small>{metadata.label}</small> : null}
+                  </span>
+                  {isCurrent ? (
+                    <svg aria-hidden="true" className="locale-menu__check" viewBox="0 0 16 16">
+                      <path d="m3 8.2 3.1 3.1L13 4.7" />
+                    </svg>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

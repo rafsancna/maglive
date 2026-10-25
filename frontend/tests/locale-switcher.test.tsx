@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { LOCALE_CODES, LOCALE_REGISTRY } from "@maglive/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { LocaleSwitcher } from "@/components/site/LocaleSwitcher";
@@ -8,8 +9,14 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("LocaleSwitcher", () => {
-  it("renders every locale registered by the contracts package", () => {
+  it("renders every locale registered by the contracts package in a dropdown", async () => {
+    const user = userEvent.setup();
     render(<LocaleSwitcher currentLocale="en" label="Choose language" />);
+
+    const trigger = screen.getByRole("button", { name: "Choose language: English" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
 
     const links = screen.getAllByRole("link");
     expect(links).toHaveLength(LOCALE_CODES.length);
@@ -22,7 +29,27 @@ describe("LocaleSwitcher", () => {
     }
   });
 
-  it("renders languages supplied by the managed registry", () => {
+  it("stays open while the pointer crosses the gap into the dropdown panel", () => {
+    vi.useFakeTimers();
+    render(<LocaleSwitcher currentLocale="en" label="Choose language" />);
+
+    const trigger = screen.getByRole("button", { name: "Choose language: English" });
+    fireEvent.mouseEnter(trigger);
+    const panel = screen.getByLabelText("Choose language");
+    const root = trigger.closest(".locale-menu");
+    expect(root).not.toBeNull();
+
+    fireEvent.mouseLeave(root!);
+    expect(panel).toBeInTheDocument();
+    fireEvent.mouseEnter(panel);
+    act(() => vi.advanceTimersByTime(300));
+
+    expect(screen.getByLabelText("Choose language")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("renders languages supplied by the managed registry", async () => {
+    const user = userEvent.setup();
     render(
       <LocaleSwitcher
         currentLocale="en"
@@ -52,6 +79,7 @@ describe("LocaleSwitcher", () => {
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: "Choose language: English" }));
     expect(screen.getByRole("link", { name: "Français" })).toHaveAttribute(
       "href",
       "/fr/about",

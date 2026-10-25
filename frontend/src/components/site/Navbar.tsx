@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { usePathname } from "next/navigation";
 import type { LanguageDto, LocaleCode } from "@maglive/contracts";
 import type { Dictionary } from "@/i18n/dictionary";
 import { Container } from "@/components/ui/Container";
@@ -26,7 +27,9 @@ export function Navbar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileSection, setMobileSection] = useState<MenuKey | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousPathname = useRef(pathname);
   const triggerRefs = useRef<Partial<Record<MenuKey, HTMLButtonElement>>>({});
   const menuId = "maglive-primary-mega-menu";
   const primaryItems = navigationData.primaryItems;
@@ -68,6 +71,18 @@ export function Navbar({
     return () => document.body.classList.remove("nav-menu-open");
   }, [mobileOpen, openMenu]);
 
+  useEffect(() => {
+    if (previousPathname.current === pathname) return;
+    previousPathname.current = pathname;
+    cancelClose();
+    const resetTimer = window.setTimeout(() => {
+      setOpenMenu(null);
+      setMobileOpen(false);
+      setMobileSection(null);
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
+  }, [pathname]);
+
   function cancelClose() {
     if (closeTimer.current !== null) clearTimeout(closeTimer.current);
   }
@@ -94,8 +109,19 @@ export function Navbar({
     setMobileSection(null);
   }
 
+  function closeNavigation() {
+    cancelClose();
+    setOpenMenu(null);
+    closeMobile();
+  }
+
+  function closeAfterLinkClick(event: MouseEvent<HTMLElement>) {
+    const target = event.target;
+    if (target instanceof Element && target.closest("a") !== null) closeNavigation();
+  }
+
   return (
-    <header className={`site-header ${scrolled ? "site-header--scrolled" : ""} ${openMenu ? "site-header--menu-open" : ""}`} onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
+    <header className={`site-header ${scrolled ? "site-header--scrolled" : ""} ${openMenu ? "site-header--menu-open" : ""}`} onClickCapture={closeAfterLinkClick} onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
       <Container className="site-header__inner">
         <BrandLink href="/" label={dictionary.brand.name} locale={locale} onClick={closeMobile} />
 
@@ -121,7 +147,12 @@ export function Navbar({
         </nav>
 
         <div className="site-header__actions">
-          <LocaleSwitcher currentLocale={locale} label={dictionary.accessibility.languageSwitcher} languages={languages} />
+          <LocaleSwitcher
+            currentLocale={locale}
+            label={dictionary.accessibility.languageSwitcher}
+            languages={languages}
+            onOpen={closeNavigation}
+          />
           <button aria-controls="maglive-mobile-menu" aria-expanded={mobileOpen} aria-label={mobileOpen ? dictionary.menu.closeMenu : dictionary.menu.openMenu} className={`nav-toggle ${mobileOpen ? "is-active" : ""}`} onClick={toggleMobile} type="button">
             <span aria-hidden="true" className="nav-toggle__icon"><i /><i /></span>
           </button>
