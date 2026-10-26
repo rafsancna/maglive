@@ -5,6 +5,7 @@ import { useState, type FocusEventHandler, type MouseEventHandler, type ReactNod
 import type { LocaleCode } from "@maglive/contracts";
 import type { Dictionary } from "@/i18n/dictionary";
 import { LocaleLink } from "@/components/site/LocaleLink";
+import { ArrowUpRightIcon } from "@/components/ui/icons";
 import { localized, type NavigationMockData, type NavigationLink, type FeaturedProduct } from "@/types/navigation";
 
 export type MenuKey = "products" | "solutions" | "cases" | "news" | "documents" | "services";
@@ -19,7 +20,7 @@ type MegaMenuProps = {
 };
 
 function Arrow() {
-  return <span aria-hidden="true" className="mega-menu__arrow">↗</span>;
+  return <ArrowUpRightIcon className="mega-menu__arrow" />;
 }
 
 function MenuLink({ item, locale, className = "", prefix, onMouseEnter, onFocus }: { item: NavigationLink; locale: LocaleCode; className?: string; prefix?: ReactNode; onMouseEnter?: MouseEventHandler<HTMLAnchorElement>; onFocus?: FocusEventHandler<HTMLAnchorElement> }) {
@@ -37,7 +38,12 @@ function MenuLink({ item, locale, className = "", prefix, onMouseEnter, onFocus 
 
 export function MegaMenu({ active, data, dictionary, locale, menuId, menuLabel }: MegaMenuProps) {
   return (
-    <div aria-label={menuLabel} className={`mega-menu mega-menu--${active}`} id={menuId} role="region">
+    <div
+      aria-label={menuLabel}
+      className={`mega-menu mega-menu--${active}`}
+      id={menuId}
+      role="region"
+    >
       <div className="container mega-menu__inner">
         {active === "products" ? (
           <ProductsMenu data={data} dictionary={dictionary} locale={locale} menuLabel={menuLabel} />
@@ -52,10 +58,10 @@ export function MegaMenu({ active, data, dictionary, locale, menuId, menuLabel }
           <NewsMenu data={data} dictionary={dictionary} locale={locale} menuLabel={menuLabel} />
         ) : null}
         {active === "documents" ? (
-          <SimpleMenu items={data.documents} locale={locale} title={menuLabel} action={dictionary.menu.viewDocuments} />
+          <SimpleMenu items={data.documents} locale={locale} title={menuLabel} action={dictionary.menu.viewDocuments} href="/downloads" />
         ) : null}
         {active === "services" ? (
-          <SimpleMenu items={data.services} locale={locale} title={menuLabel} action={dictionary.menu.viewServices} />
+          <SimpleMenu items={data.services} locale={locale} title={menuLabel} action={dictionary.menu.viewServices} href="/contact" />
         ) : null}
       </div>
     </div>
@@ -69,6 +75,20 @@ function MenuHeading({ eyebrow, title, description }: { eyebrow: string; title: 
       <h2>{title}</h2>
       {description ? <p>{description}</p> : null}
     </header>
+  );
+}
+
+/**
+ * Some menus are configured through the admin but not yet populated. Rather
+ * than opening an empty panel, they show a single clear destination so the
+ * dropdown keeps the same composed shape as every other menu.
+ */
+function EmptyPanel({ href, label, locale }: { href: string; label: string; locale: LocaleCode }) {
+  return (
+    <LocaleLink className="mega-menu__empty" href={href} locale={locale}>
+      <span>{label}</span>
+      <Arrow />
+    </LocaleLink>
   );
 }
 
@@ -135,15 +155,19 @@ function CasesMenu({ data, dictionary, locale, menuLabel }: Omit<MegaMenuProps, 
   return (
     <div className="mega-menu__layout mega-menu__layout--cases">
       <div className="mega-menu__cases-head"><MenuHeading eyebrow="03 / DELIVERY" title={menuLabel} description={locale === "zh" ? "每个项目都将工程、现场与长期表现连接起来。" : "Where engineering, place and long-term performance come together."} /><LocaleLink className="mega-menu__all-link" href="/projects" locale={locale}>{dictionary.menu.allCases}<Arrow /></LocaleLink></div>
-      <div className="mega-menu__case-grid">
-        {data.cases.map((item, index) => (
-          <LocaleLink className={`mega-menu__case-card mega-menu__case-card--${index + 1}`} href={item.href} key={localized(item.label, locale)} locale={locale}>
-            <span className="mega-menu__case-image"><Image alt={localized(item.image.alt, locale)} height={item.image.height} loading="lazy" sizes="(max-width: 46rem) 100vw, 30vw" src={item.image.src} width={item.image.width} /><span className="mega-menu__case-number">0{index + 1}</span></span>
-            <span className="mega-menu__case-copy"><small>{localized(item.description, locale)}</small><strong>{localized(item.label, locale)}</strong><span>{localized(item.location, locale)} · {localized(item.capacity, locale)}</span></span>
-            <Arrow />
-          </LocaleLink>
-        ))}
-      </div>
+      {data.cases.length === 0 ? (
+        <EmptyPanel href="/projects" label={dictionary.menu.allCases} locale={locale} />
+      ) : (
+        <div className="mega-menu__case-grid">
+          {data.cases.map((item, index) => (
+            <LocaleLink className={`mega-menu__case-card mega-menu__case-card--${index + 1}`} href={item.href} key={localized(item.label, locale)} locale={locale}>
+              <span className="mega-menu__case-image"><Image alt={localized(item.image.alt, locale)} height={item.image.height} loading="lazy" sizes="(max-width: 46rem) 100vw, 30vw" src={item.image.src} width={item.image.width} /><span className="mega-menu__case-number">0{index + 1}</span></span>
+              <span className="mega-menu__case-copy"><small>{localized(item.description, locale)}</small><strong>{localized(item.label, locale)}</strong><span>{localized(item.location, locale)} · {localized(item.capacity, locale)}</span></span>
+              <Arrow />
+            </LocaleLink>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -153,20 +177,32 @@ function NewsMenu({ data, dictionary, locale, menuLabel }: Omit<MegaMenuProps, "
   return (
     <div className="mega-menu__layout mega-menu__layout--news">
       <div className="mega-menu__cases-head"><MenuHeading eyebrow="04 / JOURNAL" title={menuLabel} description={locale === "zh" ? "来自 Maglive 的公司动态、行业洞察与技术观点。" : "Company updates, industry insight and technology perspectives from Maglive."} /><LocaleLink className="mega-menu__all-link" href="/news" locale={locale}>{dictionary.menu.allNews}<Arrow /></LocaleLink></div>
-      <div className="mega-menu__news-grid">
-        {featured ? <LocaleLink className="mega-menu__news-feature" href={featured.href} locale={locale}><span className="mega-menu__news-image"><Image alt={localized(featured.image.alt, locale)} fill loading="lazy" sizes="(max-width: 46rem) 100vw, 42rem" src={featured.image.src} /></span><span className="mega-menu__news-copy"><small>{localized(featured.category, locale)} · {localized(featured.date, locale)}</small><strong>{localized(featured.label, locale)}</strong><span>{dictionary.menu.readMore} <Arrow /></span></span></LocaleLink> : null}
-        <div className="mega-menu__news-list">{rest.map((item) => <MenuLink item={{ ...item, description: { ...item.category, en: `${localized(item.category, locale)} · ${localized(item.date, locale)}` } }} key={localized(item.label, locale)} locale={locale} />)}</div>
-      </div>
+      {data.news.length === 0 ? (
+        <EmptyPanel href="/news" label={dictionary.menu.allNews} locale={locale} />
+      ) : (
+        <div className={`mega-menu__news-grid${rest.length === 0 ? " mega-menu__news-grid--single" : ""}`}>
+          {featured ? <LocaleLink className="mega-menu__news-feature" href={featured.href} locale={locale}><span className="mega-menu__news-image"><Image alt={localized(featured.image.alt, locale)} fill loading="lazy" sizes="(max-width: 46rem) 100vw, 42rem" src={featured.image.src} /></span><span className="mega-menu__news-copy"><small>{localized(featured.category, locale)} · {localized(featured.date, locale)}</small><strong>{localized(featured.label, locale)}</strong><span>{dictionary.menu.readMore} <Arrow /></span></span></LocaleLink> : null}
+          {rest.length === 0 ? null : (
+            <div className="mega-menu__news-list">{rest.map((item) => <MenuLink item={{ ...item, description: { ...item.category, en: `${localized(item.category, locale)} · ${localized(item.date, locale)}` } }} key={localized(item.label, locale)} locale={locale} />)}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function SimpleMenu({ items, locale, title, action }: { items: readonly NavigationLink[]; locale: LocaleCode; title: string; action: string }) {
+function SimpleMenu({ items, locale, title, action, href }: { items: readonly NavigationLink[]; locale: LocaleCode; title: string; action: string; href: string }) {
   return (
     <div className="mega-menu__layout mega-menu__layout--simple">
       <MenuHeading eyebrow="05 / RESOURCES" title={title} description={locale === "zh" ? "为项目团队准备的清晰、可靠信息。" : "Clear, dependable information for teams moving projects forward."} />
-      <div className="mega-menu__simple-grid">{items.map((item, index) => <MenuLink item={item} key={localized(item.label, locale)} locale={locale} className="mega-menu__simple-link" prefix={<span className="mega-menu__simple-index">0{index + 1}</span>} />)}</div>
-      <LocaleLink className="mega-menu__all-link" href={items[0]?.href ?? "/"} locale={locale}>{action}<Arrow /></LocaleLink>
+      {items.length === 0 ? (
+        <EmptyPanel href={href} label={action} locale={locale} />
+      ) : (
+        <>
+          <div className="mega-menu__simple-grid">{items.map((item, index) => <MenuLink item={item} key={localized(item.label, locale)} locale={locale} className="mega-menu__simple-link" prefix={<span className="mega-menu__simple-index">0{index + 1}</span>} />)}</div>
+          <LocaleLink className="mega-menu__all-link" href={href} locale={locale}>{action}<Arrow /></LocaleLink>
+        </>
+      )}
     </div>
   );
 }

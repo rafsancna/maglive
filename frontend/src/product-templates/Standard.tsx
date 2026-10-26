@@ -1,8 +1,144 @@
 import type { ProductTemplateProps } from "./types";
 import { ResponsiveMediaImage } from "@/components/media/ResponsiveMedia";
-import { EnquiryCta, ProductBreadcrumb, ProductDownloads, ProductMedia, ProductVideos, RelatedProducts, ProductSpecifications } from "@/components/product/ProductComponents";
+import { Container } from "@/components/ui/Container";
+import {
+  EnquiryCta,
+  ProductBreadcrumb,
+  ProductDownloads,
+  ProductMedia,
+  ProductVideos,
+  ProductSpecifications,
+  RelatedProducts,
+} from "@/components/product/ProductComponents";
 
-export function StandardTemplate({ product }: ProductTemplateProps) {
+export function StandardTemplate({ product, copy, breadcrumbLabel, productsLabel, viewLabel }: ProductTemplateProps) {
   const hero = product.media.find((item) => item.role === "hero");
-  return <article className="product-page product-page--standard"><header className="product-hero"><ProductBreadcrumb product={product} /><div className="product-hero__copy"><span className="eyebrow">{product.category.name}</span><h1>{product.name}</h1><p>{product.shortDescription}</p>{product.model || product.series ? <div className="product-hero__meta">{product.model ? <span>Model <strong>{product.model}</strong></span> : null}{product.series ? <span>Series <strong>{product.series}</strong></span> : null}</div> : null}</div>{hero ? <ResponsiveMediaImage className="product-hero__image" media={hero} alt={hero.alt ?? product.name} preload sizes="(max-width: 46rem) 100vw, 45vw" /> : null}</header><section className="product-section product-overview"><h2>Overview</h2><div className="product-markdown">{product.longDescriptionMarkdown ?? product.shortDescription}</div></section><section className="product-section product-content-grid">{product.features.length > 0 ? <div><h2>Features</h2><ul>{product.features.map((item) => <li key={item.key}><strong>{item.title}</strong>{item.body ? <span>{item.body}</span> : null}</li>)}</ul></div> : null}{product.advantages.length > 0 ? <div><h2>Advantages</h2><ul>{product.advantages.map((item) => <li key={item.key}><strong>{item.title}</strong>{item.body ? <span>{item.body}</span> : null}</li>)}</ul></div> : null}</section><ProductSpecifications groups={product.specifications} /><ProductMedia product={product} /><ProductVideos product={product} /><ProductDownloads product={product} /><RelatedProducts product={product} /><EnquiryCta locale={product.locale} /></article>;
+  const facts = [
+    product.model === undefined ? null : { label: copy.model, value: product.model },
+    product.series === undefined ? null : { label: copy.series, value: product.series },
+    { label: copy.category, value: product.category.name },
+  ].filter((item): item is { label: string; value: string } => item !== null);
+
+  return (
+    <article className="product-page">
+      <header className="product-hero">
+        <Container>
+          <ProductBreadcrumb
+            breadcrumbLabel={breadcrumbLabel}
+            copy={copy}
+            product={product}
+            productsLabel={productsLabel}
+          />
+          <div className="product-hero__inner">
+            <div className="product-hero__copy">
+              <p className="eyebrow">{product.category.name}</p>
+              <h1>{product.name}</h1>
+              <p className="product-hero__lede">{product.shortDescription}</p>
+              <dl className="product-hero__facts">
+                {facts.map((fact) => (
+                  <div key={fact.label}>
+                    <dt>{fact.label}</dt>
+                    <dd>{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            {hero === undefined ? null : (
+              <div className="product-hero__media">
+                <ResponsiveMediaImage
+                  alt={hero.alt ?? product.name}
+                  className="product-hero__image"
+                  media={hero}
+                  preload
+                  sizes="(max-width: 62rem) 100vw, 52vw"
+                />
+              </div>
+            )}
+          </div>
+        </Container>
+      </header>
+
+      <section className="product-section product-overview">
+        <Container className="product-overview__inner">
+          <header className="product-section__head">
+            <p className="eyebrow">01 / {copy.overview}</p>
+            <h2>{copy.overview}</h2>
+          </header>
+          <div className="product-overview__body">
+            <p>{product.longDescriptionMarkdown ?? product.shortDescription}</p>
+            {product.warrantyInformation === undefined ? null : (
+              <p className="product-overview__note">{product.warrantyInformation}</p>
+            )}
+          </div>
+        </Container>
+      </section>
+
+      {product.features.length === 0 && product.advantages.length === 0 && product.applications.length === 0 ? null : (
+        <section className="product-section product-details">
+          <Container>
+            {product.features.length === 0 ? null : (
+              <div className="product-details__block">
+                <header className="product-section__head">
+                  <p className="eyebrow">02 / {copy.features}</p>
+                  <h2>{copy.features}</h2>
+                </header>
+                <ol className="product-details__grid">
+                  {product.features.map((item, index) => (
+                    <li key={item.key}>
+                      <span className="product-details__index">{String(index + 1).padStart(2, "0")}</span>
+                      <h3>{item.title}</h3>
+                      {item.body === undefined ? null : <p>{item.body}</p>}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {product.advantages.length === 0 && product.applications.length === 0 ? null : (
+              <div className="product-details__split">
+                {product.advantages.length === 0 ? null : (
+                  <div>
+                    <header className="product-section__head">
+                      <p className="eyebrow">03 / {copy.advantages}</p>
+                      <h2>{copy.advantages}</h2>
+                    </header>
+                    <ul className="product-details__list">
+                      {product.advantages.map((item) => (
+                        <li key={item.key}>
+                          <strong>{item.title}</strong>
+                          {item.body === undefined ? null : <span>{item.body}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {product.applications.length === 0 ? null : (
+                  <div>
+                    <header className="product-section__head">
+                      <p className="eyebrow">03 / {copy.applications}</p>
+                      <h2>{copy.applications}</h2>
+                    </header>
+                    <ul className="product-details__list">
+                      {product.applications.map((item) => (
+                        <li key={item.key}>
+                          <strong>{item.title}</strong>
+                          {item.body === undefined ? null : <span>{item.body}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </Container>
+        </section>
+      )}
+
+      <ProductSpecifications groups={product.specifications} title={copy.specifications} />
+      <ProductMedia product={product} title={copy.media} />
+      <ProductVideos product={product} title={copy.videos} />
+      <ProductDownloads product={product} title={copy.downloads} />
+      <RelatedProducts product={product} title={copy.related} viewLabel={viewLabel} />
+      <EnquiryCta copy={copy} locale={product.locale} />
+    </article>
+  );
 }

@@ -9,6 +9,7 @@ import { productMetadata } from "@/lib/seo";
 import { StructuredData } from "@/lib/structured-data";
 import { getAvailableLanguages } from "@/i18n/languages";
 import { productPath } from "@/lib/product-path";
+import { getDictionary } from "@/i18n/get-dictionary";
 
 type ProductRouteParams = Promise<{
   locale: string;
@@ -46,10 +47,28 @@ export default async function ProductDetailPage({ params }: { params: ProductRou
   }
   if (failure instanceof PublicApiError && failure.status === 404) notFound();
   if (failure !== undefined || dto === null) {
-    return <section className="product-route-error" role="alert"><h1>Product temporarily unavailable</h1><p>We could not load this product right now. Please retry shortly.</p></section>;
+    return (
+      <section className="product-route-error" role="alert">
+        <h1>Product temporarily unavailable</h1>
+        <p>We could not load this product right now. Please retry shortly.</p>
+      </section>
+    );
   }
   if (dto.category.slug !== categorySlug) {
     permanentRedirect(`/${locale}${productPath(dto)}`);
   }
-  return <><ProductPageRenderer product={toProductPageViewModel(dto, locale)} templateId={dto.pageTemplate} /><StructuredData locale={locale} product={dto} /></>;
+  const dictionary = await getDictionary(locale);
+  return (
+    <>
+      <ProductPageRenderer
+        breadcrumbLabel={dictionary.accessibility.breadcrumb}
+        copy={dictionary.product}
+        product={toProductPageViewModel(dto, locale)}
+        productsLabel={dictionary.catalog.breadcrumbProducts}
+        templateId={dto.pageTemplate}
+        viewLabel={dictionary.catalog.viewProduct}
+      />
+      <StructuredData locale={locale} product={dto} />
+    </>
+  );
 }

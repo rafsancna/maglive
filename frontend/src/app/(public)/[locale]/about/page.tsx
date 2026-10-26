@@ -3,6 +3,7 @@ import { getDictionary } from "@/i18n/get-dictionary";
 import { requireLocale, type LocalizedPageProps } from "@/i18n/page-locale";
 
 export default async function AboutPage({ params }: LocalizedPageProps) {
-  const dictionary = await getDictionary(await requireLocale(params));
-  return <ContentPage copy={dictionary.pages.about} />;
+  const locale = await requireLocale(params);
+  const dictionary = await getDictionary(locale);
+  return <ContentPage copy={dictionary.pages.about} locale={locale} />;
 }

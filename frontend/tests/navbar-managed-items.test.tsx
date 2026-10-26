@@ -76,7 +76,7 @@ describe("managed public navbar items", () => {
       />,
     );
 
-    fireEvent.mouseEnter(screen.getByRole("button", { name: /Products/ }));
+    fireEvent.mouseEnter(screen.getByRole("link", { name: /^Products/ }));
     const menu = await screen.findByRole("region", { name: "Products" });
     fireEvent.click(menu.getElementsByTagName("a")[0]!);
 
@@ -95,7 +95,7 @@ describe("managed public navbar items", () => {
       />,
     );
 
-    fireEvent.mouseEnter(screen.getByRole("button", { name: /Products/ }));
+    fireEvent.mouseEnter(screen.getByRole("link", { name: /^Products/ }));
     expect(await screen.findByRole("region", { name: "Products" })).toBeInTheDocument();
 
     fireEvent.mouseEnter(screen.getByRole("button", { name: /Choose language: English/ }));
@@ -116,7 +116,7 @@ describe("managed public navbar items", () => {
       />,
     );
 
-    fireEvent.mouseEnter(screen.getByRole("button", { name: /Products/ }));
+    fireEvent.mouseEnter(screen.getByRole("link", { name: /^Products/ }));
     expect(await screen.findByRole("region", { name: "Products" })).toBeInTheDocument();
 
     navigation.pathname = "/en/products";

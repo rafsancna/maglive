@@ -6,11 +6,11 @@
 |---|---|
 | Document version | 2.1 |
 | Document status | Active execution baseline |
-| Implementation status | Phase 10 complete — all 48 tasks done |
-| Task progress | 48 / 48 |
-| Current phase | Phase 10 — Hardening and Release (complete) |
-| Next task | None — all tasks complete |
-| Last updated | 2026-08-27 |
+| Implementation status | Phase 11 complete - all 50 tasks done |
+| Task progress | 50 / 50 |
+| Current phase | Phase 11 - Premium Corporate Visual Redesign (complete) |
+| Next task | None - redesign phase complete |
+| Last updated | 2026-10-26 |
 | Source of truth | This file |
 | Delivery model | Next.js frontend + Express backend + contracts package |
 
@@ -1546,6 +1546,7 @@ Folder responsibilities are defined by Sections 2, 4, 7, and 8. No repositories,
 | Phase 8 — Preview/Cache | PH08-01 through PH08-04 | Secure draft preview and content invalidation work. |
 | Phase 9 — SEO/Performance | PH09-01 through PH09-05 | Localized SEO and performance/error targets are met. |
 | Phase 10 — Hardening/Release | PH10-01 through PH10-06 | Clean-checkout release gate passes. |
+| Phase 11 — Premium Visual Redesign | PH11-01 through PH11-02 | Public site redesign verified against existing gates. |
 
 Master task state:
 
@@ -1559,6 +1560,7 @@ Master task state:
 - [x] Phase 8 — Preview and Cache
 - [x] Phase 9 — SEO and Performance
 - [x] Phase 10 — Hardening and Release Readiness
+- [x] Phase 11 — Premium Corporate Visual Redesign
 
 ---
 
@@ -3137,6 +3139,78 @@ Master task state:
 
 **Notes / results:** README now covers the E2E editorial workflow (commands, seeded fixtures, one-worker determinism, manual-server override), the full release-gate command sequence, and the isolated test/data cleanup model. Existing README sections already document setup, environment variables, local ports, MongoDB replica-set setup, administrator bootstrap, session behavior, uploads, tests, builds, product/category/media operations, preview/revalidation, and source-control safety. Template-creation and extension guidance remains covered by the architecture sections of this plan; no uncommitted secret or generated file is tracked.
 
+## Phase 11 — Premium Corporate Visual Redesign
+
+> Visual/frontend phase. No database, API, CMS, or contract behaviour changes are in scope: every public page keeps rendering from the same DTOs, dictionaries, and navigation data as after Phase 10. The phase introduces a tracked design-system layer so later visual work has an owner and a verification gate.
+
+### [x] PH11-01 - Premium Corporate Visual Redesign
+
+**Status:** Completed - 2026-10-26
+
+**Goal:** Introduce a premium MAGLIVE public visual system inspired by leading renewable-energy brands while preserving the existing Next.js, CMS, API, locale, and product-template architecture.
+
+**Dependencies:** PH10-06.
+
+**Files / folders:** `frontend/src/app/public.css`, `frontend/src/app/fonts.css`, `frontend/public/fonts`, `frontend/src/components/ui/icons.tsx`, `frontend/src/components/site/*` (Navbar, Footer, ContentPage, SectionHeader, LocaleSwitcher, mega-menu/MegaMenu), `frontend/src/components/home/hero/*`, `frontend/src/components/product/*`, `frontend/src/product-templates/*`, public route files under `frontend/src/app/(public)/[locale]`, `frontend/src/i18n/dictionaries/{en,zh}.json`, `frontend/src/i18n/dictionary.ts`, frontend unit/E2E specs, `screenshots/capture-public.cjs`, `screenshots/layout-qa.cjs`, `screenshots/slice.cjs`, and this tracker.
+
+**Implementation scope:**
+
+- Establish self-hosted display/body typography, semantic MAGLIVE red/graphite tokens, contrast-safe surfaces, responsive spacing, focus states, and reduced-motion behavior in a dedicated `public.css` layer loaded after `globals.css`.
+- Add one geometric icon set (`components/ui/icons.tsx`) so navigation, CTAs, pagination, and section headers share a single stroke language.
+- Rebuild the global header as an accessible three-zone shell (brand / primary nav / actions): every top-level item is a real link with a truthful `aria-current` state, mega menus open on hover and focus, and a persistent Contact CTA replaces the previous standalone actions.
+- Fix the mobile navigation defect where accordion bodies were permanently expanded: each panel is now a single grid-`0fr`/`1fr` row containing an inner wrapper, keyboard-operable via `aria-expanded`/`aria-controls`, and hidden from assistive tech with `inert` while closed.
+- Replace the cinematic hero with a full-bleed editorial hero driven by persisted imagery: numbered slide rail, tab progress, deterministic autoplay that pauses on hover/focus and disables under `prefers-reduced-motion`, and localized slide copy from the dictionaries.
+- Rebuild the homepage as a corporate narrative: statement block, navigation-data-driven product systems, featured solution, spotlight product, working principles, newsroom teaser, and closing contact band.
+- Introduce a single editorial template for code-owned corporate pages (About, Projects, Downloads, Contact) with a title plate, asymmetric body column, numbered capability block, and dark CTA band, using honest non-fabricated copy in both locales.
+- Redesign the catalog (sticky category rail, count bar, tile grid with real media, pagination) and category pages, and rewrite both product templates (Standard, TopconPremium) with shared specifications, gallery, downloads, related-products, and enquiry sections fed by the existing view model.
+- Restructure the footer into brand statement, grouped navigation, and legal bar; give it a distinct landmark name so the header and footer never share an accessible name.
+- Keep public category/product rendering CMS-driven and preserve Standard/TopconPremium template ownership boundaries; no route, contract, API, or schema changed.
+
+**Verification:**
+
+- `npm run lint`, `npm run typecheck`, and `npm test` pass: contracts 27/27, backend 22 files / 89 tests, frontend 26 files / 91 tests.
+- `npm run build` passes for contracts, backend, and frontend production builds.
+- `npm run e2e -w @maglive/frontend` passes 10/10 against the seeded services with now one worker.
+- Automated layout QA (`screenshots/layout-qa.cjs`) reports no horizontal overflow and no sub-24px tap targets across 11 routes at desktop, tablet, and mobile widths.
+- Browser capture succeeded: `screenshots/ph11/*.jpg` hold desktop/mobile captures for home (EN+ZH), About, Projects, Downloads, Contact, catalog, category, both product templates, news, mega menu, and mobile menu; `screenshots/ph11/before/*.jpg` retain the pre-redesign captures for comparison.
+- E2E and unit specs were updated to the redesigned information architecture (named hero nav, footer landmark name, new corporate headlines, seeded catalog) while continuing to assert functionality rather than presentation.
+
+**Definition of Done:** The redesigned public shell, homepage, corporate pages, catalog, and product templates are buildable, accessible, responsive, localized through existing dictionaries/navigation data, visually verified in a browser at multiple widths, and verified without altering backend/CMS contracts.
+
+**Notes / results:** Existing in-progress redesign changes in the working tree were preserved and completed; no historical PH01-PH10 task records were rewritten. Admin screens were deliberately left untouched. Remaining limitation: only two published products exist in the seeded catalog, so gallery, downloads, and related-product sections render empty for those records by design rather than by defect.
+
+### [x] PH11-02 - Unify mega-menu panel size and motion
+
+**Status:** Completed - 2026-10-26
+
+**Goal:** Give every header dropdown one identical panel size and a smooth open/close transition, so moving between top-level items never resizes the header or snaps.
+
+**Dependencies:** PH11-01.
+
+**Files / folders:** `frontend/src/components/site/Navbar.tsx`, `frontend/src/components/site/mega-menu/MegaMenu.tsx`, `frontend/src/app/public.css`, `frontend/src/app/globals.css`, `screenshots/ph11/mega-*.jpg`.
+
+**Implementation scope:**
+
+- Move the dropdown box out of the per-menu component into a persistent `.mega-menu-shell` that owns height, borders, shadow and motion, and is always present in the DOM. Menu content swaps inside it.
+- Pin the panel to one fixed height (`--mega-panel-h`, capped by viewport height) so all six menus measure identically: previously 409 / 499 / 145 / 634 / 133 / 132 px, now 368 px including borders.
+- Replace the one-way `mega-menu-in` keyframe with a two-way CSS transition on the shell height plus an opacity/translate reveal of the panel content, so closing animates instead of unmounting instantly. Content stays mounted for the collapse duration (`MENU_COLLAPSE_MS`) and is then removed.
+- Keep the panel inert and `aria-hidden` while closed, and close it when keyboard focus leaves the header.
+- Make each layout fill the shared height instead of hugging its content: category rows, application rows, case cards, news rows and the two-by-two document/service list all stretch via `minmax(0, 1fr)` tracks.
+- Make the grids item-count tolerant: featured products and case cards use `auto-fit` columns, and a single news item spans the panel rather than leaving an empty column.
+- Add a composed fallback for menus configured in the admin but not yet populated, so an empty menu keeps the same panel size instead of opening a blank box.
+- Shorten the hover-out delay from 220 ms to 120 ms so closing feels immediate, and honour `prefers-reduced-motion` by collapsing the transition to 1 ms.
+
+**Verification:**
+
+- Measured every dropdown in a real browser: all six open to 368 px with zero inner overflow, and the panel height never changes while moving between menus (`[368,368,368,368,368,368]`).
+- Sampled the animation frame by frame: open ramps 2 → 368 px over ~250 ms, close ramps 368 → 2 px over ~250 ms, and the content unmounts only after the collapse finishes.
+- Confirmed the closed shell is `visibility: hidden`, zero-height, `inert`, and contains no focusable content.
+- `npm run typecheck`, `npm run lint`, `npm test` (26 files / 91 tests) and `npm run e2e` (10/10) pass.
+
+**Definition of Done:** Every dropdown opens to the same panel size, opens and closes with one smooth directional transition, keeps content readable at that size, and stays keyboard accessible and reduced-motion safe.
+
+**Notes / results:** Dropping the per-menu auto height is what makes the motion usable — a transition on a changing height would jitter as content differs. Cases, Documents and Services currently have no items configured through Admin → Navigation, so they intentionally render the single-destination fallback panel at the same size.
+
 ---
 
 # 16. Testing and Release Gates
@@ -3306,13 +3380,13 @@ Decision entries are immutable. A changed decision receives a new ID and identif
 
 | Metric | Current value |
 |---|---|
-| Overall status | All 48 tasks complete; Phase 10 passed |
-| Tasks complete | 48 / 48 |
-| Current phase | Phase 10 — Hardening and Release (complete) |
-| Current task | None |
-| Next task | None — all tasks complete |
+| Overall status | All 50 tasks complete; Phase 11 passed |
+| Tasks complete | 50 / 50 |
+| Current phase | Phase 11 - Premium Corporate Visual Redesign (complete) |
+| Current task | PH11-02 |
+| Next task | None - redesign phase complete |
 | Blockers | None |
-| Phase exit status | All phases passed; release-ready |
+| Phase exit status | All phases passed; redesign verified; release-ready |
 
 ## 20.2 Append-only activity log
 
@@ -3355,6 +3429,10 @@ Do not edit or delete historical rows. Corrections are new rows.
 | 2026-08-27 | PH10-04 | Completed | Added the isolated Playwright editorial workflow against seeded backend/Next services. | backend/src/scripts/e2eServer.ts; frontend/playwright.config.ts; frontend/tests/e2e/*.spec.ts; frontend/package.json; backend/package.json; PROJECT_IMPLEMENTATION_PLAN.md | `npm run e2e` passes 10/10 against clean seeded state; backend/frontend typecheck and lints pass; e2e coverage includes login, catalog browsing, locale switching, and admin/public flow smoke checks. | None | PH10-05 |
 | 2026-08-27 | PH10-05 | Pending → Completed | Ran the clean-checkout release gate and fixed gate issues. | backend/src/scripts/e2eServer.ts; frontend/next-env.d.ts; frontend/tests/media-api.test.ts; .gitignore; PROJECT_IMPLEMENTATION_PLAN.md | Root lint, typecheck, test (contracts 19, backend 64, frontend 34), and build all pass; Playwright e2e passes 10/10 against isolated seeded services; Playwright artifacts are now Git-ignored. | None | PH10-06 |
 | 2026-08-27 | PH10-06 | Pending → Completed | Completed the operating and extension documentation and reconciled the plan. | README.md; .gitignore; PROJECT_IMPLEMENTATION_PLAN.md | README now documents the E2E workflow, release gate, and isolated data model; all plan checkboxes, status fields, and the progress log are reconciled. | None | None |
+
+| 2026-10-26 | PH11-01 | Pending → Completed | Completed the premium MAGLIVE public visual redesign: new public design layer, single icon set, rebuilt header/mega-menu/mobile accordion, editorial homepage, unified corporate page template, redesigned catalog and both product templates, and restructured footer. | frontend `public.css`, `components/ui/icons.tsx`, `components/site/*`, `components/home/hero/*`, `components/product/*`, `product-templates/*`, public route files, dictionaries, `dictionary.ts`, unit/E2E specs, `screenshots/*.cjs`, PROJECT_IMPLEMENTATION_PLAN.md | Root lint and strict typecheck pass; `npm test` passes (contracts 27, backend 89, frontend 91); `npm run build` passes for all workspaces; `npm run e2e -w @maglive/frontend` passes 10/10; layout QA finds no overflow or undersized targets across 11 routes × 3 viewports; browser captures stored in `screenshots/ph11`. | None | None |
+
+| 2026-10-26 | PH11-02 | Pending → Completed | Unified every header dropdown to one fixed panel size and replaced the one-way entrance keyframe with a two-way shell height transition, so menus open and close smoothly and never resize the header when moving between top-level items. | `frontend/src/components/site/Navbar.tsx`, `frontend/src/components/site/mega-menu/MegaMenu.tsx`, `frontend/src/app/public.css`, `frontend/src/app/globals.css`, `screenshots/ph11/mega-*.jpg`, PROJECT_IMPLEMENTATION_PLAN.md, README.md | Browser measurement: all six panels open to 368px with zero inner overflow and constant height while switching (`[368,368,368,368,368,368]`); frame sampling shows open 2→368px and close 368→2px over ~250ms with content unmounting after the collapse; closed shell is zero-height, hidden and inert; typecheck, lint, `npm test` (26 files / 91 tests) and `npm run e2e` (10/10) pass. | None | None |
 
 ## 20.3 Implementation activity template
 

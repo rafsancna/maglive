@@ -6,7 +6,8 @@
   "accessibility": {
     "skipToContent": "Skip to main content",
     "primaryNavigation": "Primary navigation",
-    "languageSwitcher": "Choose language"
+    "languageSwitcher": "Choose language",
+    "breadcrumb": "Breadcrumb"
   },
   "navigation": {
     "home": "Home",
@@ -37,7 +38,7 @@
   "states": {
     "loading": "Loading",
     "notFoundTitle": "Page not found",
-    "notFoundText": "The requested localized page is not available.",
+    "notFoundText": "The page you are looking for has moved or is no longer published in this language.",
     "errorTitle": "Something went wrong",
     "errorText": "The page could not be loaded. Please try again.",
     "retry": "Try again"
@@ -45,90 +46,308 @@
   "home": {
     "eyebrow": "Engineered for the energy transition",
     "title": "Power infrastructure, presented with clarity.",
-    "intro": "A multilingual digital platform for technical energy products—designed to make complex systems easier to understand, specify, and trust.",
+    "intro": "MAGLIVE builds the product, technical, and communication foundations for clean-energy systems — so engineers, specifiers, and partners can evaluate every decision with confidence.",
     "primaryAction": "Explore products",
     "secondaryAction": "Talk to our team",
+    "systems": {
+      "eyebrow": "Product systems",
+      "title": "A clearer way into every energy system.",
+      "intro": "Four connected product families, each documented the same way: what it does, where it fits, and how it performs.",
+      "action": "View all"
+    },
+    "solutions": {
+      "eyebrow": "System thinking",
+      "title": "Generation, storage, and control read as one system.",
+      "intro": "Every product family is designed to work with the others, so a site can grow from a single array into an integrated energy network.",
+      "action": "See how we work"
+    },
+    "featuredProduct": {
+      "eyebrow": "Featured product",
+      "title": "In focus",
+      "intro": "A closer look at the platform we are building.",
+      "action": "Explore"
+    },
+    "news": {
+      "eyebrow": "Newsroom",
+      "title": "Company updates and technical perspective.",
+      "intro": "Announcements, product notes, and engineering insight from the MAGLIVE team.",
+      "action": "All news"
+    },
+    "hero": {
+      "slides": [
+        {
+          "id": "solar",
+          "eyebrow": "01 / Solar energy",
+          "title": "The horizon is an energy asset.",
+          "description": "Utility-scale solar engineered for dependable output, from first light to last load.",
+          "primary": "Explore solar",
+          "secondary": "View capabilities"
+        },
+        {
+          "id": "grid",
+          "eyebrow": "02 / Smart energy",
+          "title": "Power that thinks in systems.",
+          "description": "Intelligent infrastructure that turns renewable generation into a more resilient everyday grid.",
+          "primary": "Explore smart energy",
+          "secondary": "Our approach"
+        },
+        {
+          "id": "mobility",
+          "eyebrow": "03 / E-mobility",
+          "title": "Charge the next horizon.",
+          "description": "A connected charging experience for the places people live, work, and move through.",
+          "primary": "Explore mobility",
+          "secondary": "Talk to our team"
+        },
+        {
+          "id": "integrated",
+          "eyebrow": "04 / Integrated energy",
+          "title": "One network. Many futures.",
+          "description": "Solar, storage, grid intelligence, and mobility working as one clean-energy ecosystem.",
+          "primary": "See the ecosystem",
+          "secondary": "Contact MAGLIVE"
+        }
+      ],
+      "controls": {
+        "previous": "Previous slide",
+        "next": "Next slide",
+        "pause": "Pause autoplay",
+        "play": "Resume autoplay",
+        "slides": "Homepage slides"
+      }
+    },
+    "principlesEyebrow": "How we work",
     "principlesTitle": "A foundation built around real product decisions",
     "principles": [
       {
         "number": "01",
         "title": "Technical clarity",
-        "text": "Structured specifications and disciplined product narratives keep engineering detail readable."
+        "text": "Structured specifications and disciplined product narratives keep engineering detail readable and comparable."
       },
       {
         "number": "02",
         "title": "Global by design",
-        "text": "Every enabled language shares one coherent information architecture from day one."
+        "text": "Every enabled language shares one information architecture, so a specification means the same thing in every market."
       },
       {
         "number": "03",
         "title": "Built to evolve",
-        "text": "A coded template system gives every product a strong visual identity without sacrificing governance."
+        "text": "A coded template system gives each product family a distinct identity without loosening content governance."
       }
     ],
-    "closingEyebrow": "Version-one foundation",
-    "closingTitle": "A precise starting point for a serious catalog.",
-    "closingText": "The public shell, locale system, API boundary, and quality gates are being established before product content enters the platform.",
-    "closingAction": "See how we work"
+    "closing": {
+      "eyebrow": "Start a conversation",
+      "title": "Tell us what the system has to do.",
+      "text": "Share the site conditions, load profile, and timeline. Our team will help translate them into a technical recommendation.",
+      "action": "Contact MAGLIVE"
+    }
   },
   "pages": {
     "about": {
-      "eyebrow": "About Maglive",
+      "eyebrow": "About MAGLIVE",
       "title": "Engineering confidence into every energy decision.",
-      "intro": "Maglive brings product detail, technical communication, and international presentation into one disciplined digital experience.",
+      "intro": "MAGLIVE brings product detail, technical communication, and international presentation into one disciplined experience for the people who specify, install, and operate energy systems.",
       "paragraphs": [
-        "This first release establishes the permanent structure for a multilingual corporate catalog.",
-        "Company history, certifications, and operating details will be added only from verified source material."
-      ]
+        "Our work starts with the product itself: what it is made of, how it behaves across conditions, and what a project team needs to know before committing to it.",
+        "That information is then structured the same way in every language, so a specification, a datasheet, and a conversation all describe the same system."
+      ],
+      "highlights": {
+        "eyebrow": "What defines us",
+        "title": "Three commitments that shape every system we publish.",
+        "items": [
+          {
+            "index": "01",
+            "title": "Documented, not described",
+            "text": "Every claim in a product record is backed by a structured field — measurable, comparable, and consistent across the range."
+          },
+          {
+            "index": "02",
+            "title": "Systems before components",
+            "text": "Modules, inverters, storage, and charging are specified together, because that is how they perform in the field."
+          },
+          {
+            "index": "03",
+            "title": "One voice, many markets",
+            "text": "Localisation is a translation of meaning, not of layout: the same architecture, the same numbers, the same clarity."
+          }
+        ]
+      },
+      "cta": {
+        "eyebrow": "Work with us",
+        "title": "Bring us the requirement, not the specification.",
+        "text": "Our team works with project developers, EPCs, and technical buyers to match product capability to site reality.",
+        "action": "Start a conversation"
+      }
     },
     "products": {
       "eyebrow": "Product catalog",
-      "title": "A structured home for every product family.",
-      "intro": "Products will be organized by a concise two-level taxonomy and rendered through professionally coded templates.",
+      "title": "Every product family, documented the same way.",
+      "intro": "Solar modules, inverters, energy storage, and charging infrastructure — organised by a concise two-level taxonomy and presented with the specifications that matter for selection.",
       "paragraphs": [
-        "Catalog data is introduced in later phases after administration, media, and publication safeguards are complete."
+        "Each record carries its category, model, and series, so a product can be compared with the rest of the range before a datasheet is opened."
       ],
-      "note": "No placeholder products or fabricated specifications are displayed."
+      "note": "Only published, translated products appear in the catalog."
     },
     "projects": {
-      "eyebrow": "Projects",
-      "title": "Project storytelling will follow verified delivery data.",
-      "intro": "This route is ready for future project content without pretending that a project CMS already exists.",
+      "eyebrow": "Projects and delivery",
+      "title": "From first survey to steady output.",
+      "intro": "MAGLIVE systems are delivered through a defined sequence: requirement, design, commissioning, and operating support. Each stage exists to remove a specific risk from the project.",
       "paragraphs": [
-        "A dedicated Project model, editorial workflow, and evidence requirements are intentionally outside version one."
+        "Project references are published only with verified delivery data and customer approval, so nothing on this page is aspirational."
       ],
-      "note": "Project CMS is planned as a future module."
+      "highlights": {
+        "eyebrow": "Delivery sequence",
+        "title": "Four stages, each with a clear output.",
+        "items": [
+          {
+            "index": "01",
+            "title": "Requirement",
+            "text": "Site conditions, load profile, grid constraints, and growth plans are captured as technical inputs."
+          },
+          {
+            "index": "02",
+            "title": "Design",
+            "text": "Product families are combined into a system with defined performance and interface boundaries."
+          },
+          {
+            "index": "03",
+            "title": "Commissioning",
+            "text": "Systems are verified against the design intent before they are handed over to operation."
+          },
+          {
+            "index": "04",
+            "title": "Operation",
+            "text": "Documentation, service guidance, and technical support keep output predictable over time."
+          }
+        ]
+      },
+      "cta": {
+        "eyebrow": "Project enquiries",
+        "title": "Planning a site or a portfolio?",
+        "text": "Share the scope and constraints, and we will respond with the product combination that fits.",
+        "action": "Contact our team"
+      }
     },
     "news": {
-      "eyebrow": "News & insights",
-      "title": "Ideas shaping the future of energy.",
-      "intro": "Company updates, product intelligence, and considered perspectives from across the energy landscape.",
+      "eyebrow": "Newsroom",
+      "title": "A clear channel for future company updates.",
+      "intro": "Company announcements, product notes, and technical perspective from MAGLIVE, published in every enabled language.",
       "paragraphs": [
-        "News publishing, authoring, and article metadata will be designed as a dedicated module when approved."
-      ],
-      "note": "News CMS is planned as a future module."
+        "Articles are published through the editorial workflow, with author attribution and structured metadata."
+      ]
     },
     "downloads": {
       "eyebrow": "Downloads",
       "title": "Technical documents, organized around real products.",
-      "intro": "Datasheets, certificates, and brochures will appear here when the secured media and product workflows are active.",
+      "intro": "Datasheets, certificates, and brochures are attached to the product they describe, so the document you find is the document that applies.",
       "paragraphs": [
-        "Files will be reusable, reference-protected, localized where appropriate, and served from a replaceable storage provider."
-      ]
+        "Files are reusable, reference-protected, and localized where it matters — served from storage that can be replaced without breaking a link."
+      ],
+      "highlights": {
+        "eyebrow": "Document library",
+        "title": "What you will find here.",
+        "items": [
+          {
+            "index": "01",
+            "title": "Product datasheets",
+            "text": "Electrical, mechanical, and operating specifications for every published product."
+          },
+          {
+            "index": "02",
+            "title": "Certificates and compliance",
+            "text": "Quality, safety, and market-access documentation for each product family."
+          },
+          {
+            "index": "03",
+            "title": "Brochures and manuals",
+            "text": "System overviews, application guidance, and installation references."
+          }
+        ]
+      },
+      "cta": {
+        "eyebrow": "Missing a document?",
+        "title": "Ask for the file you need.",
+        "text": "If a datasheet or certificate is not yet published, our team can send the current revision directly.",
+        "action": "Request a document"
+      }
     },
     "contact": {
       "eyebrow": "Contact",
       "title": "Start with the right technical conversation.",
-      "intro": "The version-one platform directs enquiries to approved contact channels without collecting submissions in an unapproved backend.",
+      "intro": "Tell us about the site, the load, and the timeline. Enquiries are routed to the technical team best placed to answer them.",
       "paragraphs": [
-        "Verified regional contacts and privacy-reviewed enquiry handling will be configured before public launch."
+        "For product selection, include the category and model you are evaluating. For project work, include location, capacity, and target commissioning date."
       ],
-      "note": "No contact form or personal data collection is active in this foundation phase."
+      "highlights": {
+        "eyebrow": "Where to start",
+        "title": "Choose the channel that matches your question.",
+        "items": [
+          {
+            "index": "01",
+            "title": "Product and specification",
+            "text": "Datasheets, comparisons, and compatibility questions for a specific product family."
+          },
+          {
+            "index": "02",
+            "title": "Project and system design",
+            "text": "System architecture, sizing, and integration for a new or expanding site."
+          },
+          {
+            "index": "03",
+            "title": "Service and support",
+            "text": "Commissioning support, documentation, and after-sales technical care."
+          }
+        ]
+      },
+      "cta": {
+        "eyebrow": "Before you write",
+        "title": "A short brief gets a sharper answer.",
+        "text": "Include the site location, the target capacity, and any grid or space constraints you already know about.",
+        "action": "Return to products"
+      }
     }
   },
+  "product": {
+    "overview": "Overview",
+    "technology": "Technology",
+    "features": "Features",
+    "advantages": "Advantages",
+    "applications": "Applications",
+    "specifications": "Specifications",
+    "media": "Gallery",
+    "videos": "Videos",
+    "downloads": "Downloads",
+    "related": "Related products",
+    "model": "Model",
+    "series": "Series",
+    "category": "Category",
+    "premiumSeries": "Premium series",
+    "languages": "Product languages",
+    "enquiryEyebrow": "Technical support",
+    "enquiryTitle": "Need a technical recommendation?",
+    "enquiryText": "Our team can help match this product to your project requirements.",
+    "enquiryAction": "Contact our team"
+  },
+  "catalog": {
+    "categories": "Categories",
+    "allProducts": "All products",
+    "emptyTitle": "No products in this language yet",
+    "emptyText": "Published products will appear here when their category and translation are ready.",
+    "categoryEmptyTitle": "No published products here yet",
+    "categoryEmptyText": "This category is ready for products when their translations are complete.",
+    "unavailableTitle": "Catalog temporarily unavailable",
+    "unavailableText": "We could not load products right now. Please try again shortly.",
+    "viewProduct": "View product",
+    "breadcrumbProducts": "Products",
+    "breadcrumbCategory": "Product category",
+    "previous": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {total}"
+  },
   "footer": {
-    "statement": "Technical energy products, communicated with precision.",
+    "statement": "Power infrastructure, documented with the precision the energy transition demands.",
     "phaseStatus": "Foundation release",
-    "rights": "All rights reserved."
+    "rights": "All rights reserved.",
+    "navigation": "Footer navigation"
   }
 }

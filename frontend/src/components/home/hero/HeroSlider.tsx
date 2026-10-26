@@ -3,22 +3,40 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LocaleCode } from "@maglive/contracts";
+import { ArrowLeftIcon, ArrowRightIcon, PauseIcon, PlayIcon } from "@/components/ui/icons";
 import { LocaleLink } from "@/components/site/LocaleLink";
-import { heroSlides } from "./hero.data";
+import { composeHeroSlides, type HeroSlide } from "./hero.data";
 
 const AUTOPLAY_MS = 7600;
 
-export function HeroSlider({ locale, accessibilityTitle }: { locale: LocaleCode; accessibilityTitle: string }) {
+type HeroControls = {
+  previous: string;
+  next: string;
+  pause: string;
+  play: string;
+  slides: string;
+};
+
+export function HeroSlider({
+  locale,
+  slides: copy,
+  controls,
+}: {
+  locale: LocaleCode;
+  slides: readonly { id: string; eyebrow: string; title: string; description: string; primary: string; secondary: string }[];
+  controls: HeroControls;
+}) {
+  const slides: readonly HeroSlide[] = composeHeroSlides(copy);
   const heroRef = useRef<HTMLElement>(null);
-  const touchStartX = useRef<number | null>(null);
+  const pointerStartX = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const goTo = useCallback((index: number) => {
-    setActiveIndex((index + heroSlides.length) % heroSlides.length);
-  }, []);
+    setActiveIndex((index + slides.length) % slides.length);
+  }, [slides.length]);
 
   const next = useCallback(() => goTo(activeIndex + 1), [activeIndex, goTo]);
   const previous = useCallback(() => goTo(activeIndex - 1), [activeIndex, goTo]);
@@ -40,38 +58,6 @@ export function HeroSlider({ locale, accessibilityTitle }: { locale: LocaleCode;
     };
   }, [activeIndex, goTo, paused, reducedMotion]);
 
-  useEffect(() => {
-    const node = heroRef.current;
-    if (!node) return;
-
-    const onPointerMove = (event: PointerEvent) => {
-      const bounds = node.getBoundingClientRect();
-      const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
-      const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
-      node.style.setProperty("--pointer-x", `${x.toFixed(3)}`);
-      node.style.setProperty("--pointer-y", `${y.toFixed(3)}`);
-    };
-    const onPointerLeave = () => {
-      node.style.setProperty("--pointer-x", "0");
-      node.style.setProperty("--pointer-y", "0");
-    };
-    const onScroll = () => {
-      const bounds = node.getBoundingClientRect();
-      const progress = Math.max(-1, Math.min(1, -bounds.top / Math.max(bounds.height, 1)));
-      node.style.setProperty("--scroll-depth", progress.toFixed(3));
-    };
-
-    node.addEventListener("pointermove", onPointerMove, { passive: true });
-    node.addEventListener("pointerleave", onPointerLeave, { passive: true });
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => {
-      node.removeEventListener("pointermove", onPointerMove);
-      node.removeEventListener("pointerleave", onPointerLeave);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, []);
-
   function onKeyDown(event: React.KeyboardEvent<HTMLElement>) {
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
@@ -87,7 +73,7 @@ export function HeroSlider({ locale, accessibilityTitle }: { locale: LocaleCode;
       setPaused(true);
     } else if (event.key === "End") {
       event.preventDefault();
-      goTo(heroSlides.length - 1);
+      goTo(slides.length - 1);
       setPaused(true);
     } else if (event.key === " ") {
       event.preventDefault();
@@ -96,35 +82,35 @@ export function HeroSlider({ locale, accessibilityTitle }: { locale: LocaleCode;
   }
 
   function onPointerDown(event: React.PointerEvent<HTMLElement>) {
-    touchStartX.current = event.clientX;
+    pointerStartX.current = event.clientX;
   }
 
   function onPointerUp(event: React.PointerEvent<HTMLElement>) {
-    if (touchStartX.current === null) return;
-    const distance = event.clientX - touchStartX.current;
-    touchStartX.current = null;
+    if (pointerStartX.current === null) return;
+    const distance = event.clientX - pointerStartX.current;
+    pointerStartX.current = null;
     if (Math.abs(distance) < 48) return;
     setPaused(true);
     if (distance < 0) next();
     else previous();
   }
 
-  const activeSlide = heroSlides[activeIndex] ?? heroSlides[0]!;
+  const activeSlide = slides[activeIndex] ?? slides[0];
+  if (activeSlide === undefined) return null;
+  const total = String(slides.length).padStart(2, "0");
 
   return (
     <section
-      ref={heroRef}
-      aria-label="Maglive energy outlook"
-      className={`hero hero--cinematic hero--${activeSlide.tone} ${paused ? "hero--paused" : ""}`}
+      aria-label={controls.slides}
+      className={`hero ${paused ? "hero--paused" : ""}`}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      ref={heroRef}
       tabIndex={0}
     >
-      <div className="hero__media" aria-hidden="true">
-        {heroSlides.map((slide, index) => (
+      <div aria-hidden="true" className="hero__media">
+        {slides.map((slide, index) => (
           <div className={`hero-slide ${index === activeIndex ? "is-active" : ""}`} key={slide.id}>
             {slide.video ? (
               <video
@@ -151,64 +137,73 @@ export function HeroSlider({ locale, accessibilityTitle }: { locale: LocaleCode;
           </div>
         ))}
         <div className="hero__wash" />
-        <div className="hero__grain" />
       </div>
 
-      <div className="hero__frame" aria-hidden="true">
-        <span>MAGLIVE / ENERGY SYSTEMS</span>
-        <span>GLOBAL INFRASTRUCTURE / 2025</span>
-      </div>
+      <div className="hero__grid-lines" aria-hidden="true" />
 
-      <div className="hero__content container">
+      <div className="hero__content">
+        <div className="hero__rail" aria-hidden="true">
+          <span className="hero__rail-index">{String(activeIndex + 1).padStart(2, "0")}</span>
+          <span className="hero__rail-line" />
+          <span className="hero__rail-total">{total}</span>
+        </div>
+
         <div className="hero__copy" key={activeSlide.id}>
-          <p className="hero__eyebrow"><span className="hero__eyebrow-line" />{activeSlide.eyebrow}</p>
-          <h1 aria-label={accessibilityTitle}>{activeSlide.title.split("\n").map((line) => <span key={line}>{line}</span>)}</h1>
+          <p className="hero__eyebrow">{activeSlide.eyebrow}</p>
+          <h1>{activeSlide.title}</h1>
           <p className="hero__description">{activeSlide.description}</p>
           <div className="hero__actions">
-            <LocaleLink className="hero__cta hero__cta--primary" href={activeSlide.primaryHref} locale={locale}>
-              {activeSlide.primary}<span aria-hidden="true">-&gt;</span>
+            <LocaleLink className="cta cta--primary" href={activeSlide.primaryHref} locale={locale}>
+              {activeSlide.primary}
+              <ArrowRightIcon />
             </LocaleLink>
-            <LocaleLink className="hero__cta hero__cta--secondary" href={activeSlide.secondaryHref} locale={locale}>
-              {activeSlide.secondary}<span aria-hidden="true">-&gt;</span>
+            <LocaleLink className="cta cta--onDark" href={activeSlide.secondaryHref} locale={locale}>
+              {activeSlide.secondary}
             </LocaleLink>
           </div>
-        </div>
-
-        <div className="hero__scene" aria-hidden="true">
-          <div className="hero-scene__grid" />
-          <div className="hero-scene__core">
-            <span className="hero-scene__halo hero-scene__halo--one" />
-            <span className="hero-scene__halo hero-scene__halo--two" />
-            <span className="hero-scene__orb"><i /><i /><i /></span>
-          </div>
-          <span className="hero-scene__signal hero-scene__signal--one">LIVE / 99.98%</span>
-          <span className="hero-scene__signal hero-scene__signal--two">GRID READY</span>
-          <span className="hero-scene__signal hero-scene__signal--three">+24.8 MW</span>
         </div>
       </div>
 
-      <div className="hero__footer container">
-        <div className="hero__counter" aria-live="polite"><strong>{String(activeIndex + 1).padStart(2, "0")}</strong><span>/ 04</span></div>
-        <div className="hero__progress" role="tablist" aria-label="Hero slides">
-          {heroSlides.map((slide, index) => (
+      <div className="hero__footer">
+        <div className="hero__tabs" role="tablist" aria-label={controls.slides}>
+          {slides.map((slide, index) => (
             <button
-              aria-label={`Show ${slide.eyebrow.toLowerCase()}`}
+              aria-label={slide.eyebrow}
               aria-selected={index === activeIndex}
-              className={`hero__progress-item ${index === activeIndex ? "is-active" : ""}`}
+              className={`hero-tab ${index === activeIndex ? "is-active" : ""}`}
               key={slide.id}
-              onClick={() => { goTo(index); setPaused(true); }}
+              onClick={() => {
+                goTo(index);
+                setPaused(true);
+              }}
               role="tab"
               type="button"
             >
-              <span className="hero__progress-bar"><i /></span>
-              <span>{slide.eyebrow.slice(5)}</span>
+              <span className="hero-tab__bar">
+                <i style={{ animationDuration: `${AUTOPLAY_MS}ms` }} />
+              </span>
+              <span className="hero-tab__label">{slide.eyebrow}</span>
             </button>
           ))}
         </div>
+
         <div className="hero__controls">
-          <button aria-label="Previous slide" className="hero__arrow" onClick={() => { previous(); setPaused(true); }} type="button"><span aria-hidden="true">&lt;-</span></button>
-          <button aria-label="Next slide" className="hero__arrow" onClick={() => { next(); setPaused(true); }} type="button"><span aria-hidden="true">-&gt;</span></button>
-          <button aria-label={paused ? "Resume autoplay" : "Pause autoplay"} aria-pressed={paused} className="hero__pause" onClick={() => setPaused((value) => !value)} type="button"><span aria-hidden="true">{paused ? "PLAY" : "PAUSE"}</span></button>
+          <button aria-label={controls.previous} className="hero__control" onClick={() => { previous(); setPaused(true); }} type="button">
+            <ArrowLeftIcon />
+          </button>
+          <button aria-label={controls.next} className="hero__control" onClick={() => { next(); setPaused(true); }} type="button">
+            <ArrowRightIcon />
+          </button>
+          <button
+            aria-label={paused ? controls.play : controls.pause}
+            aria-pressed={paused}
+            className="hero__control hero__control--wide"
+            onClick={() => setPaused((value) => !value)}
+            type="button"
+          >
+            {paused ? <PlayIcon /> : <PauseIcon />}
+            <span>{paused ? controls.play : controls.pause}</span>
+          </button>
         </div>
       </div>
     </section>

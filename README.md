@@ -117,6 +117,21 @@ Corporate shell copy such as navigation and general content pages remains code-o
 
 Languages cannot currently be removed after creation because translations and immutable publication snapshots may reference their route codes. When two variants share a base language, assign explicit aliases so browser request detection remains deterministic. RTL languages additionally require layout, long-content, keyboard, and visual QA before public launch.
 
+## Public design system
+
+The public site has one design layer: `frontend/src/app/public.css`, imported after `globals.css` in `frontend/src/app/layout.tsx`. `fonts.css` declares the self-hosted Manrope (display) and Inter (body/UI) variable fonts from `frontend/public/fonts`, so no third-party font request is made and there is no late-font layout shift.
+
+Conventions to keep the site coherent:
+
+- Every public colour, size, and rhythm comes from the tokens declared in the `:root` block of `globals.css`. Use `--color-accent*` for MAGLIVE red, the `--ink-*` scale for text, `--color-line*` for hairlines, and `--section-y*`/`--type-*` for vertical rhythm and type.
+- Icons come from `frontend/src/components/ui/icons.tsx` (1.5px strokes on a 24px grid). Do not mix emoji, icon fonts, or a second icon library into public pages.
+- Section openings use `SectionHeader`; code-owned corporate pages (About, Projects, Downloads, Contact) render through `ContentPage` so their title plate, body column, capability block, and closing band stay identical.
+- Public pages read copy from `frontend/src/i18n/dictionaries/`. A new visible string belongs in both dictionaries; `frontend/src/i18n/dictionary.ts` is the type contract that makes a missing key a compile error.
+- Catalog and product-detail markup is CMS-driven: category and product text always comes from the API DTOs, and the two product templates (`Standard`, `TopconPremium`) own presentation only.
+- The header dropdown is one fixed-size panel. `Navbar` renders a persistent `.mega-menu-shell` that owns the box and the motion, and swaps menu content inside it, so every dropdown is the same height (`--mega-panel-h`) and moving between top-level items never resizes the header. Opening and closing both animate (`--mega-dur`); content is kept mounted for `MENU_COLLAPSE_MS` so the collapse is visible, and the closed shell is zero-height, hidden and `inert`. Each menu layout fills that height with `minmax(0, 1fr)` tracks, so a menu with one item looks deliberate rather than empty. Menus with no items configured still open a single-destination panel instead of a blank box.
+
+Visual QA helpers live in `screenshots/`: `capture-public.cjs` writes desktop/mobile captures of every public route, `layout-qa.cjs` reports horizontal overflow and undersized tap targets at three widths, and `slice.cjs` splits a tall full-page capture into reviewable segments. Run them against a running frontend on `http://localhost:3000`.
+
 ## Administrator bootstrap and sessions
 
 There is no public registration endpoint. Configure `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `backend/.env`, keep `ADMIN_UPDATE_EXISTING=false` for first creation, and run:

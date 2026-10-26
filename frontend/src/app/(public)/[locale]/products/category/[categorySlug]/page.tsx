@@ -1,41 +1,122 @@
 import type { LocaleCode } from "@maglive/contracts";
-import { CategoryLanguageSwitcher, ProductCard } from "@/components/product/Catalog";
+import { notFound } from "next/navigation";
+import { Container } from "@/components/ui/Container";
+import { CatalogPagination, CategoryLanguageSwitcher, ProductCard } from "@/components/product/Catalog";
 import { PublicApiError, getPublicCategory, listPublicProducts } from "@/lib/public-api";
 import { requireLocale } from "@/i18n/page-locale";
 import { LocaleLink } from "@/components/site/LocaleLink";
-import { notFound } from "next/navigation";
 import { categoryMetadata } from "@/lib/seo";
 import { getAvailableLanguages } from "@/i18n/languages";
 import { CategoryStructuredData } from "@/lib/structured-data";
+import { getDictionary } from "@/i18n/get-dictionary";
 
-export async function generateMetadata({ params }: { params: Promise<{ locale: string; categorySlug: string }> }): Promise<import("next").Metadata> {
-  const { locale: rawLocale, categorySlug } = await params;
-  const locale = await requireLocale(Promise.resolve({ locale: rawLocale })) as LocaleCode;
-  try {
-    const [category, languages] = await Promise.all([
-      getPublicCategory(categorySlug, locale),
-      getAvailableLanguages(),
-    ]);
-    return categoryMetadata(category, locale, languages);
-  } catch { return { title: "Product category" }; }
+type CategoryRouteParams = { params: Promise<{ locale: string; categorySlug: string }>; searchParams?: Promise<{ page?: string }> };
+
+async function resolveLocale(rawLocale: string): Promise<LocaleCode> {
+  return (await requireLocale(Promise.resolve({ locale: rawLocale }))) as LocaleCode;
 }
 
-export default async function ProductCategoryPage({ params, searchParams }: { params: Promise<{ locale: string; categorySlug: string }>; searchParams?: Promise<{ page?: string }> }) {
+export async function generateMetadata({ params }: CategoryRouteParams): Promise<import("next").Metadata> {
   const { locale: rawLocale, categorySlug } = await params;
-  const locale = await requireLocale(Promise.resolve({ locale: rawLocale })) as LocaleCode;
+  const locale = await resolveLocale(rawLocale);
+  try {
+    const [category, languages] = await Promise.all([getPublicCategory(categorySlug, locale), getAvailableLanguages()]);
+    return categoryMetadata(category, locale, languages);
+  } catch {
+    return { title: "Product category" };
+  }
+}
+
+export default async function ProductCategoryPage({ params, searchParams }: CategoryRouteParams) {
+  const { locale: rawLocale, categorySlug } = await params;
+  const locale = await resolveLocale(rawLocale);
+  const dictionary = await getDictionary(locale);
+  const labels = dictionary.catalog;
   const requestedPage = Number.parseInt((await searchParams)?.page ?? "1", 10);
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
   let category: Awaited<ReturnType<typeof getPublicCategory>> | null = null;
   let products: Awaited<ReturnType<typeof listPublicProducts>> | null = null;
-  let failure: unknown;
+  let failed = false;
   try {
-    const [result, list] = await Promise.all([getPublicCategory(categorySlug, locale), listPublicProducts({ page, limit: 24, locale, category: categorySlug, sort: "order-asc" })]);
+    const [result, list] = await Promise.all([
+      getPublicCategory(categorySlug, locale),
+      listPublicProducts({ page, limit: 24, locale, category: categorySlug, sort: "order-asc" }),
+    ]);
     category = result;
     products = list;
   } catch (error) {
-    failure = error;
+    if (error instanceof PublicApiError && error.status === 404) notFound();
+    failed = true;
   }
-  if (failure instanceof PublicApiError && failure.status === 404) notFound();
-  if (failure !== undefined || category === null || products === null) return <section className="catalog-page"><div className="catalog-error" role="alert"><h1>Category temporarily unavailable</h1><p>Please retry this page shortly.</p></div></section>;
-  return <><section className="catalog-page"><nav aria-label="Breadcrumb" className="product-breadcrumb"><LocaleLink href="/products" locale={locale}>Products</LocaleLink>{category.breadcrumbs.map((item) => <span key={item.slug}> / {item.name}</span>)}</nav><CategoryLanguageSwitcher availableLocales={category.availableLocales} locale={locale} slug={category.slug} /><header className="catalog-page__header"><span className="eyebrow">Product category</span><h1>{category.name}</h1>{category.description ? <p>{category.description}</p> : null}</header><div className="catalog-grid">{products.items.map((product) => <ProductCard key={product.id} locale={locale} product={product} />)}</div>{products.items.length === 0 ? <div className="catalog-empty"><h2>No published products here yet</h2><p>This category is ready for products when their translations are complete.</p></div> : null}{products.pagination.totalPages > 1 ? <nav aria-label="Category pagination" className="catalog-pagination"><a aria-disabled={page <= 1} href={page <= 1 ? `/${locale}/products/category/${category.slug}` : `/${locale}/products/category/${category.slug}?page=${page - 1}`}>Previous</a><span>Page {products.pagination.page} of {products.pagination.totalPages}</span><a aria-disabled={page >= products.pagination.totalPages} href={page >= products.pagination.totalPages ? `/${locale}/products/category/${category.slug}?page=${products.pagination.totalPages}` : `/${locale}/products/category/${category.slug}?page=${page + 1}`}>Next</a></nav> : null}</section><CategoryStructuredData category={category} locale={locale} /></>;
+
+  if (failed || category === null || products === null) {
+    return (
+      <div className="page">
+        <Container className="notice-notfound" role="alert">
+          <h1>{labels.unavailableTitle}</h1>
+          <p>{labels.unavailableText}</p>
+        </Container>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="page">
+        <section className="page-hero page-hero--compact">
+          <Container>
+            <nav aria-label={dictionary.accessibility.breadcrumb} className="breadcrumb">
+              <LocaleLink href="/products" locale={locale}>
+                {labels.breadcrumbProducts}
+              </LocaleLink>
+              {category.breadcrumbs.map((item) => (
+                <span key={item.slug}>{item.name}</span>
+              ))}
+            </nav>
+            <div className="page-hero__meta">
+              <p className="eyebrow">{labels.breadcrumbCategory}</p>
+              <span className="page-hero__rule" aria-hidden="true" />
+              <CategoryLanguageSwitcher availableLocales={category.availableLocales} locale={locale} slug={category.slug} />
+            </div>
+            <h1 className="page-hero__title">{category.name}</h1>
+            {category.description === undefined || category.description === "" ? null : (
+              <div className="page-hero__body">
+                <p className="page-hero__lede">{category.description}</p>
+              </div>
+            )}
+          </Container>
+        </section>
+
+        <Container className="catalog">
+          {products.items.length === 0 ? (
+            <div className="catalog__empty">
+              <h2>{labels.categoryEmptyTitle}</h2>
+              <p>{labels.categoryEmptyText}</p>
+            </div>
+          ) : (
+            <div className="product-grid">
+              {products.items.map((product, index) => (
+                <ProductCard
+                  index={index}
+                  key={product.id}
+                  locale={locale}
+                  product={product}
+                  viewLabel={labels.viewProduct}
+                />
+              ))}
+            </div>
+          )}
+          <CatalogPagination
+            basePath={`/products/category/${category.slug}`}
+            labels={{ next: labels.next, pageInfo: labels.pageInfo, previous: labels.previous }}
+            locale={locale}
+            page={products.pagination.page}
+            totalPages={products.pagination.totalPages}
+          />
+        </Container>
+      </div>
+      <CategoryStructuredData category={category} locale={locale} />
+    </>
+  );
 }

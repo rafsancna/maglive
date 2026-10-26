@@ -6,6 +6,7 @@ import { LOCALE_REQUEST_HEADER } from "@/i18n/routing";
 import { getAvailableLanguage } from "@/i18n/languages";
 import { getPublicSiteSettings } from "@/lib/public-api";
 import "./globals.css";
+import "./public.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
